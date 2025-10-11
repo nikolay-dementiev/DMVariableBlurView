@@ -1,22 +1,5 @@
 # DMVariableBlurView
-
-<table border="0" width="100%" cellpadding="4" align="center" cellspacing = "1">
-   <tr>
-    <th>
-   ![](/Sources/Helpers/Assets/blurredCenterClearTopBottom.png)
-	  </th>
-	 <th>
-	 ![](/Sources/Helpers/Assets/blurredTopClearBottom.png)
-	</th>
-	 <th>
-	 ![](/Sources/Helpers/Assets/blurredBottomClearTop.png)
-	</th>
-    </th>
-	 <th>
-	 ![](/Sources/Helpers/Assets/blurredFully.png)
-	</th>
-  <tr>
-</table>
+![](https://raw.githubusercontent.com/nikolay-dementiev/DMVariableBlurView/main/Sources/Helpers/Assets/blurredCenterClearTopBottom_blurredTopClearBottom_blurredBottomClearTop_blurredFully.jpeg)
 
 
 ## Overview
