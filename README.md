@@ -1,6 +1,10 @@
 # DMVariableBlurView
-![](https://raw.githubusercontent.com/nikolay-dementiev/DMVariableBlurView/main/Sources/Helpers/Assets/blurredCenterClearTopBottom_blurredTopClearBottom_blurredBottomClearTop_blurredFully.jpeg)
+[![Swift](https://img.shields.io/badge/Swift-5\*-orange?style=flat-square)](https://img.shields.io/badge/Swift-5\*-blue?style=flat-square) [![Swift-tools-version](https://img.shields.io/badge/Swift--tools-6.0-darkorange?style=flat-square)](https://img.shields.io/badge/Swift--tools-6.0-darkorange?style=flat-square)
 
+[![Platforms](https://img.shields.io/badge/Platforms-iOS-yellowgreen?style=flat-square)](https://img.shields.io/badge/Platforms-iOS-yellowgreen?style=flat-square)
+[![CocoaPods Compatible](https://img.shields.io/cocoapods/v/DMVariableBlurView.svg?style=flat-square)](https://img.shields.io/cocoapods/v/DMVariableBlurView.svg)
+[![Swift Package Manager](https://img.shields.io/badge/Swift_Package_Manager-compatible-orange?style=flat-square)](https://img.shields.io/badge/Swift_Package_Manager-compatible-orange?style=flat-square)
+![](https://raw.githubusercontent.com/nikolay-dementiev/DMVariableBlurView/main/Sources/Helpers/Assets/blurredCenterClearTopBottom_blurredTopClearBottom_blurredBottomClearTop_blurredFully.jpeg)
 
 ## Overview
 `DMVariableBlurView` is a SwiftUI-compatible SDK for applying dynamic blur effects with customizable configurations. It extends the work of:
@@ -34,6 +38,11 @@ Add the following dependency to your Package.swift:
 dependencies: [
     .package(url: "https://github.com/nikolay-dementiev/DMVariableBlurView.git", from: "1.0.0")
 ````
+### CocoaPods
+
+```ruby
+pod 'DMVariableBlurView'
+```
 ### OR
 Copy `DMVariableBlurView.swift` to your project.
 
