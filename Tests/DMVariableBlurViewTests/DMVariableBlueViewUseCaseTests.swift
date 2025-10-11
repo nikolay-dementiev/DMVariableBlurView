@@ -9,11 +9,6 @@ import XCTest
 import SwiftUI
 
 final class DMVariableBlurViewUseCaseTests: XCTestCase {
-    
-    //    func testExample() throws {
-    //        throw XCTestError(XCTestError.Code(rawValue: 404)!, userInfo: [:])
-    //    }
-    
     @MainActor
     func testBlurredTopClearBottom() {
         let blurView = DMVariableBlurView(

@@ -10,7 +10,7 @@ import QuartzCore
 public enum DMVariableBlurDirection {
     case blurredTopClearBottom
     case blurredBottomClearTop
-    case blurredCenterClearTopBottom(centerBandProportion: CGFloat = 0.3) //centerBandProportion: 0...1
+    case blurredCenterClearTopBottom(centerBandProportion: CGFloat = 0.3) // centerBandProportion: 0...1
     case blurredFully
 }
 
