@@ -25,6 +25,7 @@ let package = Package(
         .target(
             name: "DMVariableBlurView",
             path: "Sources",
+            sources: ["DMVariableBlurView"],
             plugins: [ .plugin(name: "SwiftLintBuildTool", package: "SwiftLintPlugin") ]
         ),
         .testTarget(
