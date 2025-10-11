@@ -15,12 +15,22 @@ public enum DMVariableBlurDirection {
 }
 
 public struct DMVariableBlurView: UIViewRepresentable {
-    var maxBlurRadius: CGFloat = 20
-    var direction: DMVariableBlurDirection = .blurredCenterClearTopBottom()
+    var maxBlurRadius: CGFloat
+    var direction: DMVariableBlurDirection
     /// By default, variable blur starts from 0 blur radius and linearly increases to `maxBlurRadius`.
     /// Setting `startOffset` to a small negative coefficient (e.g. -0.1) will start
     /// blur from larger radius value which might look better in some cases.
-    var startOffset: CGFloat = 0
+    var startOffset: CGFloat
+    
+    public init(
+        maxBlurRadius: CGFloat = 20,
+        direction: DMVariableBlurDirection = .blurredCenterClearTopBottom(),
+        startOffset: CGFloat = .zero
+    ) {
+        self.maxBlurRadius = maxBlurRadius
+        self.direction = direction
+        self.startOffset = startOffset
+    }
 
     public func makeUIView(context: Context) -> DMVariableBlurUIView {
         do {

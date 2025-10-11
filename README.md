@@ -5,7 +5,7 @@
 ## Overview
 `DMVariableBlurView` is a SwiftUI-compatible SDK for applying dynamic blur effects with customizable configurations. It extends the work of:
 
-- jtrivedi: [VariableBlurView](https://github.com/jtrivedi/VariableBlurView) .
+- jtrivedi: [VariableBlurView](https://github.com/jtrivedi/VariableBlurView).
 - nikstar: [VariableBlur](https://github.com/nikstar/VariableBlur).
 
 This version introduces:
