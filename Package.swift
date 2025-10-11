@@ -7,7 +7,7 @@ let package = Package(
     name: "DMVariableBlurView",
     platforms: [
         .iOS(.v17),
-        .watchOS(.v7),
+        //.watchOS(.v7),
     ],
     products: [
         // Products define the executables and libraries a package produces, making them visible to other packages.

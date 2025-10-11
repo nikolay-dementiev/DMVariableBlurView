@@ -13,11 +13,11 @@ Pod::Spec.new do |s|
   s.license          = { :type => 'MIT', :file => 'LICENSE' }
   s.author           = { 'Mykola Dementiev' => 'nikolas.dementiev@gmail.com' }
   s.ios.deployment_target = "17.0"
-  s.watchos.deployment_target = "7.0"
+  #s.watchos.deployment_target = "7.0"
   
-  s.source           = { :git => 'https://github.com/nikolay-dementiev/DMVariableBlurView', :tag => s.version.to_s }
+  s.source           = { :git => 'https://github.com/nikolay-dementiev/DMVariableBlurView.git', :tag => s.version.to_s }
   s.source_files = 'Sources/**/*.{swift,h,m,c}'
-  s.exclude_files = 'Examples/**'
+  s.exclude_files = 'Sources/Helpers/**' #'Examples/**'
   s.weak_framework = "XCTest"
   s.requires_arc = true
   s.frameworks = 'Foundation'
