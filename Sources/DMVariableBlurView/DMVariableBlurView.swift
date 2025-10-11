@@ -10,7 +10,7 @@ import QuartzCore
 public enum DMVariableBlurDirection {
     case blurredTopClearBottom
     case blurredBottomClearTop
-    case blurredCenterClearTopBottom(centerBandProportion: CGFloat = 0.3)
+    case blurredCenterClearTopBottom(centerBandProportion: CGFloat = 0.3) //centerBandProportion: 0...1
     case blurredFully
 }
 
@@ -145,6 +145,7 @@ public class DMVariableBlurUIView: UIVisualEffectView {
         case createImageFromContext
         case findFilterFromVariableBlur
         case findVariableBlurFromFilter
+        case centerBandProportionOutOfRange(currentValue: CGFloat)
         
         var errorDescription: String {
             let errorDescriptionString: String
@@ -157,6 +158,8 @@ public class DMVariableBlurUIView: UIVisualEffectView {
                 errorDescriptionString = "can't find CAFilter class"
             case .findVariableBlurFromFilter:
                 errorDescriptionString = "CAFilter can't create filterWithType: variableBlur"
+            case .centerBandProportionOutOfRange(let actual):
+                errorDescriptionString = "centerBandProportion must be in range 0...1; but it is `\(actual)` instead"
             }
             
             return "[\(type(of: DMVariableBlurView.self))] Error: \(errorDescriptionString)"
@@ -210,6 +213,11 @@ private extension DMVariableBlurUIView {
         context: CIContext,
         centerBandProportion: CGFloat
     ) throws -> CGImage {
+        
+        guard 0...1 ~= centerBandProportion else {
+            throw VariableBlurError.centerBandProportionOutOfRange(currentValue: centerBandProportion)
+        }
+        
         let bandThickness = max(0, min(centerBandProportion, 1.0))
         let bandHeight = height * bandThickness
         let bandStart = (height - bandHeight) / 2
