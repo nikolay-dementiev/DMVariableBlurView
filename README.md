@@ -1,10 +1,10 @@
 # DMVariableBlurView
 [![Swift](https://img.shields.io/badge/Swift-5\*-orange?style=flat-square)](https://img.shields.io/badge/Swift-5\*-blue?style=flat-square) [![Swift-tools-version](https://img.shields.io/badge/Swift--tools-6.0-darkorange?style=flat-square)](https://img.shields.io/badge/Swift--tools-6.0-darkorange?style=flat-square)
-[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fnikolay-dementiev%2FDMVariableBlurView.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fnikolay-dementiev%2FDMVariableBlurView?ref=badge_shield)
-
 [![Platforms](https://img.shields.io/badge/Platforms-iOS-yellowgreen?style=flat-square)](https://img.shields.io/badge/Platforms-iOS-yellowgreen?style=flat-square)
 [![CocoaPods Compatible](https://img.shields.io/cocoapods/v/DMVariableBlurView.svg?style=flat-square)](https://img.shields.io/cocoapods/v/DMVariableBlurView.svg)
 [![Swift Package Manager](https://img.shields.io/badge/Swift_Package_Manager-compatible-orange?style=flat-square)](https://img.shields.io/badge/Swift_Package_Manager-compatible-orange?style=flat-square)
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fnikolay-dementiev%2FDMVariableBlurView.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fnikolay-dementiev%2FDMVariableBlurView?ref=badge_shield)
+
 ![](https://raw.githubusercontent.com/nikolay-dementiev/DMVariableBlurView/main/Sources/Helpers/Assets/blurredCenterClearTopBottom_blurredTopClearBottom_blurredBottomClearTop_blurredFully.jpeg)
 
 ## Overview
@@ -75,6 +75,5 @@ struct ContentView: View {
 
 ## License
 MIT License
-
 
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fnikolay-dementiev%2FDMVariableBlurView.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Fnikolay-dementiev%2FDMVariableBlurView?ref=badge_large)
