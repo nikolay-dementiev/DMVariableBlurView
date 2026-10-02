@@ -157,8 +157,10 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
         super.layoutSubviews()
         // After a change of appearance or of `effect`, UIKit puts the standard filters of
         // the effect back inside this layout pass. The variable blur goes back on in the same
-        // pass, before the transaction reaches the screen.
-        guard let installedBlur,
+        // pass, before the transaction reaches the screen. Without an effect there is no
+        // backdrop: the blur waits for the effect to come back.
+        guard effect != nil,
+              let installedBlur,
               !installer.isInstalled(maxBlurRadius: installedBlur.maxBlurRadius, mask: installedBlur.mask, on: self)
         else { return }
         let installation = installer.install(maxBlurRadius: installedBlur.maxBlurRadius, mask: installedBlur.mask, on: self)
