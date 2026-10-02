@@ -190,27 +190,7 @@ final class MaskProfileTests: XCTestCase {
     /// The profile and the mask image describe the same thing. Row `n` of a 100-row mask
     /// is the position `(n + 0.5) / 100`.
     func test_alpha_ofEveryRecordedConfiguration_matchesTheRecordedMaskWithinOneStep() throws {
-        let recordedMasks = [
-            RecordedMask("top, no offset", .blurredTopClearBottom, 0, MaskProfileFixtures.topZeroOffset),
-            RecordedMask("top, offset -0.1", .blurredTopClearBottom, -0.1, MaskProfileFixtures.topNegativeOffset),
-            RecordedMask("bottom, no offset", .blurredBottomClearTop, 0, MaskProfileFixtures.bottomZeroOffset),
-            RecordedMask("bottom, offset -0.1", .blurredBottomClearTop, -0.1, MaskProfileFixtures.bottomNegativeOffset),
-            RecordedMask(
-                "center 0.3",
-                .blurredCenterClearTopBottom(centerBandProportion: 0.3),
-                0,
-                MaskProfileFixtures.centerThirtyPercent
-            ),
-            RecordedMask(
-                "center 0.4",
-                .blurredCenterClearTopBottom(centerBandProportion: 0.4),
-                0,
-                MaskProfileFixtures.centerFortyPercent
-            ),
-            RecordedMask("full", .blurredFully, 0, MaskProfileFixtures.fully)
-        ]
-
-        for recorded in recordedMasks {
+        for recorded in RecordedMask.all {
             let sut = try makeSUT(recorded.direction, startOffset: recorded.startOffset)
             let differences = recorded.rows.enumerated().map { row, alpha in
                 abs(sut.alpha(at: (CGFloat(row) + 0.5) / CGFloat(recorded.rows.count)) * 255 - CGFloat(alpha))
@@ -224,20 +204,6 @@ final class MaskProfileTests: XCTestCase {
     }
 
     // MARK: - Helpers
-
-    private struct RecordedMask {
-        let name: String
-        let direction: DMVariableBlurDirection
-        let startOffset: CGFloat
-        let rows: [UInt8]
-
-        init(_ name: String, _ direction: DMVariableBlurDirection, _ startOffset: CGFloat, _ rows: [UInt8]) {
-            self.name = name
-            self.direction = direction
-            self.startOffset = startOffset
-            self.rows = rows
-        }
-    }
 
     private func makeSUT(
         _ direction: DMVariableBlurDirection,
