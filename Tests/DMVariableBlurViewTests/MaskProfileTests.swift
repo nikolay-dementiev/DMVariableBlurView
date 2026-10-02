@@ -125,12 +125,37 @@ final class MaskProfileTests: XCTestCase {
         XCTAssertEqual([0, 0.5, 1].map(sut.alpha(at:)), [1, 1, 1])
     }
 
-    /// An offset of one leaves the ramp without length, and it keeps the alpha of its
-    /// start: opaque.
-    func test_alpha_blurredTopClearBottom_startOffsetOne_isOpaqueAtEveryPosition() throws {
-        let sut = try makeSUT(.blurredTopClearBottom, startOffset: 1)
+    /// The offset moves the clear end of the ramp. From 1 on, nothing is blurred (release
+    /// 1.0.0 blurred everything); a negative offset leaves blur at the clear edge. The alpha
+    /// is read at the blurred edge, in the middle and at the clear edge.
+    func test_alpha_topAndBottomModes_followTheOffsetTable() throws {
+        let table: [(offset: CGFloat, alphas: [CGFloat])] = [
+            (0.99, [1, 0, 0]),
+            (1, [0, 0, 0]),
+            (1.5, [0, 0, 0]),
+            (1e6, [0, 0, 0]),
+            (-1, [1, 0.75, 0.5]),
+            (-10, [1, 1 - 0.5 / 11, 1 - 1 / 11])
+        ]
 
-        XCTAssertEqual([0, 0.5, 1].map(sut.alpha(at:)), [1, 1, 1])
+        for row in table {
+            let top = try makeSUT(.blurredTopClearBottom, startOffset: row.offset)
+            let bottom = try makeSUT(.blurredBottomClearTop, startOffset: row.offset)
+            for (index, (topPosition, bottomPosition)) in [(0.0, 1.0), (0.5, 0.5), (1.0, 0.0)].enumerated() {
+                XCTAssertEqual(
+                    top.alpha(at: topPosition),
+                    row.alphas[index],
+                    accuracy: 1e-12,
+                    "top mode, offset \(row.offset), position \(topPosition)"
+                )
+                XCTAssertEqual(
+                    bottom.alpha(at: bottomPosition),
+                    row.alphas[index],
+                    accuracy: 1e-12,
+                    "bottom mode, offset \(row.offset), position \(bottomPosition)"
+                )
+            }
+        }
     }
 
     // MARK: - Validation

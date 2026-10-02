@@ -76,13 +76,15 @@ final class BlurViewMaskProfileTests: XCTestCase {
         assertMaskProfile(of: sut, matches: [UInt8](repeating: 255, count: 100), tolerance: 0)
     }
 
-    /// At `startOffset: 1` the ramp collapses to a point and the mask is opaque everywhere.
+    /// From `startOffset: 1` on nothing is blurred. Release 1.0.0 blurred every row.
     @MainActor
-    func test_maskProfile_blurredTopClearBottom_startOffsetOne_isOpaqueInEveryRow() throws {
-        let sut = try makeSUT(direction: .blurredTopClearBottom, startOffset: 1)
-        defer { sut.hide() }
+    func test_maskProfile_topAndBottomModes_startOffsetOne_areClearInEveryRow() throws {
+        for direction in [DMVariableBlurDirection.blurredTopClearBottom, .blurredBottomClearTop] {
+            let sut = try makeSUT(direction: direction, startOffset: 1)
+            defer { sut.hide() }
 
-        assertMaskProfile(of: sut, matches: [UInt8](repeating: 255, count: 100), tolerance: 0)
+            assertMaskProfile(of: sut, matches: [UInt8](repeating: 0, count: 100), tolerance: 0)
+        }
     }
 
     // MARK: - Helpers
