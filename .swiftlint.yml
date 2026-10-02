@@ -37,6 +37,9 @@ custom_rules:
   domain_imports:
     name: "Domain imports"
     included: "Sources/.*/Domain/.*\\.swift"
-    regex: '^\s*(@\w+\s+)*import\s+(?!CoreGraphics\b|Foundation\b)\w+'
+    # Any attribute, access level and import kind; a second import after a semicolon; a
+    # submodule of Foundation or CoreGraphics is allowed. Comments and strings never match.
+    regex: '(?:^|;)\s*(@\w+(\([^)]*\))?\s+)*((public|package|internal|fileprivate|private)\s+)?import\s+(?:(?:struct|class|enum|protocol|typealias|func|var|let)\s+)?+(?!(?:CoreGraphics|Foundation)\b)\w+'
+    match_kinds: [keyword, identifier, attribute.builtin, attribute.id]
     message: "The Domain folder imports only Foundation and CoreGraphics: no UI and no rendering framework."
     severity: error
