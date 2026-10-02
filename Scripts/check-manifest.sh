@@ -78,12 +78,14 @@ else
 fi
 
 # 3. The consumer fixture. xcodebuild finds a package only in the current directory.
+#    A fresh build folder every run: step 4 must not see the products of an older build.
+DERIVED="$(mktemp -d "$WORK/DerivedData.XXXXXX")"
 cd "$ROOT/Fixtures/Consumer"
 if xcodebuild build \
     -scheme Consumer \
     -sdk iphonesimulator \
     -destination 'generic/platform=iOS Simulator' \
-    -derivedDataPath "$WORK/DerivedData" \
+    -derivedDataPath "$DERIVED" \
     ARCHS=arm64 ONLY_ACTIVE_ARCH=NO \
     > "$WORK/consumer-build.log" 2>&1; then
     echo "check-manifest: Fixtures/Consumer builds against this checkout."
@@ -91,6 +93,19 @@ else
     echo "check-manifest: Fixtures/Consumer does not build. See ${WORK#"$ROOT"/}/consumer-build.log" >&2
     grep -E "error:" "$WORK/consumer-build.log" | sort -u | head -20 >&2 || true
     FAILED=1
+fi
+
+# 4. The library gives a consumer code only. A resource bundle means that an asset under
+#    the target path is shipped inside every app that uses the package.
+BUNDLES="$(find "$DERIVED/Build/Products" -maxdepth 2 -name 'DMVariableBlurView_*.bundle' 2>/dev/null || true)"
+if [ -n "$BUNDLES" ]; then
+    echo "check-manifest: the library ships a resource bundle to its consumers:" >&2
+    echo "$BUNDLES" | while IFS= read -r bundle; do
+        echo "  ${bundle#"$DERIVED"/} ($(du -sh "$bundle" | cut -f1))" >&2
+    done
+    FAILED=1
+else
+    echo "check-manifest: the library ships no resource bundle."
 fi
 
 exit "$FAILED"
