@@ -193,8 +193,10 @@ jobs:
       DESTINATION: ${{ matrix.destination }}
       # xcodebuild hands a variable with this prefix to the test process without the
       # prefix. The snapshot tests see CI: they never record a reference, and a runtime
-      # without references skips them.
+      # without references skips them, except in the newest cell, which has references
+      # and must compare them: there a missing reference fails.
       TEST_RUNNER_CI: "true"
+      TEST_RUNNER_SNAPSHOT_REFERENCES_REQUIRED: ${{ matrix.newest }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
