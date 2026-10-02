@@ -66,15 +66,14 @@ final class BlurViewMaskProfileTests: XCTestCase {
 
     // MARK: - Boundaries, pinned as release 1.0.0 behaves
 
-    /// A band that covers the whole height gives a mask that is clear everywhere: both
-    /// ramps collapse to a point. This is a known defect, pinned here so that restructuring
-    /// cannot change it by accident. The fix changes this test.
+    /// A band that covers the whole height blurs every row. Release 1.0.0 left every row
+    /// clear.
     @MainActor
-    func test_maskProfile_centerBandProportionOne_isClearInEveryRow() throws {
+    func test_maskProfile_centerBandProportionOne_isOpaqueInEveryRow() throws {
         let sut = try makeSUT(direction: .blurredCenterClearTopBottom(centerBandProportion: 1))
         defer { sut.hide() }
 
-        assertMaskProfile(of: sut, matches: [UInt8](repeating: 0, count: 100), tolerance: 0)
+        assertMaskProfile(of: sut, matches: [UInt8](repeating: 255, count: 100), tolerance: 0)
     }
 
     /// At `startOffset: 1` the ramp collapses to a point and the mask is opaque everywhere.

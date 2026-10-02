@@ -116,15 +116,13 @@ final class MaskProfileTests: XCTestCase {
         XCTAssertEqual([0, 0.5, 1].map(sut.alpha(at:)), [1, 1, 1])
     }
 
-    // MARK: - Boundaries, as release 1.0.0 behaves
+    // MARK: - Boundaries
 
-    /// A band of the whole height leaves both ramps without length, and a ramp without
-    /// length keeps the alpha of its start: clear. A known defect, kept while the code is
-    /// only restructured.
-    func test_alpha_centerBandProportionOne_isClearAtEveryPosition() throws {
+    /// A band of the whole height blurs the whole height (release 1.0.0 left it clear).
+    func test_alpha_centerBandProportionOne_isOpaqueAtEveryPosition() throws {
         let sut = try makeSUT(.blurredCenterClearTopBottom(centerBandProportion: 1))
 
-        XCTAssertEqual([0, 0.5, 1].map(sut.alpha(at:)), [0, 0, 0])
+        XCTAssertEqual([0, 0.5, 1].map(sut.alpha(at:)), [1, 1, 1])
     }
 
     /// An offset of one leaves the ramp without length, and it keeps the alpha of its
