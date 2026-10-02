@@ -51,7 +51,9 @@ enum RenderingHarnessError: Error, CustomStringConvertible {
 ///   its attempts. A backdrop that appears later than that makes a blur test fail with the
 ///   captured image attached. It cannot make one pass.
 /// - **A change.** `render(_:then:)` can change the window after the first stable scene,
-///   for example its appearance, and measures the scene that follows the change.
+///   for example its appearance, and measures the scene that follows the change. The
+///   window starts in the light appearance whatever the simulator is set to, so a switch
+///   to dark is a change there too.
 /// - **Failure.** `RenderedScene` carries the image and the band values, and the tests
 ///   attach both when an assertion fails.
 @MainActor
@@ -87,6 +89,7 @@ enum RenderingHarness {
         let controller = UIHostingController(rootView: content)
         controller.safeAreaRegions = []
         window.rootViewController = controller
+        window.overrideUserInterfaceStyle = .light
         window.isHidden = false
         defer { window.isHidden = true }
 
