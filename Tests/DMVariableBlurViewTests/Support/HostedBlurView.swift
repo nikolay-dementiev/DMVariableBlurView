@@ -13,9 +13,12 @@ import XCTest
 struct HostedBlurView {
     let blurView: DMVariableBlurUIView
     let window: UIWindow
+    private let controller: UIHostingController<AnyView>
 
     init(_ view: some View, file: StaticString = #filePath, line: UInt = #line) throws {
-        let controller = UIHostingController(rootView: view)
+        // The root view is type-erased so that update(_:) can replace it. Views of the same
+        // type keep their identity inside AnyView, so SwiftUI updates the existing view.
+        let controller = UIHostingController(rootView: AnyView(view))
         let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 200, height: 400))
         window.rootViewController = controller
         window.isHidden = false
@@ -34,6 +37,22 @@ struct HostedBlurView {
             throw error
         }
         self.window = window
+        self.controller = controller
+    }
+
+    /// Hands SwiftUI a new value of the hosted view, as a state change in a host would, and
+    /// lays the window out.
+    ///
+    /// - Returns: The blur view in the hierarchy after the update.
+    func update(_ view: some View, file: StaticString = #filePath, line: UInt = #line) throws -> DMVariableBlurUIView {
+        controller.rootView = AnyView(view)
+        window.layoutIfNeeded()
+        return try XCTUnwrap(
+            Self.firstBlurView(in: controller.view),
+            "the SwiftUI view has no DMVariableBlurUIView after the update",
+            file: file,
+            line: line
+        )
     }
 
     /// The types of the filters on the backdrop layer, in order.

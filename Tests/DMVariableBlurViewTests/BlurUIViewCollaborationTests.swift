@@ -92,6 +92,99 @@ final class BlurUIViewCollaborationTests: XCTestCase {
         XCTAssertEqual(collaborators.installer.installations.count, 0, "nothing is installed for values that are not valid")
     }
 
+    // MARK: - Updates
+
+    @MainActor
+    func test_apply_sameConfigurationAgain_drawsAndInstallsNothing() throws {
+        let (sut, collaborators) = try makeSUT()
+        sut.apply(validConfiguration)
+
+        sut.apply(validConfiguration)
+
+        XCTAssertEqual(collaborators.renderer.profiles.count, 1, "the mask is drawn once")
+        XCTAssertEqual(collaborators.installer.installations.count, 1, "the blur is installed once")
+    }
+
+    @MainActor
+    func test_apply_newValidConfiguration_installsItsMaskWithItsRadius() throws {
+        let (sut, collaborators) = try makeSUT()
+        sut.apply(validConfiguration)
+
+        sut.apply(VariableBlurConfiguration(maxBlurRadius: 9, direction: .blurredBottomClearTop, startOffset: 0))
+
+        XCTAssertEqual(
+            collaborators.renderer.profiles.last,
+            BlurMaskProfile(ramps: [.init(start: 1, end: 0, startAlpha: 1, endAlpha: 0)]),
+            "the profile of the new direction is drawn"
+        )
+        XCTAssertEqual(collaborators.installer.installations.count, 2, "the new blur is installed")
+        XCTAssertEqual(collaborators.installer.installations.last?.maxBlurRadius, 9, "with the new radius")
+    }
+
+    @MainActor
+    func test_apply_sameRejectedConfigurationAgain_logsNothingNew() throws {
+        let (sut, collaborators) = try makeSUT()
+
+        sut.apply(rejectedConfiguration(centerBandProportion: 1.25))
+        sut.apply(rejectedConfiguration(centerBandProportion: 1.25))
+
+        XCTAssertEqual(collaborators.log.entries.count, 1)
+    }
+
+    /// An unchanged configuration is decided on the reason it was rejected for, and that
+    /// reason is equal to itself also when the value is not a number.
+    @MainActor
+    func test_apply_rejectedValueThatIsNotANumberAgain_logsOnce() throws {
+        let (sut, collaborators) = try makeSUT()
+
+        sut.apply(rejectedConfiguration(centerBandProportion: .nan))
+        sut.apply(rejectedConfiguration(centerBandProportion: .nan))
+
+        XCTAssertEqual(collaborators.log.entries.count, 1)
+    }
+
+    @MainActor
+    func test_apply_twoDifferentRejectedValues_logsBothInOrder() throws {
+        let (sut, collaborators) = try makeSUT()
+
+        sut.apply(rejectedConfiguration(centerBandProportion: 1.25))
+        sut.apply(rejectedConfiguration(centerBandProportion: -0.5))
+
+        XCTAssertEqual(
+            collaborators.log.entries.map(\.error),
+            [.invalidCenterBandProportion(1.25), .invalidCenterBandProportion(-0.5)]
+        )
+    }
+
+    /// Failure, recovery, the same failure again: the failure that returns is a new one.
+    @MainActor
+    func test_apply_rejectedThenValidThenRejectedAgain_clearsTheFailureAndLogsTwice() throws {
+        let (sut, collaborators) = try makeSUT()
+
+        sut.apply(rejectedConfiguration(centerBandProportion: 1.25))
+        sut.apply(validConfiguration)
+        let failureWhileValid = sut.failure
+        sut.apply(rejectedConfiguration(centerBandProportion: 1.25))
+
+        XCTAssertNil(failureWhileValid, "a configuration that is shown clears the failure")
+        XCTAssertEqual(sut.failure, .invalidCenterBandProportion(1.25), "the returning failure is recorded")
+        XCTAssertEqual(collaborators.log.entries.count, 2, "the returning failure is logged again")
+    }
+
+    @MainActor
+    func test_apply_newConfigurationCannotBeDrawn_stopsPuttingTheOldBlurBack() throws {
+        let (sut, collaborators) = try makeSUT()
+        sut.apply(validConfiguration)
+        collaborators.renderer.result = .failure(RenderingFailure())
+
+        sut.apply(VariableBlurConfiguration(maxBlurRadius: 9, direction: .blurredBottomClearTop, startOffset: 0))
+        collaborators.installer.blurIsStillInstalled = false
+        layOut(sut)
+
+        XCTAssertEqual(sut.failure, .maskCreationFailed, "the failure of the new configuration is recorded")
+        XCTAssertEqual(collaborators.installer.installations.count, 1, "the blur of the old configuration stays off")
+    }
+
     // MARK: - Layout passes
 
     @MainActor
@@ -176,6 +269,14 @@ final class BlurUIViewCollaborationTests: XCTestCase {
     private func layOut(_ sut: DMVariableBlurUIView) {
         sut.setNeedsLayout()
         sut.layoutIfNeeded()
+    }
+
+    private func rejectedConfiguration(centerBandProportion: CGFloat) -> VariableBlurConfiguration {
+        VariableBlurConfiguration(
+            maxBlurRadius: 7,
+            direction: .blurredCenterClearTopBottom(centerBandProportion: centerBandProportion),
+            startOffset: 0
+        )
     }
 
     private var validConfiguration: VariableBlurConfiguration {

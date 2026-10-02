@@ -44,7 +44,8 @@ final class VariableBlurInstallerSpy: VariableBlurInstaller {
 /// Records the profiles a blur view asks for and answers with a prepared image or error.
 final class MaskImageRendererSpy: MaskImageRenderer {
     private(set) var profiles: [BlurMaskProfile] = []
-    private let result: Result<CGImage, any Error>
+    /// What the spy answers to the next request.
+    var result: Result<CGImage, any Error>
 
     init(result: Result<CGImage, any Error>) {
         self.result = result

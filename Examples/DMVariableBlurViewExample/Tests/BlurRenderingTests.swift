@@ -62,6 +62,19 @@ final class BlurRenderingTests: XCTestCase {
         expect(scene, bands: 19...19, atLeast: 0.60, "the bottom edge is still sharp")
     }
 
+    /// A state change in the host hands the view a new direction: the sharp edge moves.
+    @MainActor
+    func test_blurView_directionChangesFromTopToBottom_movesTheSharpEdgeToTheTop() throws {
+        let model = DirectionModel(direction: .blurredTopClearBottom)
+
+        let scene = try render(DirectionDrivenBlur(model: model)) { _ in
+            model.direction = .blurredBottomClearTop
+        }
+
+        expect(scene, bands: 6...19, atMost: blurredAtMost, "the bottom 70 % is blurred now")
+        expect(scene, bands: 0...0, atLeast: 0.60, "the top edge is sharp now")
+    }
+
     /// A uniform system blur gives the same picture, so this test cannot tell the variable
     /// blur from the substitute the library shows when its set-up fails. The tests of the
     /// other three modes can. The gap closes when the library reports its failures.
@@ -124,5 +137,24 @@ final class BlurRenderingTests: XCTestCase {
         image.name = "captured scene"
         image.lifetime = .keepAlways
         add(image)
+    }
+}
+
+/// The state of a host that decides the direction of the blur.
+@MainActor
+@Observable
+private final class DirectionModel {
+    var direction: DMVariableBlurDirection
+
+    init(direction: DMVariableBlurDirection) {
+        self.direction = direction
+    }
+}
+
+private struct DirectionDrivenBlur: View {
+    let model: DirectionModel
+
+    var body: some View {
+        DMVariableBlurView(maxBlurRadius: 6, direction: model.direction)
     }
 }
