@@ -9,9 +9,11 @@ on:
 permissions:
   contents: read
 
+# A newer commit of a pull request replaces the run of the older one. A run on main is
+# never cancelled: every commit there keeps its own result.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   lint:
@@ -20,6 +22,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Lint
         run: Scripts/lint.sh
 
@@ -35,23 +39,44 @@ jobs:
             runner: macos-26
             xcode: /Applications/Xcode_26.6.app
             destination: platform=iOS Simulator,name=iPhone 17,OS=26.5
+            newest: true
           - name: iOS 18.5
             runner: macos-15
             xcode: /Applications/Xcode_16.4.app
             destination: platform=iOS Simulator,name=iPhone 16,OS=18.5
+            newest: false
     env:
       DEVELOPER_DIR: ${{ matrix.xcode }}/Contents/Developer
       DESTINATION: ${{ matrix.destination }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Build and test
         run: |
+          set -o pipefail
+          mkdir -p .build/results/ci
           xcodebuild clean build test \
             -scheme DMVariableBlurView \
             -sdk iphonesimulator \
             -destination "$DESTINATION" \
             -enableCodeCoverage YES \
             -resultBundlePath .build/results/ci/package.xcresult \
+            SWIFT_TREAT_WARNINGS_AS_ERRORS=YES \
+            | tee .build/results/ci/package.log
+      # The rule that finds unused imports needs the compiler commands of a clean build.
+      - name: Find unused imports
+        if: matrix.newest
+        run: Scripts/lint.sh --analyze .build/results/ci/package.log
+      # The tests run in Debug. This build proves that the release configuration compiles.
+      - name: Build the library for release
+        if: matrix.newest
+        run: |
+          xcodebuild build \
+            -scheme DMVariableBlurView \
+            -configuration Release \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
             SWIFT_TREAT_WARNINGS_AS_ERRORS=YES
       - name: Upload the result bundle
         if: failure()
@@ -69,12 +94,15 @@ jobs:
       DEVELOPER_DIR: /Applications/Xcode_16.0.app/Contents/Developer
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Build with Swift 6.0
         run: |
           xcodebuild build \
             -scheme DMVariableBlurView \
             -sdk iphonesimulator \
-            -destination 'generic/platform=iOS Simulator'
+            -destination 'generic/platform=iOS Simulator' \
+            SWIFT_TREAT_WARNINGS_AS_ERRORS=YES
 
   consumer:
     name: consumer
@@ -84,6 +112,8 @@ jobs:
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Check what a consumer gets
         run: Scripts/check-manifest.sh
 
@@ -96,8 +126,23 @@ jobs:
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Compare the public interface with the baseline
         run: Scripts/check-api.sh
+
+  podspec:
+    name: podspec
+    runs-on: macos-26
+    timeout-minutes: 30
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Lint the podspec and check what a consumer links
+        run: Scripts/check-podspec.sh
 
   example:
     name: example (${{ matrix.name }})
@@ -111,22 +156,42 @@ jobs:
             runner: macos-26
             xcode: /Applications/Xcode_26.6.app
             destination: platform=iOS Simulator,name=iPhone 17,OS=26.5
+            newest: true
           - name: iOS 18.5
             runner: macos-15
             xcode: /Applications/Xcode_16.4.app
             destination: platform=iOS Simulator,name=iPhone 16,OS=18.5
+            newest: false
     env:
       DEVELOPER_DIR: ${{ matrix.xcode }}/Contents/Developer
       DESTINATION: ${{ matrix.destination }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Build the example and run its tests
         run: |
+          set -o pipefail
+          mkdir -p .build/results/ci
           xcodebuild test \
             -project Examples/DMVariableBlurViewExample/DMVariableBlurViewExample.xcodeproj \
             -scheme DMVariableBlurViewExample \
             -destination "$DESTINATION" \
-            -resultBundlePath .build/results/ci/example.xcresult
+            -resultBundlePath .build/results/ci/example.xcresult \
+            | tee .build/results/ci/example.log
+      # Xcode compiles a package dependency with its warnings suppressed, so the build
+      # cannot turn warnings into errors as a whole. The library's own warnings fail the
+      # test job; this step covers the sources of the example.
+      - name: Fail on a warning in the example
+        run: |
+          warnings="$(grep -E "/Examples/[^:]*:[0-9]+:[0-9]+: warning:" .build/results/ci/example.log | sort -u || true)"
+          if [ -n "$warnings" ]; then
+            echo "$warnings"
+            exit 1
+          fi
+      - name: Find unused imports
+        if: matrix.newest
+        run: Scripts/lint.sh --analyze .build/results/ci/example.log
       - name: Upload the result bundle
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
