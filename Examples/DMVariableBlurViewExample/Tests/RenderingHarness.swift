@@ -18,12 +18,15 @@ struct RenderedScene {
 
 enum RenderingHarnessError: Error, CustomStringConvertible {
     case noForegroundScene
+    case noPixels
     case notReady(reference: Double, drew: Bool)
 
     var description: String {
         switch self {
         case .noForegroundScene:
             "the host app has no foreground window scene"
+        case .noPixels:
+            "the capture of the window has no pixels"
         case let .notReady(reference, drew):
             "the scene never became stable: drawHierarchy=\(drew), reference contrast \(reference)"
         }
@@ -101,7 +104,10 @@ enum RenderingHarness {
         for _ in 0..<attempts {
             RunLoop.main.run(until: Date().addingTimeInterval(pause))
             let (image, drew) = capture(window)
-            let rows = image.cgImage.map(BandAnalysis.rowContrast) ?? []
+            guard let pixels = image.cgImage else {
+                throw RenderingHarnessError.noPixels
+            }
+            let rows = try BandAnalysis.rowContrast(of: pixels)
             let reference = BandAnalysis.mean(of: rows, from: referenceRows.lowerBound, to: referenceRows.upperBound)
             lastReference = reference
             lastDrew = drew
@@ -109,10 +115,13 @@ enum RenderingHarness {
                 previous = nil
                 continue
             }
-            let bandHeight = Int(overlayHeight) / bandCount
-            let bands = (0..<bandCount).map { band in
-                BandAnalysis.mean(of: rows, from: band * bandHeight, to: (band + 1) * bandHeight) / reference
-            }
+            let bands = BandAnalysis.bands(
+                of: rows,
+                from: 0,
+                to: Int(overlayHeight),
+                count: bandCount,
+                reference: reference
+            )
             if let previous, zip(previous, bands).allSatisfy({ abs($0 - $1) <= agreement }) {
                 agreed += 1
             } else {

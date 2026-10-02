@@ -23,24 +23,31 @@ final class BlurUITests: XCTestCase {
         XCTAssertGreaterThanOrEqual(bands[19], 0.60, "the clear edge stays sharp: \(bands)")
     }
 
-    /// The recipe of the README: `.allowsHitTesting(false)` on the blur.
+    /// The pass-through recipe: `.allowsHitTesting(false)` on the blur.
     @MainActor
     func test_passThroughScene_tapOnTheButtonUnderTheBlur_reachesTheButton() throws {
         let app = makeSUT(scene: "passThrough")
 
         tap(app.buttons["tap-target"])
 
-        XCTAssertTrue(waitForLabel("Taps: 1", of: app.staticTexts["tap-count"]), "the button received the tap")
+        XCTAssertTrue(
+            waitForLabel("Taps: 1", of: app.staticTexts["tap-count"], timeout: 10),
+            "the button received the tap"
+        )
     }
 
-    /// Without the recipe the blur takes the touches, as release 1.0.0 does.
+    /// Without the recipe the blur takes the touches: SwiftUI gives a hosted UIKit view the
+    /// touches in its frame. The test pins that behaviour of the platform, so a change of
+    /// it in a new iOS version shows up here.
     @MainActor
     func test_blockingScene_tapOnTheButtonUnderTheBlur_isTakenByTheBlur() throws {
         let app = makeSUT(scene: "blocking")
+        let count = app.staticTexts["tap-count"]
 
         tap(app.buttons["tap-target"])
 
-        XCTAssertFalse(waitForLabel("Taps: 1", of: app.staticTexts["tap-count"]), "the button received no tap")
+        XCTAssertFalse(waitForLabel("Taps: 1", of: count, timeout: 3), "the button received no tap")
+        XCTAssertEqual(count.label, "Taps: 0", "the counter is on screen and still at zero")
     }
 
     // MARK: - Helpers
@@ -61,33 +68,57 @@ final class BlurUITests: XCTestCase {
         element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
     }
 
+    /// A wait for a label that should appear is long; a wait that proves a label does not
+    /// change is short, because it always runs to its end.
     @MainActor
-    private func waitForLabel(_ label: String, of element: XCUIElement) -> Bool {
+    private func waitForLabel(_ label: String, of element: XCUIElement, timeout: TimeInterval) -> Bool {
         let predicate = NSPredicate(format: "label == %@", label)
         let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
-        return XCTWaiter().wait(for: [expectation], timeout: 3) == .completed
+        return XCTWaiter().wait(for: [expectation], timeout: timeout) == .completed
     }
 
     /// The contrast of twenty bands of the blurred area, relative to the bare stripes from
     /// 74 % to 84 % of the height, from the first two screenshots in a row that agree.
+    ///
+    /// A screen that never settles fails the test: a blur that keeps changing is a defect
+    /// the test must report, not a reason to skip it.
     @MainActor
     private func stableBands() throws -> [Double] {
         var previous: [Double]?
+        var summary = "no screenshot"
         for _ in 0..<20 {
             let image = try XCTUnwrap(XCUIScreen.main.screenshot().image.cgImage, "the screenshot has pixels")
-            let rows = BandAnalysis.rowContrast(of: image)
+            let rows = try BandAnalysis.rowContrast(of: image)
             let height = Double(rows.count)
             let reference = BandAnalysis.mean(of: rows, from: Int(height * 0.74), to: Int(height * 0.84))
             let bands = BandAnalysis.bands(of: rows, from: 0, to: Int(height * 0.7), count: 20, reference: reference)
+            summary = "bands top to bottom: "
+                + bands.map { String(format: "%.2f", $0) }.joined(separator: " ")
+                + " | reference \(reference)"
             if let previous, zip(previous, bands).allSatisfy({ abs($0 - $1) <= 0.02 }) {
-                let summary = bands.map { String(format: "%.2f", $0) }.joined(separator: " ")
-                let attachment = XCTAttachment(string: "bands top to bottom: \(summary) | reference \(reference)")
-                attachment.lifetime = .keepAlways
-                add(attachment)
+                attach(summary, named: "band values")
                 return bands
             }
             previous = bands
         }
-        throw XCTSkip("the screen never became stable")
+        attach(summary, named: "band values of the last screenshot")
+        throw UnstableScreen(summary: summary)
+    }
+
+    @MainActor
+    private func attach(_ text: String, named name: String) {
+        let attachment = XCTAttachment(string: text)
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+}
+
+/// No two screenshots in a row agreed within twenty attempts.
+private struct UnstableScreen: Error, CustomStringConvertible {
+    let summary: String
+
+    var description: String {
+        "the screen never became stable; last \(summary)"
     }
 }
