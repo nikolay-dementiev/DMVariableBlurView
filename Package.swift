@@ -16,23 +16,18 @@ let package = Package(
             targets: ["DMVariableBlurView"]
         ),
     ],
-    dependencies: [
-        .package(url: "https://github.com/GayleDunham/SwiftLintPlugin.git", branch: "main")
-    ],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
         // Targets can depend on other targets in this package and products from dependencies.
         .target(
             name: "DMVariableBlurView",
             path: "Sources",
-            sources: ["DMVariableBlurView"],
-            plugins: [ .plugin(name: "SwiftLintBuildTool", package: "SwiftLintPlugin") ]
+            sources: ["DMVariableBlurView"]
         ),
         .testTarget(
             name: "DMVariableBlurViewTests",
             dependencies: ["DMVariableBlurView"],
-            path: "Tests",
-            plugins: [ .plugin(name: "SwiftLintBuildTool", package: "SwiftLintPlugin") ]
+            path: "Tests"
         )
     ]
 )

@@ -84,7 +84,6 @@ if xcodebuild build \
     -sdk iphonesimulator \
     -destination 'generic/platform=iOS Simulator' \
     -derivedDataPath "$WORK/DerivedData" \
-    -skipPackagePluginValidation \
     ARCHS=arm64 ONLY_ACTIVE_ARCH=NO \
     > "$WORK/consumer-build.log" 2>&1; then
     echo "check-manifest: Fixtures/Consumer builds against this checkout."
