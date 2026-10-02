@@ -37,10 +37,13 @@ if [ ! -d "$BUNDLE" ]; then
 fi
 
 REPORT="$(mktemp)"
-trap 'rm -f "$REPORT"' EXIT
+ERRORS="$(mktemp)"
+trap 'rm -f "$REPORT" "$ERRORS"' EXIT
 
-if ! xcrun xccov view --report --json "$BUNDLE" > "$REPORT" 2> /dev/null; then
-    echo "coverage-gate: $BUNDLE has no coverage report. Run the tests with -enableCodeCoverage YES." >&2
+if ! xcrun xccov view --report --json "$BUNDLE" > "$REPORT" 2> "$ERRORS"; then
+    echo "coverage-gate: xccov could not read a coverage report from $BUNDLE." >&2
+    echo "Run the tests with -enableCodeCoverage YES. What xccov said:" >&2
+    tail -5 "$ERRORS" >&2
     exit 2
 fi
 
@@ -53,23 +56,29 @@ if floor < 90:
     print(f"coverage-gate: the floor {floor:g} % is below 90 %. Check FLOOR_PERCENT.", file=sys.stderr)
     sys.exit(2)
 
-with open(report_path) as report:
-    targets = [entry for entry in json.load(report).get("targets", []) if entry.get("name") == target]
-if len(targets) != 1:
-    print(f"coverage-gate: the report has {len(targets)} targets named {target}, not one.", file=sys.stderr)
+# A report the gate cannot read is no measurement: exit 2, never 1, which means "below".
+try:
+    with open(report_path) as report:
+        targets = [entry for entry in json.load(report).get("targets", []) if entry.get("name") == target]
+    if len(targets) != 1:
+        print(f"coverage-gate: the report has {len(targets)} targets named {target}, not one.", file=sys.stderr)
+        sys.exit(2)
+    covered, executable = int(targets[0]["coveredLines"]), int(targets[0]["executableLines"])
+    files = [(entry["name"], int(entry["coveredLines"]), int(entry["executableLines"]))
+             for entry in targets[0].get("files", [])]
+except (ValueError, KeyError, TypeError, AttributeError) as error:
+    print(f"coverage-gate: the coverage report has an unexpected form: {error!r}", file=sys.stderr)
     sys.exit(2)
 
-covered, executable = targets[0]["coveredLines"], targets[0]["executableLines"]
 if executable == 0:
     print(f"coverage-gate: {target} has no executable lines in the report.", file=sys.stderr)
     sys.exit(2)
 
 percent = 100 * covered / executable
 print(f"coverage-gate: {target} {percent:.2f} % of lines ({covered} of {executable}), floor {floor:g} %.")
-for file in sorted(targets[0].get("files", []), key=lambda entry: entry["name"]):
-    missed = file["executableLines"] - file["coveredLines"]
-    if missed > 0:
-        print(f"  {file['name']}: {missed} of {file['executableLines']} lines not covered")
+for name, file_covered, file_executable in sorted(files):
+    if file_executable > file_covered:
+        print(f"  {name}: {file_executable - file_covered} of {file_executable} lines not covered")
 if percent < floor:
     sys.stdout.flush()
     print(f"coverage-gate: below the floor of {floor:g} %.", file=sys.stderr)
