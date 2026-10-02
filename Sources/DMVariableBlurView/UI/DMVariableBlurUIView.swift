@@ -2,8 +2,6 @@
 //
 // for detail, pls. check the original file github page: https://github.com/nikstar/VariableBlur?tab=readme-ov-file
 
-import CoreImage.CIFilterBuiltins
-import QuartzCore
 import UIKit
 
 /// credit https://github.com/jtrivedi/VariableBlurView
@@ -38,7 +36,7 @@ public class DMVariableBlurUIView: UIVisualEffectView {
             direction: direction,
             startOffset: startOffset
         )
-        let gradientImage = try makeMaskImage(for: configuration.maskProfile())
+        let gradientImage = try CoreImageMaskImageRenderer().makeMaskImage(for: configuration.maskProfile())
 
         variableBlur.setValue(maxBlurRadius, forKey: "inputRadius")
         variableBlur.setValue(gradientImage, forKey: "inputMaskImage")
@@ -70,76 +68,4 @@ public class DMVariableBlurUIView: UIVisualEffectView {
 
     /// The name release 1.0.0 gave the error type.
     typealias VariableBlurError = DMVariableBlurError
-}
-
-private extension DMVariableBlurUIView {
-    func makeMaskImage(
-        for profile: BlurMaskProfile,
-        width: CGFloat = 100,
-        height: CGFloat = 100
-    ) throws -> CGImage {
-        let context = CIContext()
-        let extent = CGRect(x: 0, y: 0, width: width, height: height)
-
-        // Core Image counts rows from the bottom edge, the profile counts from the top.
-        let rampImages = try profile.ramps.map { ramp in
-            try makeVerticalGradientImage(
-                color0: CIColor(red: 0, green: 0, blue: 0, alpha: ramp.startAlpha),
-                color1: CIColor(red: 0, green: 0, blue: 0, alpha: ramp.endAlpha),
-                y0: height * (1 - ramp.start),
-                y1: height * (1 - ramp.end),
-                extent: extent
-            )
-        }
-        guard let firstImage = rampImages.first else {
-            // A profile without a ramp is opaque: a gradient from black to black.
-            let opaqueImage = try makeVerticalGradientImage(
-                color0: .black,
-                color1: .black,
-                y0: 0,
-                y1: height,
-                extent: extent
-            )
-            return try exportCGImage(from: opaqueImage, extent: extent, context: context)
-        }
-
-        // The profile is the lowest alpha of its ramps, and minimumCompositing takes it.
-        let combinedImage = try rampImages.dropFirst().reduce(firstImage) { combined, rampImage in
-            let compositeFilter = CIFilter.minimumCompositing()
-            compositeFilter.inputImage = rampImage
-            compositeFilter.backgroundImage = combined
-            guard let image = compositeFilter.outputImage else {
-                throw VariableBlurError.outputImageFromCIGradientFilter
-            }
-            return image
-        }
-        return try exportCGImage(from: combinedImage, extent: extent, context: context)
-    }
-
-    func makeVerticalGradientImage(
-        color0: CIColor,
-        color1: CIColor,
-        y0: CGFloat,
-        y1: CGFloat,
-        extent: CGRect
-    ) throws -> CIImage {
-        let gradient = CIFilter.linearGradient()
-        gradient.color0 = color0
-        gradient.color1 = color1
-        gradient.point0 = CGPoint(x: 0, y: y0)
-        gradient.point1 = CGPoint(x: 0, y: y1)
-        guard let image = gradient.outputImage else {
-            throw VariableBlurError.outputImageFromCIGradientFilter
-        }
-
-        // Crop to our mask size
-        return image.cropped(to: extent)
-    }
-
-    func exportCGImage(from ciImage: CIImage, extent: CGRect, context: CIContext) throws -> CGImage {
-        guard let cgImage = context.createCGImage(ciImage, from: extent) else {
-            throw VariableBlurError.createImageFromContext
-        }
-        return cgImage
-    }
 }
