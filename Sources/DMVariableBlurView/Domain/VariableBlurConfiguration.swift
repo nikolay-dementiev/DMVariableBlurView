@@ -38,10 +38,17 @@ package struct VariableBlurConfiguration: Equatable {
 
         switch direction {
         case .blurredTopClearBottom:
+            // From an offset of 1 on, the ramp would end at or above its blurred edge.
+            guard startOffset < 1 else {
+                return .clear
+            }
             return BlurMaskProfile(ramps: [
                 .init(start: 0, end: 1 - startOffset, startAlpha: 1, endAlpha: 0)
             ])
         case .blurredBottomClearTop:
+            guard startOffset < 1 else {
+                return .clear
+            }
             return BlurMaskProfile(ramps: [
                 .init(start: 1, end: startOffset, startAlpha: 1, endAlpha: 0)
             ])

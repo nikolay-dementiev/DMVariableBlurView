@@ -29,7 +29,12 @@ package struct CoreImageMaskImageRenderer: MaskImageRenderer {
 
         // Core Image counts rows from the bottom edge, the profile counts from the top.
         let rampImages = try profile.ramps.map { ramp in
-            try makeVerticalGradientImage(
+            // A gradient between two clear colors has no image, so a flat ramp is drawn as
+            // a plain color.
+            guard ramp.startAlpha != ramp.endAlpha else {
+                return CIImage(color: CIColor(red: 0, green: 0, blue: 0, alpha: ramp.startAlpha)).cropped(to: extent)
+            }
+            return try makeVerticalGradientImage(
                 color0: CIColor(red: 0, green: 0, blue: 0, alpha: ramp.startAlpha),
                 color1: CIColor(red: 0, green: 0, blue: 0, alpha: ramp.endAlpha),
                 y0: extent.height * (1 - ramp.start),

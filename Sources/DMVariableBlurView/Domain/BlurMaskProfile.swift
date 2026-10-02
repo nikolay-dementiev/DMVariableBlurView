@@ -36,6 +36,9 @@ package struct BlurMaskProfile: Equatable, Sendable {
     /// The profile takes the lowest alpha of its ramps. Without a ramp it is opaque.
     package let ramps: [Ramp]
 
+    /// No blur at any position.
+    package static let clear = BlurMaskProfile(ramps: [Ramp(start: 0, end: 1, startAlpha: 0, endAlpha: 0)])
+
     package init(ramps: [Ramp]) {
         self.ramps = ramps
     }
