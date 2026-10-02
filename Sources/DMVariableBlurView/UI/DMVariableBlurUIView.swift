@@ -15,12 +15,13 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
     /// nothing prevents it.
     ///
     /// The value changes when the view is created, when
-    /// ``update(maxBlurRadius:direction:startOffset:)`` is called, and when the view applies
-    /// its values again after the system rebuilt the effect, for example on a change between
-    /// light and dark appearance. Each recorded reason also writes one line to the unified
-    /// log, also one recorded later on such a re-application. A view made by
-    /// ``DMVariableBlurView`` with ``DMVariableBlurView/onFailure(_:)`` hands the reason to
-    /// that handler instead.
+    /// ``update(maxBlurRadius:direction:startOffset:)`` is called, when the view applies its
+    /// values again after the system rebuilt the effect, for example on a change between
+    /// light and dark appearance, and when ``respectsReduceTransparency`` or the setting
+    /// changes and the view shows its values again. Each recorded reason also writes one
+    /// line to the unified log, also one recorded later on such a re-application. A view
+    /// made by ``DMVariableBlurView`` with ``DMVariableBlurView/onFailure(_:)`` hands the
+    /// reason to that handler instead.
     public private(set) var failure: DMVariableBlurError?
 
     /// Whether the view follows the Reduce Transparency setting of the device.
@@ -115,8 +116,7 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
         apply(VariableBlurConfiguration(maxBlurRadius: maxBlurRadius, direction: direction, startOffset: startOffset))
     }
 
-    /// The view is made in code only. Decoding it, from an archive or a storyboard,
-    /// returns `nil` and leaves the host running.
+    /// The view is made in code only: decoding it returns `nil`.
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         nil
