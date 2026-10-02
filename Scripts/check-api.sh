@@ -38,6 +38,7 @@ if ! xcrun --sdk iphonesimulator swiftc \
     -module-name "$MODULE" \
     -package-name "$MODULE" \
     -swift-version 6 \
+    -enable-upcoming-feature ExistentialAny \
     -enable-library-evolution \
     -emit-module -emit-module-path "$WORK/$MODULE.swiftmodule" \
     -emit-module-interface-path "$INTERFACE" \
