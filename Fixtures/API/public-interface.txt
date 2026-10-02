@@ -1,6 +1,7 @@
 @_Concurrency.MainActor @preconcurrency public struct DMVariableBlurView : SwiftUI.UIViewRepresentable {
   @_Concurrency.MainActor @preconcurrency public init(maxBlurRadius: CoreFoundation.CGFloat = 20, direction: DMVariableBlurView.DMVariableBlurDirection = .blurredCenterClearTopBottom(), startOffset: CoreFoundation.CGFloat = .zero)
   @_Concurrency.MainActor @preconcurrency public func onFailure(_ handler: @escaping @_Concurrency.MainActor @Sendable (DMVariableBlurView.DMVariableBlurError) -> Swift.Void) -> DMVariableBlurView.DMVariableBlurView
+  @_Concurrency.MainActor @preconcurrency public func respectsReduceTransparency(_ respects: Swift.Bool = true) -> DMVariableBlurView.DMVariableBlurView
   @_Concurrency.MainActor @preconcurrency public func makeUIView(context: DMVariableBlurView.DMVariableBlurView.Context) -> DMVariableBlurView.DMVariableBlurUIView
   @_Concurrency.MainActor @preconcurrency public func updateUIView(_ uiView: DMVariableBlurView.DMVariableBlurUIView, context: DMVariableBlurView.DMVariableBlurView.Context)
   public typealias Body = Swift.Never
@@ -10,6 +11,10 @@
 @objc @_hasMissingDesignatedInitializers @_Concurrency.MainActor @preconcurrency final public class DMVariableBlurUIView : UIKit.UIVisualEffectView {
   @_Concurrency.MainActor @preconcurrency final public var failure: DMVariableBlurView.DMVariableBlurError? {
     get
+  }
+  @_Concurrency.MainActor @preconcurrency final public var respectsReduceTransparency: Swift.Bool {
+    get
+    set
   }
   @_Concurrency.MainActor @preconcurrency convenience public init(maxBlurRadius: CoreFoundation.CGFloat = 20, direction: DMVariableBlurView.DMVariableBlurDirection = .blurredCenterClearTopBottom(), startOffset: CoreFoundation.CGFloat = 0)
   @_Concurrency.MainActor @preconcurrency final public func update(maxBlurRadius: CoreFoundation.CGFloat, direction: DMVariableBlurView.DMVariableBlurDirection, startOffset: CoreFoundation.CGFloat)

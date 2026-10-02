@@ -8,6 +8,7 @@ public struct DMVariableBlurView: UIViewRepresentable {
     /// blur from larger radius value which might look better in some cases.
     var startOffset: CGFloat
     private var failureHandler: (@MainActor (DMVariableBlurError) -> Void)?
+    private var followsReduceTransparency = false
 
     public init(
         maxBlurRadius: CGFloat = 20,
@@ -44,20 +45,40 @@ public struct DMVariableBlurView: UIViewRepresentable {
         return view
     }
 
+    /// Sets whether the view follows the Reduce Transparency setting of the device.
+    ///
+    /// By default the view ignores the setting and always shows the variable blur, as
+    /// release 1.0.0 does. A view that follows the setting shows the standard effect of the
+    /// system while the setting is on: the system then draws that effect without
+    /// transparency. The view changes back when the setting is turned off.
+    ///
+    /// Following the setting is not a failure: nothing is reported.
+    ///
+    /// - Parameter respects: `true` to follow the setting. The default is `true`.
+    /// - Returns: A blur view that follows the setting or ignores it.
+    public func respectsReduceTransparency(_ respects: Bool = true) -> DMVariableBlurView {
+        var view = self
+        view.followsReduceTransparency = respects
+        return view
+    }
+
     public func makeUIView(context: Context) -> DMVariableBlurUIView {
         // The handler must be in place before the first configuration is applied.
         let view = DMVariableBlurUIView(
             maskRenderer: CoreGraphicsMaskImageRenderer(),
             installer: SystemVariableBlurInstaller(),
-            failureLog: SystemFailureLog()
+            failureLog: SystemFailureLog(),
+            reduceTransparency: SystemReduceTransparencySetting()
         )
         view.failureHandler = failureHandler
+        view.respectsReduceTransparency = followsReduceTransparency
         view.apply(configuration)
         return view
     }
 
     public func updateUIView(_ uiView: DMVariableBlurUIView, context: Context) {
         uiView.failureHandler = failureHandler
+        uiView.respectsReduceTransparency = followsReduceTransparency
         uiView.apply(configuration)
     }
 

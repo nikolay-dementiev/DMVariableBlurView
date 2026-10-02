@@ -12,6 +12,7 @@ enum AddedAPI {
     /// A host that keeps the reason in its state and tells the reasons apart.
     static func failureReachesTheHost(_ onReason: @escaping @MainActor (String) -> Void) -> DMVariableBlurView {
         DMVariableBlurView(direction: .blurredCenterClearTopBottom(centerBandProportion: 0.4))
+            .respectsReduceTransparency()
             .onFailure { error in
                 switch error {
                 case .invalidMaxBlurRadius, .invalidCenterBandProportion, .invalidStartOffset:
@@ -27,6 +28,7 @@ enum AddedAPI {
         let defaults = DMVariableBlurUIView()
         let explicit = DMVariableBlurUIView(maxBlurRadius: 12, direction: .blurredTopClearBottom, startOffset: -0.1)
         explicit.update(maxBlurRadius: 8, direction: .blurredBottomClearTop, startOffset: 0)
+        explicit.respectsReduceTransparency = true
         if let reason = explicit.failure {
             print(reason.localizedDescription)
         }

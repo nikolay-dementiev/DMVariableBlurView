@@ -9,6 +9,7 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
     private let maskRenderer: any MaskImageRenderer
     private let installer: any VariableBlurInstaller
     private let failureLog: any FailureLog
+    private let reduceTransparency: any ReduceTransparencySetting
 
     /// The reason the view cannot show the variable blur it was asked for, or `nil` when
     /// nothing prevents it.
@@ -22,6 +23,21 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
     /// that handler instead.
     public private(set) var failure: DMVariableBlurError?
 
+    /// Whether the view follows the Reduce Transparency setting of the device.
+    ///
+    /// `false` by default: the view ignores the setting and always shows the variable blur,
+    /// as release 1.0.0 does. Set it to `true` and the view shows the standard effect of the
+    /// system while the setting is on; the system then draws that effect without
+    /// transparency. The view changes back when the setting is turned off. A change of this
+    /// property is applied at once. Following the setting is not a failure: ``failure``
+    /// stays `nil`.
+    public var respectsReduceTransparency = false {
+        didSet {
+            guard respectsReduceTransparency != oldValue else { return }
+            settingChanged()
+        }
+    }
+
     /// Receives each recorded failure in a later turn of the main actor. Without it, the
     /// failure goes to the log.
     package var failureHandler: (@MainActor (DMVariableBlurError) -> Void)?
@@ -29,6 +45,10 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
     /// The blur the view put on its backdrop, kept so that it can go back on when UIKit
     /// rebuilds the effect.
     private var installedBlur: InstalledBlur?
+
+    /// The mask of the last valid configuration, drawn once and kept while the view
+    /// follows Reduce Transparency.
+    private var preparedBlur: InstalledBlur?
 
     /// What the view was last asked to show. A request equal to it changes nothing.
     private var lastRequest: Request?
@@ -42,7 +62,7 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
     /// configuration is compared through its reason, which is equal to itself also for a
     /// value that is not a number.
     private enum Request: Equatable {
-        case valid(VariableBlurConfiguration)
+        case valid(VariableBlurConfiguration, BlurMaskProfile)
         case rejected(DMVariableBlurError)
     }
 
@@ -53,12 +73,17 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
     package init(
         maskRenderer: any MaskImageRenderer,
         installer: any VariableBlurInstaller,
-        failureLog: any FailureLog
+        failureLog: any FailureLog,
+        reduceTransparency: any ReduceTransparencySetting
     ) {
         self.maskRenderer = maskRenderer
         self.installer = installer
         self.failureLog = failureLog
+        self.reduceTransparency = reduceTransparency
         super.init(effect: UIBlurEffect(style: .regular))
+        reduceTransparency.onChange { [weak self] in
+            self?.settingChanged()
+        }
     }
 
     /// Creates a blur view for a UIKit hierarchy.
@@ -82,7 +107,8 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
         self.init(
             maskRenderer: CoreGraphicsMaskImageRenderer(),
             installer: SystemVariableBlurInstaller(),
-            failureLog: SystemFailureLog()
+            failureLog: SystemFailureLog(),
+            reduceTransparency: SystemReduceTransparencySetting()
         )
         apply(VariableBlurConfiguration(maxBlurRadius: maxBlurRadius, direction: direction, startOffset: startOffset))
     }
@@ -101,36 +127,22 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
     /// ``failure`` and writes it to the log once. A configuration equal to the last one, or
     /// rejected for the same reason, changes nothing.
     package func apply(_ configuration: VariableBlurConfiguration) {
-        let profile: BlurMaskProfile
+        let request: Request
         do throws(DMVariableBlurError) {
-            profile = try configuration.maskProfile()
+            request = .valid(configuration, try configuration.maskProfile())
         } catch {
-            guard lastRequest != .rejected(error) else { return }
-            lastRequest = .rejected(error)
+            request = .rejected(error)
+        }
+        guard request != lastRequest else { return }
+        lastRequest = request
+        preparedBlur = nil
+
+        if case .rejected(let error) = request {
             showPlainBlur()
             record(error, detail: nil)
             return
         }
-        guard lastRequest != .valid(configuration) else { return }
-        lastRequest = .valid(configuration)
-
-        let mask: CGImage
-        do {
-            mask = try maskRenderer.makeMaskImage(for: profile)
-        } catch {
-            showPlainBlur()
-            record(.maskCreationFailed, detail: String(describing: error))
-            return
-        }
-
-        let installation = installer.install(maxBlurRadius: configuration.maxBlurRadius, mask: mask, on: self)
-        if case .unavailable(let reason) = installation {
-            showPlainBlur()
-            record(.effectUnavailable, detail: String(describing: reason))
-            return
-        }
-        installedBlur = InstalledBlur(maxBlurRadius: configuration.maxBlurRadius, mask: mask)
-        failure = nil
+        present()
     }
 
     /// Replaces the values of the view and applies them.
@@ -161,6 +173,51 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
         // fixes visible pixelization at unblurred edge (https://github.com/nikstar/VariableBlur/issues/1)
         guard let window else { return }
         installer.setBackdropScale(window.screen.scale, on: self)
+    }
+
+    /// Shows the last valid configuration as the option allows: the standard effect while
+    /// the view follows Reduce Transparency and the setting is on, the variable blur
+    /// otherwise. The mask is drawn once per configuration.
+    private func present() {
+        guard case .valid(let configuration, let profile) = lastRequest else { return }
+        if respectsReduceTransparency && reduceTransparency.isEnabled {
+            showPlainBlur()
+            failure = nil
+            return
+        }
+
+        let blur: InstalledBlur
+        if let preparedBlur {
+            blur = preparedBlur
+        } else {
+            do {
+                blur = InstalledBlur(
+                    maxBlurRadius: configuration.maxBlurRadius,
+                    mask: try maskRenderer.makeMaskImage(for: profile)
+                )
+            } catch {
+                showPlainBlur()
+                record(.maskCreationFailed, detail: String(describing: error))
+                return
+            }
+            preparedBlur = blur
+        }
+
+        let installation = installer.install(maxBlurRadius: blur.maxBlurRadius, mask: blur.mask, on: self)
+        if case .unavailable(let reason) = installation {
+            showPlainBlur()
+            record(.effectUnavailable, detail: String(describing: reason))
+            return
+        }
+        installedBlur = blur
+        failure = nil
+    }
+
+    /// The option or the setting changed. A configuration that failed stays as it is:
+    /// showing it again would report the same failure again.
+    private func settingChanged() {
+        guard case .valid = lastRequest, failure == nil else { return }
+        present()
     }
 
     /// Brings back the standard filters and the tint of the effect, and stops putting the
