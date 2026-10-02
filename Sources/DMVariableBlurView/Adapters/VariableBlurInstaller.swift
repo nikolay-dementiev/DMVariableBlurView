@@ -19,7 +19,8 @@ package enum VariableBlurInstallation: Equatable, Sendable {
         case filterCreationFailed
         /// The effect view has no backdrop to put the filter on.
         case backdropMissing
-        /// The backdrop does not carry the filter with its radius after the installation.
+        /// The backdrop does not carry the filter with its radius and its mask after the
+        /// installation.
         case notApplied
     }
 }
@@ -99,7 +100,7 @@ package struct SystemVariableBlurInstaller: VariableBlurInstaller {
         // uniform blur and the saturation.
         let standardFilters = backdrop.layer.filters
         backdrop.layer.filters = [filter]
-        guard carriesOnlyOneFilter(backdrop.layer, withRadius: maxBlurRadius) else {
+        guard carriesOneFilter(withRadius: maxBlurRadius, mask: mask, on: backdrop.layer) else {
             backdrop.layer.filters = standardFilters
             return .unavailable(.notApplied)
         }
@@ -121,8 +122,13 @@ package struct SystemVariableBlurInstaller: VariableBlurInstaller {
         effectView.subviews.first { $0.layer.filters?.isEmpty == false }
     }
 
-    private func carriesOnlyOneFilter(_ layer: CALayer, withRadius radius: CGFloat) -> Bool {
+    /// The layer took the filter when it carries one filter and nothing else, and that
+    /// filter holds the radius and the mask it was given.
+    private func carriesOneFilter(withRadius radius: CGFloat, mask: CGImage, on layer: CALayer) -> Bool {
         guard let filters = layer.filters, filters.count == 1, let filter = filters.first as? NSObject else {
+            return false
+        }
+        guard filter.value(forKey: "inputMaskImage") as AnyObject === mask else {
             return false
         }
         guard let storedRadius = (filter.value(forKey: "inputRadius") as? NSNumber)?.doubleValue else {
