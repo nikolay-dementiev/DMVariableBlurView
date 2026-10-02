@@ -62,9 +62,6 @@ public class DMVariableBlurUIView: UIVisualEffectView {
         guard let window else { return }
         installer.setBackdropScale(window.screen.scale, on: self)
     }
-
-    /// The name release 1.0.0 gave the error type.
-    typealias VariableBlurError = DMVariableBlurError
 }
 
 private extension DMVariableBlurError {
