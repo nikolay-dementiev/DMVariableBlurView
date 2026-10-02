@@ -55,7 +55,8 @@ fi
 # sorted: moving a type to another file must not look like an API change. An attribute
 # that the compiler prints on a line of its own, such as @available, stays with the
 # declaration below it: moving it to another declaration is an API change.
-grep -v -E '^(//|import )' "$INTERFACE" | python3 -c '
+normalize() {
+    grep -v -E '^(//|import )' "$1" | python3 -c '
 import sys
 
 def attributes_only(line):
@@ -88,7 +89,10 @@ for line in sys.stdin.read().splitlines():
 if current:
     blocks.append("\n".join(current))
 print("\n".join(sorted(blocks)))
-' > "$CURRENT"
+'
+}
+
+normalize "$INTERFACE" > "$CURRENT"
 
 if [ "${1:-}" = "--update" ]; then
     mkdir -p "$(dirname "$BASELINE")"
@@ -102,7 +106,11 @@ if [ ! -f "$BASELINE" ]; then
     exit 2
 fi
 
-if diff -u "$BASELINE" "$CURRENT" > "$WORK/api.diff"; then
+# The baseline goes through the same normalization, so the comparison does not depend on
+# the order of the declarations in either file.
+normalize "$BASELINE" > "$WORK/baseline.txt"
+
+if diff -u --label "$(basename "$BASELINE")" --label "current interface" "$WORK/baseline.txt" "$CURRENT" > "$WORK/api.diff"; then
     echo "check-api: the public interface matches the baseline."
     exit 0
 fi
