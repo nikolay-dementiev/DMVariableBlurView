@@ -52,12 +52,36 @@ fi
 
 # Header comments carry the compiler version and flags; imports are not API. The compiler
 # emits declarations in the order of the source files, so the top-level declarations are
-# sorted: moving a type to another file must not look like an API change.
+# sorted: moving a type to another file must not look like an API change. An attribute
+# that the compiler prints on a line of its own, such as @available, stays with the
+# declaration below it: moving it to another declaration is an API change.
 grep -v -E '^(//|import )' "$INTERFACE" | python3 -c '
 import sys
+
+def attributes_only(line):
+    position, end = 0, len(line)
+    while position < end:
+        if line[position].isspace():
+            position += 1
+            continue
+        if line[position] != "@":
+            return False
+        position += 1
+        while position < end and (line[position].isalnum() or line[position] in "_."):
+            position += 1
+        if position < end and line[position] == "(":
+            depth = 0
+            while position < end:
+                depth += {"(": 1, ")": -1}.get(line[position], 0)
+                position += 1
+                if depth == 0:
+                    break
+    return True
+
 blocks, current = [], []
 for line in sys.stdin.read().splitlines():
-    if line and not line[0].isspace() and line != "}" and current:
+    starts_declaration = bool(line) and not line[0].isspace() and line != "}"
+    if starts_declaration and current and not all(attributes_only(held) for held in current):
         blocks.append("\n".join(current))
         current = []
     current.append(line)
