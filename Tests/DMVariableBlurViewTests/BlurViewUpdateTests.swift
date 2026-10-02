@@ -1,5 +1,4 @@
 import DMVariableBlurView
-import UIKit
 import XCTest
 
 /// A SwiftUI update hands the view new values: the same UIKit view shows them.

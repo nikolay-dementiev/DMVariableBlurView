@@ -4,7 +4,7 @@
 import CoreGraphics
 
 /// The values a blur view is asked to show.
-package struct VariableBlurConfiguration {
+package struct VariableBlurConfiguration: Equatable {
     package let maxBlurRadius: CGFloat
     package let direction: DMVariableBlurDirection
     package let startOffset: CGFloat

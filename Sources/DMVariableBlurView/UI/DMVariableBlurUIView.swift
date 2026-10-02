@@ -18,9 +18,20 @@ public class DMVariableBlurUIView: UIVisualEffectView {
     /// rebuilds the effect.
     private var installedBlur: InstalledBlur?
 
+    /// What the view was last asked to show. A request equal to it changes nothing.
+    private var lastRequest: Request?
+
     private struct InstalledBlur {
         let maxBlurRadius: CGFloat
         let mask: CGImage
+    }
+
+    /// A configuration that passed the checks, or the reason it did not. A rejected
+    /// configuration is compared through its reason, which is equal to itself also for a
+    /// value that is not a number.
+    private enum Request: Equatable {
+        case valid(VariableBlurConfiguration)
+        case rejected(DMVariableBlurError)
     }
 
     /// A view that shows the plain blur of the system until a configuration is applied.
@@ -56,31 +67,40 @@ public class DMVariableBlurUIView: UIVisualEffectView {
     /// Shows the variable blur of a configuration.
     ///
     /// The values are checked before anything is drawn or installed. When the variable blur
-    /// cannot be shown, the view keeps the plain blur of the system, records the reason in
-    /// ``failure`` and writes it to the log once.
+    /// cannot be shown, the view shows the plain blur of the system, records the reason in
+    /// ``failure`` and writes it to the log once. A configuration equal to the last one, or
+    /// rejected for the same reason, changes nothing.
     package func apply(_ configuration: VariableBlurConfiguration) {
         let profile: BlurMaskProfile
         do throws(DMVariableBlurError) {
             profile = try configuration.maskProfile()
         } catch {
+            guard lastRequest != .rejected(error) else { return }
+            lastRequest = .rejected(error)
+            showPlainBlur()
             record(error, detail: nil)
             return
         }
+        guard lastRequest != .valid(configuration) else { return }
+        lastRequest = .valid(configuration)
 
         let mask: CGImage
         do {
             mask = try maskRenderer.makeMaskImage(for: profile)
         } catch {
+            showPlainBlur()
             record(.maskCreationFailed, detail: String(describing: error))
             return
         }
 
         let installation = installer.install(maxBlurRadius: configuration.maxBlurRadius, mask: mask, on: self)
         if case .unavailable(let reason) = installation {
+            showPlainBlur()
             record(.effectUnavailable, detail: String(describing: reason))
             return
         }
         installedBlur = InstalledBlur(maxBlurRadius: configuration.maxBlurRadius, mask: mask)
+        failure = nil
     }
 
     public override func layoutSubviews() {
@@ -103,6 +123,15 @@ public class DMVariableBlurUIView: UIVisualEffectView {
         // fixes visible pixelization at unblurred edge (https://github.com/nikstar/VariableBlur/issues/1)
         guard let window else { return }
         installer.setBackdropScale(window.screen.scale, on: self)
+    }
+
+    /// Brings back the standard filters and the tint of the effect, and stops putting the
+    /// variable blur back in layout passes. UIKit ignores an effect equal to the current
+    /// one, so the effect goes through `nil` first.
+    private func showPlainBlur() {
+        installedBlur = nil
+        effect = nil
+        effect = UIBlurEffect(style: .regular)
     }
 
     private func record(_ error: DMVariableBlurError, detail: String?) {
