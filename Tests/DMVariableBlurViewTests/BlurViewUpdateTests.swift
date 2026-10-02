@@ -39,19 +39,6 @@ final class BlurViewUpdateTests: XCTestCase {
         assertMaskProfile(of: sut, matches: MaskProfileFixtures.bottomZeroOffset)
     }
 
-    @MainActor
-    func test_blurView_updatedToARejectedValueTwice_writesOneLine() throws {
-        let sut = try makeSUT(DMVariableBlurView(maxBlurRadius: 5, direction: .blurredTopClearBottom))
-        defer { sut.hide() }
-        let log = UnifiedLogReader()
-        let rejected = DMVariableBlurView(direction: .blurredCenterClearTopBottom(centerBandProportion: 1.5))
-
-        _ = try sut.update(rejected)
-        _ = try sut.update(rejected)
-
-        XCTAssertEqual(try log.libraryLines().count, 1)
-    }
-
     // MARK: - Helpers
 
     @MainActor

@@ -1,30 +1,34 @@
 import DMVariableBlurView
-import OSLog
 import XCTest
 
 /// Values the library rejects, through the public view: the plain blur of the system and
-/// one line in the log that names the parameter and the value.
+/// one report that names the parameter and the value.
+///
+/// The reports go to a handler: every line in the unified log would count against the
+/// logging volume of the test process, which the system then throttles.
 final class BlurViewRejectedValueTests: XCTestCase {
     @MainActor
-    func test_blurView_radiusThatIsNegativeOrNotFinite_showsThePlainBlurAndNamesTheRadius() throws {
+    func test_blurView_radiusThatIsNegativeOrNotFinite_showsThePlainBlurAndNamesTheRadius() async throws {
         for radius in [-1, -.leastNonzeroMagnitude, .nan, .infinity, -.infinity] as [CGFloat] {
-            try expectRejection(
+            try await expectRejection(
                 of: DMVariableBlurView(maxBlurRadius: radius, direction: .blurredTopClearBottom),
-                namingInTheLog: "maxBlurRadius must be a finite number, 0 or greater, but it is \(radius)"
+                reportedAs: .invalidMaxBlurRadius(radius),
+                described: "maxBlurRadius must be a finite number, 0 or greater, but it is \(radius)"
             )
         }
     }
 
     @MainActor
-    func test_blurView_startOffsetThatIsNotFinite_showsThePlainBlurAndNamesTheOffset() throws {
+    func test_blurView_startOffsetThatIsNotFinite_showsThePlainBlurAndNamesTheOffset() async throws {
         let directions: [DMVariableBlurDirection] = [
             .blurredTopClearBottom, .blurredBottomClearTop, .blurredCenterClearTopBottom(), .blurredFully
         ]
         for direction in directions {
             for offset in [.nan, .infinity, -.infinity] as [CGFloat] {
-                try expectRejection(
+                try await expectRejection(
                     of: DMVariableBlurView(direction: direction, startOffset: offset),
-                    namingInTheLog: "startOffset must be a finite number, but it is \(offset)"
+                    reportedAs: .invalidStartOffset(offset),
+                    described: "startOffset must be a finite number, but it is \(offset)"
                 )
             }
         }
@@ -35,23 +39,20 @@ final class BlurViewRejectedValueTests: XCTestCase {
     @MainActor
     private func expectRejection(
         of view: DMVariableBlurView,
-        namingInTheLog text: String,
+        reportedAs reason: DMVariableBlurError,
+        described text: String,
         file: StaticString = #filePath,
         line: UInt = #line
-    ) throws {
-        let log = UnifiedLogReader()
-        let sut = try HostedBlurView(view, file: file, line: line)
+    ) async throws {
+        var reports: [DMVariableBlurError] = []
+        let sut = try HostedBlurView(view.onFailure { reports.append($0) }, file: file, line: line)
         defer { sut.hide() }
 
-        let lines = try log.libraryLines()
+        try await Task.sleep(for: .milliseconds(50))
+
         XCTAssertFalse(sut.filterTypes.contains("variableBlur"), "\(text): no variable blur", file: file, line: line)
         XCTAssertEqual(sut.tintAlphas, [1], "\(text): the tint of the system blur is visible", file: file, line: line)
-        XCTAssertEqual(lines.count, 1, "\(text): one line in the log", file: file, line: line)
-        XCTAssertTrue(
-            lines.first?.composedMessage.hasPrefix(text) == true,
-            "\(text): the line names the parameter and the value, found \(lines.first?.composedMessage ?? "no line")",
-            file: file,
-            line: line
-        )
+        XCTAssertEqual(reports, [reason], "\(text): one report with the value", file: file, line: line)
+        XCTAssertEqual(reports.first?.localizedDescription, text, "\(text): the description", file: file, line: line)
     }
 }

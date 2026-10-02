@@ -45,7 +45,10 @@ final class BlurViewConfigurationTests: XCTestCase {
     /// as release 1.0.0 does.
     @MainActor
     func test_blurView_centerBandProportionOutOfRange_showsThePlainSystemBlur() throws {
-        let sut = try makeSUT(DMVariableBlurView(direction: .blurredCenterClearTopBottom(centerBandProportion: 1.5)))
+        // A handler keeps the expected failure out of the unified log of the test process.
+        let sut = try makeSUT(
+            DMVariableBlurView(direction: .blurredCenterClearTopBottom(centerBandProportion: 1.5)).onFailure { _ in }
+        )
         defer { sut.hide() }
 
         XCTAssertFalse(sut.filterTypes.contains("variableBlur"), "no variable blur is installed")
