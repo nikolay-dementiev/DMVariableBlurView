@@ -50,6 +50,18 @@ final class BlurRenderingTests: XCTestCase {
         expect(scene, bands: 19...19, atLeast: 0.25, "the bottom edge stays sharp")
     }
 
+    /// UIKit rebuilds the effect view when the appearance changes. The variable blur must
+    /// come back with it: the standard blur would cover the clear edge too.
+    @MainActor
+    func test_blurView_blurredTopClearBottom_afterTheAppearanceChangesToDark_keepsTheBottomEdgeSharp() throws {
+        let scene = try render(makeSUT(direction: .blurredTopClearBottom)) { window in
+            window.overrideUserInterfaceStyle = .dark
+        }
+
+        expect(scene, bands: 0...13, atMost: blurredAtMost, "the top 70 % is still blurred")
+        expect(scene, bands: 19...19, atLeast: 0.60, "the bottom edge is still sharp")
+    }
+
     /// A uniform system blur gives the same picture, so this test cannot tell the variable
     /// blur from the substitute the library shows when its set-up fails. The tests of the
     /// other three modes can. The gap closes when the library reports its failures.
@@ -70,8 +82,8 @@ final class BlurRenderingTests: XCTestCase {
     /// Renders the overlay and keeps the measured band values in the result bundle, so a
     /// passing run also shows how far it was from its thresholds.
     @MainActor
-    private func render(_ overlay: some View) throws -> RenderedScene {
-        let scene = try RenderingHarness.render(overlay)
+    private func render(_ overlay: some View, then change: ((UIWindow) -> Void)? = nil) throws -> RenderedScene {
+        let scene = try RenderingHarness.render(overlay, then: change)
         let values = XCTAttachment(string: scene.summary)
         values.name = "band values"
         values.lifetime = .keepAlways

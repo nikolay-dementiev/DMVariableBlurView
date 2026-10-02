@@ -47,6 +47,8 @@ enum RenderingHarnessError: Error, CustomStringConvertible {
 ///   agree, which takes at least 0.3 seconds, and throws when that does not happen within
 ///   its attempts. A backdrop that appears later than that makes a blur test fail with the
 ///   captured image attached. It cannot make one pass.
+/// - **A change.** `render(_:then:)` can change the window after the first stable scene,
+///   for example its appearance, and measures the scene that follows the change.
 /// - **Failure.** `RenderedScene` carries the image and the band values, and the tests
 ///   attach both when an assertion fails.
 @MainActor
@@ -71,7 +73,7 @@ enum RenderingHarness {
         (Int(overlayHeight) + 15)..<(Int(sceneSize.height) - 5)
     }
 
-    static func render(_ overlay: some View) throws -> RenderedScene {
+    static func render(_ overlay: some View, then change: ((UIWindow) -> Void)? = nil) throws -> RenderedScene {
         let window = UIWindow(windowScene: try foregroundScene())
         window.frame = CGRect(origin: .zero, size: sceneSize)
         let content = ZStack(alignment: .top) {
@@ -85,6 +87,13 @@ enum RenderingHarness {
         window.isHidden = false
         defer { window.isHidden = true }
 
+        let scene = try stableScene(in: window)
+        guard let change else { return scene }
+        change(window)
+        return try stableScene(in: window)
+    }
+
+    private static func stableScene(in window: UIWindow) throws -> RenderedScene {
         var previous: [Double]?
         var agreed = 0
         var lastReference = 0.0
