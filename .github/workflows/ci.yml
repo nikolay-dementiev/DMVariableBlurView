@@ -79,6 +79,10 @@ jobs:
             -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' \
             SWIFT_TREAT_WARNINGS_AS_ERRORS=YES
+      # The floor was measured with the toolchain of this cell, Xcode 26.6.
+      - name: Check the coverage floor
+        if: matrix.newest
+        run: Scripts/coverage-gate.sh .build/results/ci/package.xcresult
       - name: Upload the result bundle
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
