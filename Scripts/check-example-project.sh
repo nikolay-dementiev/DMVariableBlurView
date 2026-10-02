@@ -78,7 +78,7 @@ if [ "${1:-}" = "--update" ]; then
         sed -E "s/TEMP_[0-9A-F-]{36}/$KEPT_ID/g" "$GENERATED" > "$GENERATED.kept"
         mv "$GENERATED.kept" "$GENERATED"
     fi
-    rsync -a --delete --exclude xcuserdata --filter 'P /project.xcworkspace/xcshareddata/' \
+    rsync -a --delete --exclude xcuserdata --filter 'P /project.xcworkspace/xcshareddata/swiftpm/' \
         "$SANDBOX/$EXAMPLE/$PROJECT.generated/" "$ROOT/$EXAMPLE/$PROJECT/"
     echo "check-example-project: the project was regenerated from its spec: $EXAMPLE/$PROJECT"
     exit 0

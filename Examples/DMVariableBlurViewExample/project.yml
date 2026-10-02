@@ -5,6 +5,9 @@
 #   Scripts/check-example-project.sh --update
 #
 # Scripts/check-example-project.sh proves that the committed project matches this file.
+# A changed package version here needs the resolved versions too: resolve the packages
+# (xcodebuild -resolvePackageDependencies) and commit Package.resolved. CI builds only with
+# the versions in that file.
 # The folders are synced: a new source file needs neither a change here nor a regeneration.
 # The update generates in a folder named like the package, because the generator names
 # the package reference after the folder of the checkout.

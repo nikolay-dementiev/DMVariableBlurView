@@ -201,6 +201,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # Only the committed package versions: a resolved file that no longer matches the
+      # project fails here instead of being resolved again to whatever is newest.
       - name: Build the example and run its tests
         run: |
           set -o pipefail
@@ -209,6 +211,7 @@ jobs:
             -project Examples/DMVariableBlurViewExample/DMVariableBlurViewExample.xcodeproj \
             -scheme DMVariableBlurViewExample \
             -destination "$DESTINATION" \
+            -onlyUsePackageVersionsFromResolvedFile \
             -resultBundlePath .build/results/ci/example.xcresult \
             | tee .build/results/ci/example.log
       # Xcode compiles a package dependency with its warnings suppressed, so the build
