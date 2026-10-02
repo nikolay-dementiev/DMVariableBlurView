@@ -17,6 +17,20 @@ final class ReduceTransparencyTests: XCTestCase {
         XCTAssertNil(sut.blurView.failure, "nothing failed")
     }
 
+    /// The SwiftUI method sets the option of the UIKit view, when it is made and when it is
+    /// updated.
+    @MainActor
+    func test_blurView_respectsReduceTransparency_setsTheOptionOfTheUIKitView() throws {
+        let sut = try HostedBlurView(DMVariableBlurView().respectsReduceTransparency())
+        defer { sut.hide() }
+        let afterMake = sut.blurView.respectsReduceTransparency
+
+        let updated = try sut.update(DMVariableBlurView().respectsReduceTransparency(false))
+
+        XCTAssertTrue(afterMake, "the option is on after the view is made")
+        XCTAssertFalse(updated.respectsReduceTransparency, "an update turns it off")
+    }
+
     @MainActor
     func test_blurUIView_option_isOffByDefaultAndCanBeSet() {
         let sut = DMVariableBlurUIView()

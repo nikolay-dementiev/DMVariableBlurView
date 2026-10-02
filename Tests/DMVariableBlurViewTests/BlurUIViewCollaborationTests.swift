@@ -262,9 +262,28 @@ final class BlurUIViewCollaborationTests: XCTestCase {
         sut.respectsReduceTransparency = true
         collaborators.installer.blurIsStillInstalled = false
         layOut(sut)
+        let installationsWithTheOptionOn = collaborators.installer.installations.count
         sut.respectsReduceTransparency = false
 
-        XCTAssertEqual(collaborators.installer.installations.count, 2, "on: no blur put back; off again: the blur at once")
+        XCTAssertEqual(installationsWithTheOptionOn, 1, "with the option on, the blur is not put back")
+        XCTAssertEqual(collaborators.installer.installations.count, 2, "with the option off again, the blur at once")
+    }
+
+    /// A configuration the system did not take stays failed: the setting does not bring it
+    /// back, and the failure is not reported twice.
+    @MainActor
+    func test_settingChanges_afterAnInstallationThatFailed_reportsNothingNew() throws {
+        let (sut, collaborators) = try makeSUT()
+        sut.respectsReduceTransparency = true
+        collaborators.installer.outcome = .unavailable(.notApplied)
+        sut.apply(validConfiguration)
+
+        collaborators.reduceTransparency.simulateChange(to: true)
+        collaborators.reduceTransparency.simulateChange(to: false)
+
+        XCTAssertEqual(sut.failure, .effectUnavailable, "the failure stays")
+        XCTAssertEqual(collaborators.log.entries.count, 1, "it is logged once")
+        XCTAssertEqual(collaborators.installer.installations.count, 1, "no second attempt")
     }
 
     @MainActor
