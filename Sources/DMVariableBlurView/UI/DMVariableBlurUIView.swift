@@ -14,6 +14,10 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
     /// variable blur.
     package private(set) var failure: DMVariableBlurError?
 
+    /// Receives each recorded failure in a later turn of the main actor. Without it, the
+    /// failure goes to the log.
+    package var failureHandler: (@MainActor (DMVariableBlurError) -> Void)?
+
     /// The blur the view put on its backdrop, kept so that it can go back on when UIKit
     /// rebuilds the effect.
     private var installedBlur: InstalledBlur?
@@ -138,6 +142,14 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
 
     private func record(_ error: DMVariableBlurError, detail: String?) {
         failure = error
-        failureLog.record(error, detail: detail)
+        guard let failureHandler else {
+            failureLog.record(error, detail: detail)
+            return
+        }
+        // The handler runs after the current update pass, so it may change the state of the
+        // host. The task holds the handler of this moment and not the view.
+        Task { @MainActor in
+            failureHandler(error)
+        }
     }
 }

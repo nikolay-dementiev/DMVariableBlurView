@@ -2,9 +2,15 @@ import Foundation
 
 /// The reason a blur view could not show the variable blur it was asked for.
 ///
-/// While a view has a reason, it shows the plain blur of the system over its whole frame,
-/// as release 1.0.0 did.
-package enum DMVariableBlurError: Error, Sendable {
+/// When this happens the view shows the plain blur of the system over its whole frame
+/// instead, as release 1.0.0 did, and reports the reason through
+/// ``DMVariableBlurView/onFailure(_:)``.
+///
+/// Two reasons are equal when they are the same case and their values compare equal or are
+/// both not a number, so a reason is always equal to itself.
+///
+/// A new case arrives only in a major version.
+public enum DMVariableBlurError: Error, Sendable, Equatable {
     /// `maxBlurRadius` is negative or is not a finite number. Carries the value.
     case invalidMaxBlurRadius(CGFloat)
 
@@ -20,12 +26,10 @@ package enum DMVariableBlurError: Error, Sendable {
 
     /// The image that shapes the blur could not be created. The configuration is valid.
     case maskCreationFailed
-}
 
-extension DMVariableBlurError: Equatable {
-    /// Two reasons are equal when they are the same case and their values compare equal or
-    /// are both not a number, so a reason is always equal to itself.
-    package static func == (lhs: Self, rhs: Self) -> Bool {
+    /// Equal when both are the same case and their values compare equal or are both not
+    /// a number.
+    public static func == (lhs: Self, rhs: Self) -> Bool {
         switch (lhs, rhs) {
         case let (.invalidMaxBlurRadius(left), .invalidMaxBlurRadius(right)),
              let (.invalidCenterBandProportion(left), .invalidCenterBandProportion(right)),
@@ -43,7 +47,7 @@ extension DMVariableBlurError: Equatable {
 extension DMVariableBlurError: LocalizedError {
     /// A description in English that names the parameter, its valid range and the value,
     /// or what the system did not do.
-    package var errorDescription: String? {
+    public var errorDescription: String? {
         switch self {
         case .invalidMaxBlurRadius(let value):
             "maxBlurRadius must be a finite number, 0 or greater, but it is \(value)"

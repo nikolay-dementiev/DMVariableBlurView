@@ -107,11 +107,10 @@ struct HostedBlurView {
         window.isHidden = true
     }
 
-    /// Replaces the hosted view with an empty one: SwiftUI removes the blur view from the
-    /// hierarchy.
-    func removeBlurView() {
-        controller.rootView = AnyView(EmptyView())
-        window.layoutIfNeeded()
+    /// Takes the hosted views out of the window at once. SwiftUI would remove a view from
+    /// its hierarchy only in a later turn of the main run loop.
+    func removeFromWindow() {
+        window.rootViewController = nil
     }
 
     private var filters: [NSObject] {

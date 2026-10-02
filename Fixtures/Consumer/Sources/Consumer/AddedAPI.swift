@@ -2,10 +2,24 @@ import DMVariableBlurView
 
 // Every declaration added after release 1.0.0, used the way a consumer would use it.
 
-/// Directions compare as values and cross concurrency domains.
+/// Directions compare as values and cross concurrency domains; failures reach the host.
+@MainActor
 enum AddedAPI {
     static func directionsCompare() -> Bool {
         DMVariableBlurDirection.blurredFully == .blurredFully
+    }
+
+    /// A host that keeps the reason in its state and tells the reasons apart.
+    static func failureReachesTheHost(_ onReason: @escaping @MainActor (String) -> Void) -> DMVariableBlurView {
+        DMVariableBlurView(direction: .blurredCenterClearTopBottom(centerBandProportion: 0.4))
+            .onFailure { error in
+                switch error {
+                case .invalidMaxBlurRadius, .invalidCenterBandProportion, .invalidStartOffset:
+                    onReason("check the values: \(error.localizedDescription)")
+                case .effectUnavailable, .maskCreationFailed:
+                    onReason("the plain blur is shown")
+                }
+            }
     }
 
     static func directionCrossesToAnotherTask() async -> DMVariableBlurDirection {

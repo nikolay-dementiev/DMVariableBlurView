@@ -127,10 +127,10 @@ final class OnFailureTests: XCTestCase {
         let recorder = FailureRecorder()
         let sut = try HostedBlurView(rejectedView(1.5).onFailure(recorder.record))
         defer { sut.hide() }
-        weak var blurView = sut.blurView
+        let blurView = sut.blurView
 
-        sut.removeBlurView()
-        let leftTheHierarchy = blurView?.window == nil
+        sut.removeFromWindow()
+        let leftTheHierarchy = blurView.window == nil
         try await deliverPendingReports()
 
         XCTAssertTrue(leftTheHierarchy, "precondition: the blur view left the window before the delivery")
@@ -161,10 +161,12 @@ final class OnFailureTests: XCTestCase {
         }
     }
 
+    @MainActor
     private var validView: DMVariableBlurView {
         DMVariableBlurView(maxBlurRadius: 5, direction: .blurredTopClearBottom)
     }
 
+    @MainActor
     private func rejectedView(_ centerBandProportion: CGFloat) -> DMVariableBlurView {
         DMVariableBlurView(direction: .blurredCenterClearTopBottom(centerBandProportion: centerBandProportion))
     }
