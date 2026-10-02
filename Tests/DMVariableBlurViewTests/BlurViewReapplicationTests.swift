@@ -29,6 +29,24 @@ final class BlurViewReapplicationTests: XCTestCase {
         expectTheVariableBlur(on: sut, after: "a new effect")
     }
 
+    /// Setting `effect` to `nil` is the usual way to fade an effect view out. The view has
+    /// no backdrop then, which is not a failure, and the blur comes back with the effect.
+    @MainActor
+    func test_blurView_effectRemovedAndRestoredByTheHost_recordsNoFailureAndShowsTheBlurAgain() throws {
+        let sut = try makeSUT()
+        defer { sut.hide() }
+
+        sut.blurView.effect = nil
+        sut.blurView.layoutIfNeeded()
+        let failureWithoutEffect = sut.blurView.failure
+        sut.blurView.effect = UIBlurEffect(style: .dark)
+        sut.blurView.layoutIfNeeded()
+
+        XCTAssertNil(failureWithoutEffect, "no effect is not a failure")
+        expectTheVariableBlur(on: sut, after: "the effect came back")
+        XCTAssertNil(sut.blurView.failure, "nothing failed")
+    }
+
     /// The same without SwiftUI: the view in a plain UIKit hierarchy, with the collaborators
     /// the library uses.
     @MainActor
