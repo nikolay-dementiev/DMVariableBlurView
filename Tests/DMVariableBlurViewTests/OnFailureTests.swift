@@ -7,7 +7,7 @@ final class OnFailureTests: XCTestCase {
     @MainActor
     func test_onFailure_validConfiguration_reportsNothing() async throws {
         let recorder = FailureRecorder()
-        let sut = try HostedBlurView(validView.onFailure(recorder.record))
+        let sut = try makeSUT(validView.onFailure(recorder.record))
         defer { sut.hide() }
 
         try await deliverPendingReports()
@@ -18,7 +18,7 @@ final class OnFailureTests: XCTestCase {
     @MainActor
     func test_onFailure_invalidConfiguration_reportsOnce() async throws {
         let recorder = FailureRecorder()
-        let sut = try HostedBlurView(rejectedView(1.5).onFailure(recorder.record))
+        let sut = try makeSUT(rejectedView(1.5).onFailure(recorder.record))
         defer { sut.hide() }
 
         try await deliverPendingReports()
@@ -30,7 +30,7 @@ final class OnFailureTests: XCTestCase {
     @MainActor
     func test_onFailure_duringMake_isNotCalledBeforeMakeReturns() async throws {
         let recorder = FailureRecorder()
-        let sut = try HostedBlurView(rejectedView(1.5).onFailure(recorder.record))
+        let sut = try makeSUT(rejectedView(1.5).onFailure(recorder.record))
         defer { sut.hide() }
         let reportsRightAfterMake = recorder.reports
 
@@ -43,7 +43,7 @@ final class OnFailureTests: XCTestCase {
     @MainActor
     func test_onFailure_sameFailingConfigurationUpdatedAgain_reportsNothingNew() async throws {
         let recorder = FailureRecorder()
-        let sut = try HostedBlurView(rejectedView(1.5).onFailure(recorder.record))
+        let sut = try makeSUT(rejectedView(1.5).onFailure(recorder.record))
         defer { sut.hide() }
 
         _ = try sut.update(rejectedView(1.5).onFailure(recorder.record))
@@ -57,7 +57,7 @@ final class OnFailureTests: XCTestCase {
     @MainActor
     func test_onFailure_nanConfigurationUpdatedAgain_reportsOnce() async throws {
         let recorder = FailureRecorder()
-        let sut = try HostedBlurView(rejectedView(.nan).onFailure(recorder.record))
+        let sut = try makeSUT(rejectedView(.nan).onFailure(recorder.record))
         defer { sut.hide() }
 
         _ = try sut.update(rejectedView(.nan).onFailure(recorder.record))
@@ -69,7 +69,7 @@ final class OnFailureTests: XCTestCase {
     @MainActor
     func test_onFailure_failureRecoveryFailure_reportsTwice() async throws {
         let recorder = FailureRecorder()
-        let sut = try HostedBlurView(rejectedView(1.5).onFailure(recorder.record))
+        let sut = try makeSUT(rejectedView(1.5).onFailure(recorder.record))
         defer { sut.hide() }
 
         try await deliverPendingReports()
@@ -84,7 +84,7 @@ final class OnFailureTests: XCTestCase {
     @MainActor
     func test_onFailure_twoDifferentFailures_reportsBothInOrder() async throws {
         let recorder = FailureRecorder()
-        let sut = try HostedBlurView(rejectedView(1.5).onFailure(recorder.record))
+        let sut = try makeSUT(rejectedView(1.5).onFailure(recorder.record))
         defer { sut.hide() }
 
         _ = try sut.update(rejectedView(-0.5).onFailure(recorder.record))
@@ -97,7 +97,7 @@ final class OnFailureTests: XCTestCase {
     func test_onFailure_handlerReplaced_nextFailureGoesToTheNewHandler() async throws {
         let first = FailureRecorder()
         let second = FailureRecorder()
-        let sut = try HostedBlurView(validView.onFailure(first.record))
+        let sut = try makeSUT(validView.onFailure(first.record))
         defer { sut.hide() }
 
         _ = try sut.update(rejectedView(1.5).onFailure(second.record))
@@ -112,7 +112,7 @@ final class OnFailureTests: XCTestCase {
     func test_onFailure_handlerReplacedBeforeDelivery_failureGoesToTheHandlerSetWhenItHappened() async throws {
         let first = FailureRecorder()
         let second = FailureRecorder()
-        let sut = try HostedBlurView(rejectedView(1.5).onFailure(first.record))
+        let sut = try makeSUT(rejectedView(1.5).onFailure(first.record))
         defer { sut.hide() }
 
         _ = try sut.update(rejectedView(1.5).onFailure(second.record))
@@ -125,7 +125,7 @@ final class OnFailureTests: XCTestCase {
     @MainActor
     func test_onFailure_viewLeavesTheHierarchyBeforeDelivery_handlerIsStillCalledOnce() async throws {
         let recorder = FailureRecorder()
-        let sut = try HostedBlurView(rejectedView(1.5).onFailure(recorder.record))
+        let sut = try makeSUT(rejectedView(1.5).onFailure(recorder.record))
         defer { sut.hide() }
         let blurView = sut.blurView
 
@@ -138,10 +138,28 @@ final class OnFailureTests: XCTestCase {
     }
 
     @MainActor
+    func test_onFailure_viewDeallocatedBeforeDelivery_handlerIsStillCalledOnce() async throws {
+        let recorder = FailureRecorder()
+        weak var blurView: DMVariableBlurUIView?
+        try autoreleasepool {
+            let sut = try makeSUT(rejectedView(1.5).onFailure(recorder.record))
+            blurView = sut.blurView
+            sut.removeFromWindow()
+            sut.hide()
+        }
+        let deallocated = blurView == nil
+
+        try await deliverPendingReports()
+
+        XCTAssertTrue(deallocated, "precondition: the view is gone before the delivery")
+        XCTAssertEqual(recorder.reports, [.invalidCenterBandProportion(1.5)], "the handler is called once")
+    }
+
+    @MainActor
     func test_onFailure_handlerSet_writesNoLineToTheLog() async throws {
         let log = UnifiedLogReader()
         let recorder = FailureRecorder()
-        let sut = try HostedBlurView(rejectedView(1.5).onFailure(recorder.record))
+        let sut = try makeSUT(rejectedView(1.5).onFailure(recorder.record))
         defer { sut.hide() }
 
         try await deliverPendingReports()
@@ -151,6 +169,11 @@ final class OnFailureTests: XCTestCase {
     }
 
     // MARK: - Helpers
+
+    @MainActor
+    private func makeSUT(_ view: DMVariableBlurView) throws -> HostedBlurView {
+        try HostedBlurView(view)
+    }
 
     @MainActor
     private final class FailureRecorder {

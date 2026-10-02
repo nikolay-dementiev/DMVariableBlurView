@@ -28,7 +28,9 @@ final class DMVariableBlurErrorTests: XCTestCase {
     /// Release 1.0.0 declared `errorDescription` as a non-optional `String`, which does not
     /// satisfy `LocalizedError`, so `localizedDescription` showed a generic text.
     func test_localizedDescription_ofEveryError_isItsDescription() {
-        let errors: [DMVariableBlurError] = [makeSUT(1.5), .effectUnavailable, .maskCreationFailed]
+        let errors: [DMVariableBlurError] = [
+            .invalidMaxBlurRadius(-1), makeSUT(1.5), .invalidStartOffset(.nan), .effectUnavailable, .maskCreationFailed
+        ]
 
         for error in errors {
             XCTAssertEqual(
@@ -53,7 +55,9 @@ final class DMVariableBlurErrorTests: XCTestCase {
     }
 
     func test_equality_differentCases_isNotEqual() {
-        let errors: [DMVariableBlurError] = [makeSUT(1.5), .effectUnavailable, .maskCreationFailed]
+        let errors: [DMVariableBlurError] = [
+            .invalidMaxBlurRadius(-1), makeSUT(1.5), .invalidStartOffset(.nan), .effectUnavailable, .maskCreationFailed
+        ]
 
         for (index, error) in errors.enumerated() {
             for (otherIndex, other) in errors.enumerated() where otherIndex != index {

@@ -254,6 +254,28 @@ final class BlurUIViewCollaborationTests: XCTestCase {
         XCTAssertEqual(collaborators.renderer.profiles.count, 1, "the kept mask is used, nothing is drawn again")
     }
 
+    @MainActor
+    func test_apply_validConfigurationWhileFollowingReduceTransparency_clearsAnEarlierFailure() throws {
+        let (sut, _) = try makeSUT(reduceTransparencyEnabled: true)
+        sut.respectsReduceTransparency = true
+        sut.apply(rejectedConfiguration(centerBandProportion: 1.25))
+
+        sut.apply(validConfiguration)
+
+        XCTAssertNil(sut.failure)
+    }
+
+    @MainActor
+    func test_respectsReduceTransparency_setToTheSameValueAgain_installsNothingAgain() throws {
+        let (sut, collaborators) = try makeSUT()
+        sut.respectsReduceTransparency = true
+        sut.apply(validConfiguration)
+
+        sut.respectsReduceTransparency = true
+
+        XCTAssertEqual(collaborators.installer.installations.count, 1)
+    }
+
     /// With the option off the view ignores the setting, also its change notifications.
     @MainActor
     func test_settingChanges_withTheOptionOff_installsNothingAgain() throws {
@@ -309,6 +331,39 @@ final class BlurUIViewCollaborationTests: XCTestCase {
 
         XCTAssertEqual(collaborators.log.entries.count, 1, "the rejection is logged once")
         XCTAssertEqual(collaborators.installer.installations.count, 0, "nothing is installed")
+    }
+
+    // MARK: - Failures with a handler
+
+    @MainActor
+    func test_apply_effectUnavailableWithAHandler_reportsToTheHandlerAndLogsNothing() async throws {
+        let (sut, collaborators) = try makeSUT()
+        var reports: [DMVariableBlurError] = []
+        sut.failureHandler = { reports.append($0) }
+        collaborators.installer.outcome = .unavailable(.filterTypeMissing)
+
+        sut.apply(validConfiguration)
+        try await Task.sleep(for: .milliseconds(50))
+
+        XCTAssertEqual(reports, [.effectUnavailable], "the handler receives the reason")
+        XCTAssertEqual(collaborators.log.entries, [], "the log stays silent")
+    }
+
+    @MainActor
+    func test_layout_installingAgainFailsWithAHandler_reportsToTheHandlerOnce() async throws {
+        let (sut, collaborators) = try makeSUT()
+        var reports: [DMVariableBlurError] = []
+        sut.failureHandler = { reports.append($0) }
+        sut.apply(validConfiguration)
+        collaborators.installer.blurIsStillInstalled = false
+        collaborators.installer.outcome = .unavailable(.notApplied)
+
+        layOut(sut)
+        layOut(sut)
+        try await Task.sleep(for: .milliseconds(50))
+
+        XCTAssertEqual(reports, [.effectUnavailable], "the failure of the re-application is reported once")
+        XCTAssertEqual(collaborators.log.entries, [], "the log stays silent")
     }
 
     // MARK: - Layout passes

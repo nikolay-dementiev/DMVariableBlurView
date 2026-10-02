@@ -75,14 +75,17 @@ final class BlurRenderingTests: XCTestCase {
         expect(scene, bands: 0...0, atLeast: 0.60, "the top edge is sharp now")
     }
 
-    /// A uniform system blur gives the same picture, so this test cannot tell the variable
-    /// blur from the substitute the library shows when its set-up fails. The tests of the
-    /// other three modes can. The gap closes when the library reports its failures.
+    /// A uniform system blur gives the same picture as the full variable blur, so the picture
+    /// alone cannot tell them apart. The library reports when it shows the system blur
+    /// instead, so no report means the variable blur.
     @MainActor
-    func test_blurView_blurredFully_blursEveryBand() throws {
-        let scene = try render(makeSUT(direction: .blurredFully))
+    func test_blurView_blurredFully_blursEveryBandAndReportsNoFailure() throws {
+        var reports: [DMVariableBlurError] = []
+
+        let scene = try render(makeSUT(direction: .blurredFully).onFailure { reports.append($0) })
 
         expect(scene, bands: 0...19, atMost: blurredAtMost, "the whole overlay is blurred")
+        XCTAssertEqual(reports, [], "the variable blur is shown, not the substitute")
     }
 
     // MARK: - Helpers

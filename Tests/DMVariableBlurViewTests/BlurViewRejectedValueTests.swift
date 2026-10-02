@@ -37,6 +37,11 @@ final class BlurViewRejectedValueTests: XCTestCase {
     // MARK: - Helpers
 
     @MainActor
+    private func makeSUT(_ view: DMVariableBlurView, file: StaticString, line: UInt) throws -> HostedBlurView {
+        try HostedBlurView(view, file: file, line: line)
+    }
+
+    @MainActor
     private func expectRejection(
         of view: DMVariableBlurView,
         reportedAs reason: DMVariableBlurError,
@@ -45,7 +50,7 @@ final class BlurViewRejectedValueTests: XCTestCase {
         line: UInt = #line
     ) async throws {
         var reports: [DMVariableBlurError] = []
-        let sut = try HostedBlurView(view.onFailure { reports.append($0) }, file: file, line: line)
+        let sut = try makeSUT(view.onFailure { reports.append($0) }, file: file, line: line)
         defer { sut.hide() }
 
         try await Task.sleep(for: .milliseconds(50))

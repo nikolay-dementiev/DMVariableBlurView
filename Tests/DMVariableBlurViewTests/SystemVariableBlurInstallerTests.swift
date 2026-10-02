@@ -121,7 +121,7 @@ final class SystemVariableBlurInstallerTests: XCTestCase {
         let sut = makeSUT()
         XCTAssertEqual(sut.install(maxBlurRadius: 7, mask: mask, on: effectView), .installed, "precondition")
 
-        XCTAssertTrue(sut.isInstalled(maxBlurRadius: 7, mask: mask, on: effectView))
+        XCTAssertTrue(sut.isInstalled(maxBlurRadius: 7, mask: mask, on: effectView), "the installed blur is found")
     }
 
     /// Assigning an effect makes UIKit put the standard filters back and show the tint.
@@ -134,7 +134,7 @@ final class SystemVariableBlurInstallerTests: XCTestCase {
 
         effectView.effect = UIBlurEffect(style: .dark)
 
-        XCTAssertFalse(sut.isInstalled(maxBlurRadius: 7, mask: mask, on: effectView))
+        XCTAssertFalse(sut.isInstalled(maxBlurRadius: 7, mask: mask, on: effectView), "the rebuilt effect is not the blur")
     }
 
     @MainActor
@@ -160,7 +160,7 @@ final class SystemVariableBlurInstallerTests: XCTestCase {
 
         effectView.subviews.last?.alpha = 1
 
-        XCTAssertFalse(sut.isInstalled(maxBlurRadius: 7, mask: mask, on: effectView))
+        XCTAssertFalse(sut.isInstalled(maxBlurRadius: 7, mask: mask, on: effectView), "a visible tint means a rebuild")
     }
 
     @MainActor

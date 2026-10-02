@@ -100,6 +100,13 @@ final class BlurViewReapplicationTests: XCTestCase {
         )
         XCTAssertEqual(sut.radius, 7, "after \(event) the radius is kept", file: file, line: line)
         XCTAssertEqual(sut.tintAlphas, [0], "after \(event) the tint stays hidden", file: file, line: line)
+        XCTAssertEqual(
+            sut.backdropScale,
+            sut.window.screen.scale,
+            "after \(event) the backdrop keeps the scale of the screen",
+            file: file,
+            line: line
+        )
         assertMaskProfile(of: sut, matches: MaskProfileFixtures.topZeroOffset, file: file, line: line)
     }
 }

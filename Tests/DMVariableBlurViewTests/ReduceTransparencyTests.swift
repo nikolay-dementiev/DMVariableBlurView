@@ -8,7 +8,7 @@ final class ReduceTransparencyTests: XCTestCase {
     @MainActor
     func test_blurView_optionOnAndSettingOff_showsTheVariableBlur() throws {
         try XCTSkipIf(UIAccessibility.isReduceTransparencyEnabled, "the device has Reduce Transparency on")
-        let sut = try HostedBlurView(
+        let sut = try makeSUT(
             DMVariableBlurView(maxBlurRadius: 7, direction: .blurredTopClearBottom).respectsReduceTransparency()
         )
         defer { sut.hide() }
@@ -21,7 +21,7 @@ final class ReduceTransparencyTests: XCTestCase {
     /// updated.
     @MainActor
     func test_blurView_respectsReduceTransparency_setsTheOptionOfTheUIKitView() throws {
-        let sut = try HostedBlurView(DMVariableBlurView().respectsReduceTransparency())
+        let sut = try makeSUT(DMVariableBlurView().respectsReduceTransparency())
         defer { sut.hide() }
         let afterMake = sut.blurView.respectsReduceTransparency
 
@@ -56,5 +56,12 @@ final class ReduceTransparencyTests: XCTestCase {
         NotificationCenter.default.post(name: UIAccessibility.reduceTransparencyStatusDidChangeNotification, object: nil)
 
         XCTAssertEqual(calls, 1)
+    }
+
+    // MARK: - Helpers
+
+    @MainActor
+    private func makeSUT(_ view: DMVariableBlurView) throws -> HostedBlurView {
+        try HostedBlurView(view)
     }
 }

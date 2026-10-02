@@ -12,6 +12,7 @@ final class BlurViewUpdateTests: XCTestCase {
 
         XCTAssertTrue(updated === sut.blurView, "SwiftUI keeps the UIKit view and updates it")
         XCTAssertEqual(sut.radius, 9, "the new radius is installed")
+        XCTAssertEqual(sut.backdropScale, sut.window.screen.scale, "the backdrop keeps the scale of the screen")
         assertMaskProfile(of: sut, matches: MaskProfileFixtures.bottomZeroOffset)
     }
 
