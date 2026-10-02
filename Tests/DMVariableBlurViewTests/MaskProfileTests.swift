@@ -154,7 +154,7 @@ final class MaskProfileTests: XCTestCase {
                 try makeSUT(.blurredCenterClearTopBottom(centerBandProportion: proportion)),
                 "a proportion of \(proportion) is outside 0...1"
             ) { error in
-                guard case .centerBandProportionOutOfRange(let value)? = error as? DMVariableBlurError else {
+                guard case .invalidCenterBandProportion(let value)? = error as? DMVariableBlurError else {
                     return XCTFail("a proportion of \(proportion) throws \(error)")
                 }
                 XCTAssertEqual(value, proportion, "the error carries the rejected value")

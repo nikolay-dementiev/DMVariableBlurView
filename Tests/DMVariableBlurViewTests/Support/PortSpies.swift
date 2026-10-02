@@ -50,6 +50,20 @@ final class MaskImageRendererSpy: MaskImageRenderer {
     }
 }
 
+/// Records the failures a blur view writes to its log.
+final class FailureLogSpy: FailureLog {
+    struct Entry: Equatable {
+        let error: DMVariableBlurError
+        let detail: String?
+    }
+
+    private(set) var entries: [Entry] = []
+
+    func record(_ error: DMVariableBlurError, detail: String?) {
+        entries.append(Entry(error: error, detail: detail))
+    }
+}
+
 extension XCTestCase {
     /// A one-pixel image that stands for a rendered mask.
     func makeMaskImage(file: StaticString = #filePath, line: UInt = #line) throws -> CGImage {
