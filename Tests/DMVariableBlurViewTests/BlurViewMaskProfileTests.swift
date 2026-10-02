@@ -1,5 +1,4 @@
 import DMVariableBlurView
-import SwiftUI
 import XCTest
 
 /// The mask the library builds for each direction, compared row by row with the profiles

@@ -1,5 +1,4 @@
 import DMVariableBlurView
-import SwiftUI
 import XCTest
 
 /// What the SwiftUI view installs on the system views for a valid configuration.
