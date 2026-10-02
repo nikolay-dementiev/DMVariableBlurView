@@ -29,9 +29,10 @@ mkdir -p "$WORK"
 # emits declarations in the order of the source files, so the top-level declarations are
 # sorted: moving a type to another file must not look like an API change. An attribute
 # that the compiler prints on a line of its own, such as @available, stays with the
-# declaration below it: moving it to another declaration is an API change.
+# declaration below it, and a compiler condition (#if ... #endif) stays one block with
+# what it guards: moving either to another declaration is an API change.
 normalize() {
-    grep -v -E '^(//|import )' "$1" | python3 -c '
+    { grep -v -E '^(//|import )' "$1" || true; } | python3 -c '
 import sys
 
 def attributes_only(line):
@@ -46,21 +47,38 @@ def attributes_only(line):
         while position < end and (line[position].isalnum() or line[position] in "_."):
             position += 1
         if position < end and line[position] == "(":
-            depth = 0
+            # Parentheses inside a string literal, such as a message, do not count.
+            depth, in_string = 0, False
             while position < end:
-                depth += {"(": 1, ")": -1}.get(line[position], 0)
+                character = line[position]
+                if in_string:
+                    if character == "\\":
+                        position += 1
+                    elif character == "\"":
+                        in_string = False
+                elif character == "\"":
+                    in_string = True
+                elif character == "(":
+                    depth += 1
+                elif character == ")":
+                    depth -= 1
                 position += 1
                 if depth == 0:
                     break
     return True
 
-blocks, current = [], []
+blocks, current, conditions = [], [], 0
 for line in sys.stdin.read().splitlines():
     starts_declaration = bool(line) and not line[0].isspace() and line != "}"
-    if starts_declaration and current and not all(attributes_only(held) for held in current):
+    if starts_declaration and current and conditions == 0 and not all(attributes_only(held) for held in current):
         blocks.append("\n".join(current))
         current = []
     current.append(line)
+    directive = line.lstrip()
+    if directive.startswith("#if"):
+        conditions += 1
+    elif directive.startswith("#endif"):
+        conditions -= 1
 if current:
     blocks.append("\n".join(current))
 print("\n".join(sorted(blocks)))
