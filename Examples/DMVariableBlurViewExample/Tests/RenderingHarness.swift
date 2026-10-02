@@ -101,8 +101,8 @@ enum RenderingHarness {
         for _ in 0..<attempts {
             RunLoop.main.run(until: Date().addingTimeInterval(pause))
             let (image, drew) = capture(window)
-            let rows = rowContrast(of: image)
-            let reference = mean(of: rows, from: referenceRows.lowerBound, to: referenceRows.upperBound)
+            let rows = image.cgImage.map(BandAnalysis.rowContrast) ?? []
+            let reference = BandAnalysis.mean(of: rows, from: referenceRows.lowerBound, to: referenceRows.upperBound)
             lastReference = reference
             lastDrew = drew
             guard drew, reference >= minimumReference else {
@@ -111,7 +111,7 @@ enum RenderingHarness {
             }
             let bandHeight = Int(overlayHeight) / bandCount
             let bands = (0..<bandCount).map { band in
-                mean(of: rows, from: band * bandHeight, to: (band + 1) * bandHeight) / reference
+                BandAnalysis.mean(of: rows, from: band * bandHeight, to: (band + 1) * bandHeight) / reference
             }
             if let previous, zip(previous, bands).allSatisfy({ abs($0 - $1) <= agreement }) {
                 agreed += 1
@@ -147,41 +147,5 @@ enum RenderingHarness {
             drew = window.drawHierarchy(in: CGRect(origin: .zero, size: sceneSize), afterScreenUpdates: true)
         }
         return (image, drew)
-    }
-
-    /// The contrast of every pixel row of the image, top row first.
-    private static func rowContrast(of image: UIImage) -> [Double] {
-        guard let cgImage = image.cgImage else { return [] }
-        let width = cgImage.width
-        let height = cgImage.height
-        var pixels = [UInt8](repeating: 0, count: width * height * 4)
-        let drawn = pixels.withUnsafeMutableBytes { buffer -> Bool in
-            guard let context = CGContext(
-                data: buffer.baseAddress,
-                width: width,
-                height: height,
-                bitsPerComponent: 8,
-                bytesPerRow: width * 4,
-                space: CGColorSpaceCreateDeviceRGB(),
-                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-            ) else { return false }
-            context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
-            return true
-        }
-        guard drawn, width > 1 else { return [] }
-        return (0..<height).map { row in
-            var total = 0
-            for column in 0..<(width - 1) {
-                let left = Int(pixels[(row * width + column) * 4])
-                let right = Int(pixels[(row * width + column + 1) * 4])
-                total += abs(left - right)
-            }
-            return Double(total) / Double(width - 1)
-        }
-    }
-
-    private static func mean(of rows: [Double], from start: Int, to end: Int) -> Double {
-        let slice = rows[min(start, rows.count)..<min(end, rows.count)]
-        return slice.isEmpty ? 0 : slice.reduce(0, +) / Double(slice.count)
     }
 }

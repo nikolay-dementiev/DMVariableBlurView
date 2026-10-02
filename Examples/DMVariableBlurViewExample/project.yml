@@ -53,6 +53,8 @@ targets:
         type: syncedFolder
       - path: Shared
         type: syncedFolder
+      - path: TestSupport
+        type: syncedFolder
     dependencies:
       - target: DMVariableBlurViewExample
       # The tests reach the library through the host app. Linking it a second time
@@ -65,15 +67,32 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         TEST_HOST: "$(BUILT_PRODUCTS_DIR)/DMVariableBlurViewExample.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/DMVariableBlurViewExample"
         BUNDLE_LOADER: "$(TEST_HOST)"
+  DMVariableBlurViewExampleUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: UITests
+        type: syncedFolder
+      - path: TestSupport
+        type: syncedFolder
+    dependencies:
+      - target: DMVariableBlurViewExample
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.dmvariableblurview.example.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: DMVariableBlurViewExample
 schemes:
   DMVariableBlurViewExample:
     build:
       targets:
         DMVariableBlurViewExample: all
         DMVariableBlurViewExampleTests: [test]
+        DMVariableBlurViewExampleUITests: [test]
     run:
       config: Debug
     test:
       config: Debug
       targets:
         - DMVariableBlurViewExampleTests
+        - DMVariableBlurViewExampleUITests

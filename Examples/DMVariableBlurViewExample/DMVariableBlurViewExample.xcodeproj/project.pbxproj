@@ -11,6 +11,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		AFB13FBFCA3255FACEC46C58 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = CF2489C57951D400A23D45EA /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1F9DCABAE4569FC6DDFB5650;
+			remoteInfo = DMVariableBlurViewExample;
+		};
 		C3561A8756A51E1C9A3A86E0 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = CF2489C57951D400A23D45EA /* Project object */;
@@ -21,12 +28,22 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		51D1C4A703D7337A4CBC0CA2 /* DMVariableBlurViewExampleUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = DMVariableBlurViewExampleUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		642AA39119227A96DF9DD9D9 /* DMVariableBlurView */ = {isa = PBXFileReference; lastKnownFileType = folder; name = DMVariableBlurView; path = ../..; sourceTree = SOURCE_ROOT; };
 		A4898D9C36E00782DE3FFE9B /* DMVariableBlurViewExample.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = DMVariableBlurViewExample.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D69C2666D07D4A3DF8EFC21F /* DMVariableBlurViewExampleTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = DMVariableBlurViewExampleTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		443CC5EAAFE8B5236463D9B3 /* UITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = UITests;
+			sourceTree = "<group>";
+		};
 		4C4893CAB0482567A4B1A820 /* Tests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			explicitFileTypes = {
@@ -43,6 +60,15 @@
 			explicitFolders = (
 			);
 			path = App;
+			sourceTree = "<group>";
+		};
+		6D866E102A9559073147102A /* TestSupport */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = TestSupport;
 			sourceTree = "<group>";
 		};
 		E56469B58D7B9D9CC43F2E90 /* Shared */ = {
@@ -75,6 +101,8 @@
 				C9FA04CF47572F44E49DD17E /* Packages */,
 				E56469B58D7B9D9CC43F2E90 /* Shared */,
 				4C4893CAB0482567A4B1A820 /* Tests */,
+				6D866E102A9559073147102A /* TestSupport */,
+				443CC5EAAFE8B5236463D9B3 /* UITests */,
 				EB62721AFBC6297AD32FEA3A /* Products */,
 			);
 			sourceTree = "<group>";
@@ -92,6 +120,7 @@
 			children = (
 				A4898D9C36E00782DE3FFE9B /* DMVariableBlurViewExample.app */,
 				D69C2666D07D4A3DF8EFC21F /* DMVariableBlurViewExampleTests.xctest */,
+				51D1C4A703D7337A4CBC0CA2 /* DMVariableBlurViewExampleUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -123,6 +152,29 @@
 			productReference = A4898D9C36E00782DE3FFE9B /* DMVariableBlurViewExample.app */;
 			productType = "com.apple.product-type.application";
 		};
+		AFACC58069922E81ACFA584F /* DMVariableBlurViewExampleUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7BF1808CF44BBACA175E91E9 /* Build configuration list for PBXNativeTarget "DMVariableBlurViewExampleUITests" */;
+			buildPhases = (
+				FA9BE42582A458873A87D864 /* Sources */,
+				366BC0E7D4C00C594308628B /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				E13D8ED393FE4CB7030F388F /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				6D866E102A9559073147102A /* TestSupport */,
+				443CC5EAAFE8B5236463D9B3 /* UITests */,
+			);
+			name = DMVariableBlurViewExampleUITests;
+			packageProductDependencies = (
+			);
+			productName = DMVariableBlurViewExampleUITests;
+			productReference = 51D1C4A703D7337A4CBC0CA2 /* DMVariableBlurViewExampleUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 		FAC6A7A500E730732C4DDC14 /* DMVariableBlurViewExampleTests */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 014EFB822E0442B0F1C9F1C8 /* Build configuration list for PBXNativeTarget "DMVariableBlurViewExampleTests" */;
@@ -138,6 +190,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				E56469B58D7B9D9CC43F2E90 /* Shared */,
+				6D866E102A9559073147102A /* TestSupport */,
 				4C4893CAB0482567A4B1A820 /* Tests */,
 			);
 			name = DMVariableBlurViewExampleTests;
@@ -159,6 +212,11 @@
 					1F9DCABAE4569FC6DDFB5650 = {
 						DevelopmentTeam = "";
 						ProvisioningStyle = Automatic;
+					};
+					AFACC58069922E81ACFA584F = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+						TestTargetID = 1F9DCABAE4569FC6DDFB5650;
 					};
 					FAC6A7A500E730732C4DDC14 = {
 						DevelopmentTeam = "";
@@ -185,11 +243,19 @@
 			targets = (
 				1F9DCABAE4569FC6DDFB5650 /* DMVariableBlurViewExample */,
 				FAC6A7A500E730732C4DDC14 /* DMVariableBlurViewExampleTests */,
+				AFACC58069922E81ACFA584F /* DMVariableBlurViewExampleUITests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		366BC0E7D4C00C594308628B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		4D9DDB9C9568CFB23DCBD416 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -221,6 +287,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		FA9BE42582A458873A87D864 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -233,9 +306,31 @@
 			isa = PBXTargetDependency;
 			productRef = "TEMP_62F21AFD-64C9-4A2C-BBBA-C83884C1524E" /* DMVariableBlurView */;
 		};
+		E13D8ED393FE4CB7030F388F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1F9DCABAE4569FC6DDFB5650 /* DMVariableBlurViewExample */;
+			targetProxy = AFB13FBFCA3255FACEC46C58 /* PBXContainerItemProxy */;
+		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		33C7E07EFC0EF3F797598C3A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.dmvariableblurview.example.uitests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = DMVariableBlurViewExample;
+			};
+			name = Debug;
+		};
 		35B4B5A7BBDAC475527E5CE2 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -424,6 +519,23 @@
 			};
 			name = Release;
 		};
+		C0DBEC649E48E20D2F2BDED7 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.dmvariableblurview.example.uitests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = DMVariableBlurViewExample;
+			};
+			name = Release;
+		};
 		D17DACDCBF46C6CAF43D6A30 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -449,6 +561,15 @@
 			buildConfigurations = (
 				D17DACDCBF46C6CAF43D6A30 /* Debug */,
 				35B4B5A7BBDAC475527E5CE2 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		7BF1808CF44BBACA175E91E9 /* Build configuration list for PBXNativeTarget "DMVariableBlurViewExampleUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				33C7E07EFC0EF3F797598C3A /* Debug */,
+				C0DBEC649E48E20D2F2BDED7 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

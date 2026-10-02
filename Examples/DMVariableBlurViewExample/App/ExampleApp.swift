@@ -4,7 +4,11 @@ import SwiftUI
 struct ExampleApp: App {
     var body: some Scene {
         WindowGroup {
-            GalleryView()
+            if let scene = UITestScene.requested() {
+                scene.view
+            } else {
+                GalleryView()
+            }
         }
     }
 }

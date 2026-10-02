@@ -35,6 +35,20 @@
                ReferencedContainer = "container:DMVariableBlurViewExample.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "NO"
+            buildForProfiling = "NO"
+            buildForArchiving = "NO"
+            buildForAnalyzing = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "AFACC58069922E81ACFA584F"
+               BuildableName = "DMVariableBlurViewExampleUITests.xctest"
+               BlueprintName = "DMVariableBlurViewExampleUITests"
+               ReferencedContainer = "container:DMVariableBlurViewExample.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction
@@ -61,6 +75,17 @@
                BlueprintIdentifier = "FAC6A7A500E730732C4DDC14"
                BuildableName = "DMVariableBlurViewExampleTests.xctest"
                BlueprintName = "DMVariableBlurViewExampleTests"
+               ReferencedContainer = "container:DMVariableBlurViewExample.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "AFACC58069922E81ACFA584F"
+               BuildableName = "DMVariableBlurViewExampleUITests.xctest"
+               BlueprintName = "DMVariableBlurViewExampleUITests"
                ReferencedContainer = "container:DMVariableBlurViewExample.xcodeproj">
             </BuildableReference>
          </TestableReference>
