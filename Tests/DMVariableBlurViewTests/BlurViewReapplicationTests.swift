@@ -39,7 +39,7 @@ final class BlurViewReapplicationTests: XCTestCase {
         window.isHidden = false
         defer { window.isHidden = true }
         let sut = DMVariableBlurUIView(
-            maskRenderer: CoreImageMaskImageRenderer(),
+            maskRenderer: CoreGraphicsMaskImageRenderer(),
             installer: SystemVariableBlurInstaller(),
             failureLog: SystemFailureLog()
         )

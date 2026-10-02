@@ -49,11 +49,11 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
         super.init(effect: UIBlurEffect(style: .regular))
     }
 
-    /// A view that works with the system: Core Image draws the mask, the filter of the
+    /// A view that works with the system: CoreGraphics draws the mask, the filter of the
     /// system blurs, and failures go to the unified log.
     convenience init() {
         self.init(
-            maskRenderer: CoreImageMaskImageRenderer(),
+            maskRenderer: CoreGraphicsMaskImageRenderer(),
             installer: SystemVariableBlurInstaller(),
             failureLog: SystemFailureLog()
         )
