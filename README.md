@@ -5,7 +5,7 @@
 [![Swift Package Manager](https://img.shields.io/badge/Swift_Package_Manager-compatible-orange?style=flat-square)](https://img.shields.io/badge/Swift_Package_Manager-compatible-orange?style=flat-square)
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fnikolay-dementiev%2FDMVariableBlurView.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fnikolay-dementiev%2FDMVariableBlurView?ref=badge_shield)
 
-![](https://raw.githubusercontent.com/nikolay-dementiev/DMVariableBlurView/main/Sources/Helpers/Assets/blurredCenterClearTopBottom_blurredTopClearBottom_blurredBottomClearTop_blurredFully.jpeg)
+![](https://raw.githubusercontent.com/nikolay-dementiev/DMVariableBlurView/main/Documentation/Images/blur-modes.jpeg)
 
 ## Overview
 `DMVariableBlurView` is a SwiftUI-compatible SDK for applying dynamic blur effects with customizable configurations. It extends the work of:

@@ -4,6 +4,7 @@
 //  Created by Mykola Dementiev
 //
 
+import DMVariableBlurView
 import SwiftUI
 
 struct ContentView: View {

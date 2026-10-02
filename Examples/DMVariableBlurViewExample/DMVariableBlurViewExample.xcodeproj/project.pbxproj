@@ -231,7 +231,7 @@
 		};
 		90156CC050E29C7872DA5039 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			productRef = "TEMP_58BF8821-7309-40A1-AC6E-3E84E3DE7AB9" /* DMVariableBlurView */;
+			productRef = "TEMP_62F21AFD-64C9-4A2C-BBBA-C83884C1524E" /* DMVariableBlurView */;
 		};
 /* End PBXTargetDependency section */
 
@@ -256,7 +256,8 @@
 		39DF3028932B7DC8BBEED972 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = "";
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = "";
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				DEAD_CODE_STRIPPING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -405,7 +406,8 @@
 		B254D054AE42D5848BBD60A3 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = "";
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = "";
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				DEAD_CODE_STRIPPING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -483,7 +485,7 @@
 			isa = XCSwiftPackageProductDependency;
 			productName = DMVariableBlurView;
 		};
-		"TEMP_58BF8821-7309-40A1-AC6E-3E84E3DE7AB9" /* DMVariableBlurView */ = {
+		"TEMP_62F21AFD-64C9-4A2C-BBBA-C83884C1524E" /* DMVariableBlurView */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = DMVariableBlurView;
 		};
