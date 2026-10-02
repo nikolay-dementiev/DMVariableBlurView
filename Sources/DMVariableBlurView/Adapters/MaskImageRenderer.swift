@@ -11,6 +11,13 @@ package protocol MaskImageRenderer {
 
 /// Draws the mask with Core Image gradients, as release 1.0.0 does.
 struct CoreImageMaskImageRenderer: MaskImageRenderer {
+    /// The step of the drawing that gave no image.
+    enum Failure: Error {
+        case gradientWithoutImage
+        case compositeWithoutImage
+        case contextWithoutImage
+    }
+
     // The system stretches the mask over the view, so its size only sets how fine the
     // ramps are.
     private let extent = CGRect(x: 0, y: 0, width: 100, height: 100)
@@ -44,7 +51,7 @@ struct CoreImageMaskImageRenderer: MaskImageRenderer {
             compositeFilter.inputImage = rampImage
             compositeFilter.backgroundImage = combined
             guard let image = compositeFilter.outputImage else {
-                throw DMVariableBlurError.outputImageFromCIGradientFilter
+                throw Failure.compositeWithoutImage
             }
             return image
         }
@@ -63,14 +70,14 @@ struct CoreImageMaskImageRenderer: MaskImageRenderer {
         gradient.point0 = CGPoint(x: 0, y: y0)
         gradient.point1 = CGPoint(x: 0, y: y1)
         guard let image = gradient.outputImage else {
-            throw DMVariableBlurError.outputImageFromCIGradientFilter
+            throw Failure.gradientWithoutImage
         }
         return image.cropped(to: extent)
     }
 
     private func exportCGImage(from ciImage: CIImage, context: CIContext) throws -> CGImage {
         guard let cgImage = context.createCGImage(ciImage, from: extent) else {
-            throw DMVariableBlurError.createImageFromContext
+            throw Failure.contextWithoutImage
         }
         return cgImage
     }

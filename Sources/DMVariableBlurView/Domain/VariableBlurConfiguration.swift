@@ -17,9 +17,9 @@ package struct VariableBlurConfiguration {
 
     /// The mask the direction and the offset ask for.
     ///
-    /// - Throws: ``DMVariableBlurError/centerBandProportionOutOfRange(currentValue:)`` when
-    ///   the proportion of the center band is outside `0...1`.
-    package func maskProfile() throws -> BlurMaskProfile {
+    /// - Throws: ``DMVariableBlurError/invalidCenterBandProportion(_:)`` when the proportion
+    ///   of the center band is outside `0...1` or is not a number.
+    package func maskProfile() throws(DMVariableBlurError) -> BlurMaskProfile {
         switch direction {
         case .blurredTopClearBottom:
             return BlurMaskProfile(ramps: [
@@ -31,7 +31,7 @@ package struct VariableBlurConfiguration {
             ])
         case .blurredCenterClearTopBottom(let centerBandProportion):
             guard 0...1 ~= centerBandProportion else {
-                throw DMVariableBlurError.centerBandProportionOutOfRange(currentValue: centerBandProportion)
+                throw .invalidCenterBandProportion(centerBandProportion)
             }
             // The band is centered: the blur rises from each edge over the same distance.
             let margin = (1 - centerBandProportion) / 2

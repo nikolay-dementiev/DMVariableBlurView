@@ -16,10 +16,13 @@ struct UnifiedLogReader {
     }
 
     /// The lines of the library written since the reader was created.
+    ///
+    /// A position taken from a date can lie before that date, so the entries are also
+    /// filtered by their own date: lines of earlier tests in the process stay out.
     func libraryLines() throws -> [OSLogEntryLog] {
         let store = try OSLogStore(scope: .currentProcessIdentifier)
         return try store.getEntries(at: store.position(date: start))
             .compactMap { $0 as? OSLogEntryLog }
-            .filter { $0.subsystem == Self.librarySubsystem }
+            .filter { $0.subsystem == Self.librarySubsystem && $0.date >= start }
     }
 }

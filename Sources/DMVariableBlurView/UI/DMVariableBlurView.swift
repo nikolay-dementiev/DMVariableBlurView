@@ -19,14 +19,9 @@ public struct DMVariableBlurView: UIViewRepresentable {
     }
 
     public func makeUIView(context: Context) -> DMVariableBlurUIView {
-        do {
-            return try DMVariableBlurUIView(
-                maxBlurRadius: maxBlurRadius,
-                direction: direction,
-                startOffset: startOffset)
-        } catch {
-            return DMVariableBlurUIView()
-        }
+        let view = DMVariableBlurUIView()
+        view.apply(VariableBlurConfiguration(maxBlurRadius: maxBlurRadius, direction: direction, startOffset: startOffset))
+        return view
     }
 
     public func updateUIView(_ uiView: DMVariableBlurUIView, context: Context) {}
