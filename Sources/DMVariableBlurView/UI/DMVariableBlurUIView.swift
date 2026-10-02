@@ -82,7 +82,9 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
         self.reduceTransparency = reduceTransparency
         super.init(effect: UIBlurEffect(style: .regular))
         reduceTransparency.onChange { [weak self] in
-            self?.settingChanged()
+            // With the option off the view ignores the setting, its changes included.
+            guard let self, self.respectsReduceTransparency else { return }
+            self.settingChanged()
         }
     }
 
