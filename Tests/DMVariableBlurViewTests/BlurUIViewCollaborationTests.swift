@@ -254,6 +254,18 @@ final class BlurUIViewCollaborationTests: XCTestCase {
         XCTAssertEqual(collaborators.renderer.profiles.count, 1, "the kept mask is used, nothing is drawn again")
     }
 
+    /// With the option off the view ignores the setting, also its change notifications.
+    @MainActor
+    func test_settingChanges_withTheOptionOff_installsNothingAgain() throws {
+        let (sut, collaborators) = try makeSUT()
+        sut.apply(validConfiguration)
+
+        collaborators.reduceTransparency.simulateChange(to: true)
+        collaborators.reduceTransparency.simulateChange(to: false)
+
+        XCTAssertEqual(collaborators.installer.installations.count, 1)
+    }
+
     @MainActor
     func test_respectsReduceTransparency_setWhileTheSettingIsOn_takesEffectAtOnce() throws {
         let (sut, collaborators) = try makeSUT(reduceTransparencyEnabled: true)
