@@ -40,6 +40,21 @@ struct HostedBlurView {
         self.controller = controller
     }
 
+    /// A UIKit blur view placed in a window the way a UIKit host places it, with no
+    /// SwiftUI in between.
+    init(placing view: DMVariableBlurUIView) {
+        let controller = UIHostingController(rootView: AnyView(EmptyView()))
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 200, height: 400))
+        window.rootViewController = controller
+        window.isHidden = false
+        view.frame = controller.view.bounds
+        controller.view.addSubview(view)
+        window.layoutIfNeeded()
+        blurView = view
+        self.window = window
+        self.controller = controller
+    }
+
     /// Hands SwiftUI a new value of the hosted view, as a state change in a host would, and
     /// lays the window out.
     ///
