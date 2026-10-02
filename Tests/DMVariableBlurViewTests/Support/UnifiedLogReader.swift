@@ -4,10 +4,11 @@ import OSLog
 /// Reads the lines this test process wrote to the unified log.
 ///
 /// `OSLogStore(scope: .currentProcessIdentifier)` gives a process its own entries
-/// (iOS 15 and later, https://developer.apple.com/documentation/oslog/oslogstore).
-/// Entries reach the store with a delay that grows when many lines are written. So the
-/// reader writes a marker line of its own and reads until the marker is there: every line
-/// written before the marker is in the store by then.
+/// (iOS 15 and later). The reader writes a marker line when it is created and another one
+/// when it reads, and returns the lines of the library between the two. It compares no
+/// dates: the time stamp of an entry may lie a little before the wall clock of the moment
+/// it was written, so a filter by date could drop a line written right after the start.
+/// Entries reach the store with a delay, so the reader waits for its end marker.
 struct UnifiedLogReader {
     enum ReaderError: Error {
         case markerNotFound(String)
@@ -19,31 +20,40 @@ struct UnifiedLogReader {
     private static let markerCategory = "test-marker"
     private static let timeout: TimeInterval = 10
 
-    private let start: Date
+    private let beginMarker = UUID().uuidString
+    /// Only a lower bound for the position the store starts reading at.
+    private let searchStart = Date().addingTimeInterval(-60)
 
     /// Starts reading from now on: lines written before this call are not returned.
     init() {
-        start = Date()
+        Self.writeMarker(beginMarker)
     }
 
     /// The lines of the library written since the reader was created.
-    ///
-    /// A position taken from a date can lie before that date, so the entries are also
-    /// filtered by their own date: lines of earlier tests in the process stay out.
     func libraryLines() throws -> [OSLogEntryLog] {
-        let marker = UUID().uuidString
-        Logger(subsystem: Self.librarySubsystem, category: Self.markerCategory).notice("\(marker, privacy: .public)")
+        let endMarker = UUID().uuidString
+        Self.writeMarker(endMarker)
         let deadline = Date().addingTimeInterval(Self.timeout)
         repeat {
             let store = try OSLogStore(scope: .currentProcessIdentifier)
-            let lines = try store.getEntries(at: store.position(date: start))
+            let lines = try store.getEntries(at: store.position(date: searchStart))
                 .compactMap { $0 as? OSLogEntryLog }
-                .filter { $0.subsystem == Self.librarySubsystem && $0.date >= start }
-            if lines.contains(where: { $0.category == Self.markerCategory && $0.composedMessage == marker }) {
-                return lines.filter { $0.category != Self.markerCategory }
+                .filter { $0.subsystem == Self.librarySubsystem }
+            if let begin = lines.firstIndex(where: { Self.isMarker($0, beginMarker) }),
+               let end = lines.firstIndex(where: { Self.isMarker($0, endMarker) }),
+               begin < end {
+                return lines[lines.index(after: begin)..<end].filter { $0.category != Self.markerCategory }
             }
             RunLoop.current.run(until: Date().addingTimeInterval(0.05))
         } while Date() < deadline
-        throw ReaderError.markerNotFound(marker)
+        throw ReaderError.markerNotFound(endMarker)
+    }
+
+    private static func writeMarker(_ marker: String) {
+        Logger(subsystem: librarySubsystem, category: markerCategory).notice("\(marker, privacy: .public)")
+    }
+
+    private static func isMarker(_ line: OSLogEntryLog, _ marker: String) -> Bool {
+        line.category == markerCategory && line.composedMessage == marker
     }
 }
