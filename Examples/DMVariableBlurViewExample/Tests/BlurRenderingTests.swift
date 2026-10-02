@@ -8,7 +8,7 @@ import XCTest
 /// iOS 17.5 with radius 6 over two-point stripes:
 /// - a blurred band measures 0.00 to 0.03; the tests accept up to 0.10;
 /// - the clear edge of the top and bottom modes measures 0.93; the tests ask for 0.60;
-/// - the clear edges around a 0.3 centre band measure 0.52; the tests ask for 0.25;
+/// - the clear edges around a 0.3 center band measure 0.52; the tests ask for 0.25;
 /// - the bare stripes measure 1.00; the control asks for 0.90.
 final class BlurRenderingTests: XCTestCase {
     private let blurredAtMost = 0.10
@@ -37,7 +37,7 @@ final class BlurRenderingTests: XCTestCase {
     }
 
     @MainActor
-    func test_blurView_centreBand_blursTheMiddleAndKeepsBothEdgesSharp() throws {
+    func test_blurView_centerBand_blursTheMiddleAndKeepsBothEdgesSharp() throws {
         let direction = DMVariableBlurDirection.blurredCenterClearTopBottom(centerBandProportion: 0.3)
         let scene = try RenderingHarness.render(makeSUT(direction: direction))
 

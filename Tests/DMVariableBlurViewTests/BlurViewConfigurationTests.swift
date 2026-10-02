@@ -33,12 +33,12 @@ final class BlurViewConfigurationTests: XCTestCase {
     }
 
     @MainActor
-    func test_blurView_defaultArguments_useRadiusTwentyAndAThirtyPercentCentreBand() throws {
+    func test_blurView_defaultArguments_useRadiusTwentyAndAThirtyPercentCenterBand() throws {
         let sut = try makeSUT(DMVariableBlurView())
         defer { sut.hide() }
 
         XCTAssertEqual(sut.radius, 20, "the default maximum radius is 20")
-        assertMaskProfile(of: sut, matches: MaskProfileFixtures.centreThirtyPercent)
+        assertMaskProfile(of: sut, matches: MaskProfileFixtures.centerThirtyPercent)
     }
 
     // MARK: - Helpers

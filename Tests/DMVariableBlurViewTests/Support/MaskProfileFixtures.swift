@@ -41,7 +41,7 @@ enum MaskProfileFixtures {
     ]
 
     /// `.blurredCenterClearTopBottom(centerBandProportion: 0.3)`, the default direction.
-    static let centreThirtyPercent: [UInt8] = [
+    static let centerThirtyPercent: [UInt8] = [
         4, 11, 18, 26, 33, 40, 47, 55, 62, 69, 77, 84, 91, 98, 106, 113, 120, 128, 135, 142,
         149, 157, 164, 171, 178, 186, 193, 200, 208, 215, 222, 229, 237, 244, 251, 255, 255, 255, 255, 255,
         255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
@@ -50,7 +50,7 @@ enum MaskProfileFixtures {
     ]
 
     /// `.blurredCenterClearTopBottom(centerBandProportion: 0.4)`, the configuration DMUnLoader uses.
-    static let centreFortyPercent: [UInt8] = [
+    static let centerFortyPercent: [UInt8] = [
         4, 13, 21, 30, 38, 47, 55, 64, 72, 81, 89, 98, 106, 115, 123, 132, 140, 149, 157, 166,
         174, 183, 191, 200, 208, 217, 225, 234, 242, 251, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
         255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,

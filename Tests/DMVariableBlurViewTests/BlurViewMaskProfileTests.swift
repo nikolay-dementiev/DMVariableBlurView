@@ -37,23 +37,23 @@ final class BlurViewMaskProfileTests: XCTestCase {
     }
 
     @MainActor
-    func test_maskProfile_centreBandThirtyPercent_matchesTheRecordedProfile() throws {
+    func test_maskProfile_centerBandThirtyPercent_matchesTheRecordedProfile() throws {
         let sut = try makeSUT(direction: .blurredCenterClearTopBottom(centerBandProportion: 0.3))
         defer { sut.hide() }
 
-        assertMaskProfile(of: sut, matches: MaskProfileFixtures.centreThirtyPercent)
+        assertMaskProfile(of: sut, matches: MaskProfileFixtures.centerThirtyPercent)
     }
 
     /// The configuration the DMUnLoader package uses for its HUD background.
     @MainActor
-    func test_maskProfile_centreBandFortyPercentWithRadiusFour_matchesTheRecordedProfile() throws {
+    func test_maskProfile_centerBandFortyPercentWithRadiusFour_matchesTheRecordedProfile() throws {
         let sut = try makeSUT(
             radius: 4,
             direction: .blurredCenterClearTopBottom(centerBandProportion: 0.4)
         )
         defer { sut.hide() }
 
-        assertMaskProfile(of: sut, matches: MaskProfileFixtures.centreFortyPercent)
+        assertMaskProfile(of: sut, matches: MaskProfileFixtures.centerFortyPercent)
     }
 
     @MainActor
@@ -70,7 +70,7 @@ final class BlurViewMaskProfileTests: XCTestCase {
     /// ramps collapse to a point. This is a known defect, pinned here so that restructuring
     /// cannot change it by accident. The fix changes this test.
     @MainActor
-    func test_maskProfile_centreBandProportionOne_isClearInEveryRow() throws {
+    func test_maskProfile_centerBandProportionOne_isClearInEveryRow() throws {
         let sut = try makeSUT(direction: .blurredCenterClearTopBottom(centerBandProportion: 1))
         defer { sut.hide() }
 

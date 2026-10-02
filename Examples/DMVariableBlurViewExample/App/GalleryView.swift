@@ -5,7 +5,7 @@ import SwiftUI
 enum GalleryMode: String, CaseIterable, Identifiable {
     case top
     case bottom
-    case centre
+    case center
     case full
 
     var id: String { rawValue }
@@ -14,7 +14,7 @@ enum GalleryMode: String, CaseIterable, Identifiable {
         switch self {
         case .top: ".blurredTopClearBottom"
         case .bottom: ".blurredBottomClearTop"
-        case .centre: ".blurredCenterClearTopBottom"
+        case .center: ".blurredCenterClearTopBottom"
         case .full: ".blurredFully"
         }
     }
@@ -23,7 +23,7 @@ enum GalleryMode: String, CaseIterable, Identifiable {
         switch self {
         case .top: .blurredTopClearBottom
         case .bottom: .blurredBottomClearTop
-        case .centre: .blurredCenterClearTopBottom(centerBandProportion: 0.4)
+        case .center: .blurredCenterClearTopBottom(centerBandProportion: 0.4)
         case .full: .blurredFully
         }
     }
@@ -77,8 +77,8 @@ struct GalleryPage: View {
     GalleryPage(mode: .bottom)
 }
 
-#Preview("Centre band") {
-    GalleryPage(mode: .centre)
+#Preview("Center band") {
+    GalleryPage(mode: .center)
 }
 
 #Preview("Full") {
