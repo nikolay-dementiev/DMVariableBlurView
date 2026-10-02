@@ -1,6 +1,5 @@
 import SwiftUI
 import UIKit
-import XCTest
 
 /// What the harness measured in one rendered scene.
 struct RenderedScene {
@@ -44,8 +43,10 @@ enum RenderingHarnessError: Error, CustomStringConvertible {
 ///   between horizontal neighbours. For a band: the mean over its rows, divided by the
 ///   same measure of the reference strip.
 /// - **Readiness.** The render server draws the backdrop after the window is on screen.
-///   The harness captures until the reference strip is sharp and two captures in a row
-///   agree, and throws when that does not happen within its attempts.
+///   The harness captures until the reference strip is sharp and three captures in a row
+///   agree, which takes at least 0.3 seconds, and throws when that does not happen within
+///   its attempts. A backdrop that appears later than that makes a blur test fail with the
+///   captured image attached. It cannot make one pass.
 /// - **Failure.** `RenderedScene` carries the image and the band values, and the tests
 ///   attach both when an assertion fails.
 @MainActor
@@ -59,8 +60,16 @@ enum RenderingHarness {
     static let minimumReference = 100.0
 
     private static let attempts = 60
-    private static let pause: TimeInterval = 0.05
+    private static let pause: TimeInterval = 0.1
     private static let agreement = 0.02
+    /// Captures in a row that must agree before the scene counts as rendered.
+    private static let agreeingCaptures = 3
+
+    /// The measured rows of the reference strip. They keep clear of the overlay above the
+    /// strip and of the edge of the window below it.
+    private static var referenceRows: Range<Int> {
+        (Int(overlayHeight) + 15)..<(Int(sceneSize.height) - 5)
+    }
 
     static func render(_ overlay: some View) throws -> RenderedScene {
         let window = UIWindow(windowScene: try foregroundScene())
@@ -77,13 +86,14 @@ enum RenderingHarness {
         defer { window.isHidden = true }
 
         var previous: [Double]?
+        var agreed = 0
         var lastReference = 0.0
         var lastDrew = false
         for _ in 0..<attempts {
             RunLoop.main.run(until: Date().addingTimeInterval(pause))
             let (image, drew) = capture(window)
             let rows = rowContrast(of: image)
-            let reference = mean(of: rows, from: 415, to: 435)
+            let reference = mean(of: rows, from: referenceRows.lowerBound, to: referenceRows.upperBound)
             lastReference = reference
             lastDrew = drew
             guard drew, reference >= minimumReference else {
@@ -95,6 +105,11 @@ enum RenderingHarness {
                 mean(of: rows, from: band * bandHeight, to: (band + 1) * bandHeight) / reference
             }
             if let previous, zip(previous, bands).allSatisfy({ abs($0 - $1) <= agreement }) {
+                agreed += 1
+            } else {
+                agreed = 1
+            }
+            if agreed >= agreeingCaptures {
                 return RenderedScene(bands: bands, reference: reference, image: image)
             }
             previous = bands
