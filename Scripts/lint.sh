@@ -21,7 +21,7 @@ SWIFTLINT="$TOOLS/swiftlint"
 if [ ! -x "$SWIFTLINT" ]; then
     mkdir -p "$TOOLS"
     ARCHIVE="$TOOLS/portable_swiftlint.zip"
-    curl --fail --silent --show-error --location \
+    curl --fail --silent --show-error --location --retry 3 \
         "https://github.com/realm/SwiftLint/releases/download/$VERSION/portable_swiftlint.zip" \
         --output "$ARCHIVE"
     ACTUAL="$(shasum -a 256 "$ARCHIVE" | cut -d ' ' -f 1)"

@@ -35,6 +35,8 @@ fi
 
 mkdir -p "$WORK"
 COPY="$(mktemp -d "$WORK/copy.XXXXXX")"
+# The copy is throw-away. The generator log and the difference stay next to it.
+trap 'rm -rf "$COPY"' EXIT
 
 # The example folder is copied without its project, so the generated project cannot be
 # the committed one. The spec refers to the package as ../.. and the generator names the

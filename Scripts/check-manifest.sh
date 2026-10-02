@@ -17,6 +17,15 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORK="$ROOT/.build/check-manifest"
 FAILED=0
 
+# The version probe and the build folder are throw-away. The logs next to them stay.
+PROBE=""
+DERIVED=""
+cleanup() {
+    [ -z "$PROBE" ] || rm -rf "$PROBE"
+    [ -z "$DERIVED" ] || rm -rf "$DERIVED"
+}
+trap cleanup EXIT
+
 mkdir -p "$WORK"
 
 # 1. Static check of the manifest.
@@ -51,13 +60,16 @@ else
 fi
 
 # 2. Resolution by version, against a throw-away copy of the working tree with a tag.
+#    The probe repository must not depend on the git configuration of the machine: a
+#    signing requirement or a hook of the user would stop the commit.
 PROBE="$(mktemp -d "$WORK/version-probe.XXXXXX")"
 mkdir -p "$PROBE/package" "$PROBE/consumer/Sources/Probe"
 (cd "$ROOT" && git ls-files -z -- Package.swift Sources | xargs -0 -I{} rsync -R {} "$PROBE/package/")
 git -C "$PROBE/package" init -q
 git -C "$PROBE/package" add -A
-git -C "$PROBE/package" -c user.name=probe -c user.email=probe@example.invalid commit -q -m probe
-git -C "$PROBE/package" tag 99.0.0
+git -C "$PROBE/package" -c user.name=probe -c user.email=probe@example.invalid \
+    -c commit.gpgsign=false -c core.hooksPath=/dev/null commit -q -m probe
+git -C "$PROBE/package" -c tag.gpgsign=false tag 99.0.0
 cat > "$PROBE/consumer/Package.swift" <<EOF
 // swift-tools-version: 6.0
 import PackageDescription
@@ -88,7 +100,17 @@ if xcodebuild build \
     -derivedDataPath "$DERIVED" \
     ARCHS=arm64 ONLY_ACTIVE_ARCH=NO \
     > "$WORK/consumer-build.log" 2>&1; then
-    echo "check-manifest: Fixtures/Consumer builds against this checkout."
+    # A warning in the fixture is what a consumer of the released API would see, for
+    # example a deprecation. The build cannot turn warnings into errors as a whole:
+    # Xcode compiles a package dependency with its warnings suppressed.
+    WARNINGS="$(grep -E "/Fixtures/Consumer/[^:]*:[0-9]+:[0-9]+: warning:" "$WORK/consumer-build.log" | sort -u || true)"
+    if [ -n "$WARNINGS" ]; then
+        echo "check-manifest: Fixtures/Consumer builds with warnings:" >&2
+        echo "$WARNINGS" | head -20 >&2
+        FAILED=1
+    else
+        echo "check-manifest: Fixtures/Consumer builds against this checkout."
+    fi
 else
     echo "check-manifest: Fixtures/Consumer does not build. See ${WORK#"$ROOT"/}/consumer-build.log" >&2
     grep -E "error:" "$WORK/consumer-build.log" | sort -u | head -20 >&2 || true

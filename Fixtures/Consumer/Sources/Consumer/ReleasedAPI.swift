@@ -1,6 +1,8 @@
 import SwiftUI
 import DMVariableBlurView
 
+// This target is compiled and never run or shown, so its views carry no previews.
+
 /// Every call shape that release 1.0.0 accepts. None of them may stop compiling.
 @MainActor
 enum ReleasedAPI {
