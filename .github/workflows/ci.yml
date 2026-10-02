@@ -92,6 +92,16 @@ jobs:
 
   floor:
     # The oldest toolchain the tools version of Package.swift promises: Swift 6.0.
+    #
+    # What it proves: the sources of the library compile with the Swift 6.0 compiler of
+    # Xcode 16.0 against its iOS simulator SDK, in the language mode and with the upcoming
+    # feature of the manifest, warnings as errors. Object code is generated, so the
+    # diagnostics that run after type checking run too. What it does not prove: nothing is
+    # linked and no test runs here; the test job does that with newer toolchains.
+    #
+    # The compiler is called directly, as Scripts/check-api.sh does, because it needs the
+    # SDK only. An xcodebuild destination of Xcode 16.0 needs a simulator platform that the
+    # runners of this image do not always offer ("iOS 18.0 is not installed").
     name: floor
     runs-on: macos-15
     timeout-minutes: 20
@@ -101,13 +111,22 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Build with Swift 6.0
+      - name: Compile with Swift 6.0
         run: |
-          xcodebuild build \
-            -scheme DMVariableBlurView \
-            -sdk iphonesimulator \
-            -destination 'generic/platform=iOS Simulator' \
-            SWIFT_TREAT_WARNINGS_AS_ERRORS=YES
+          xcrun swiftc --version
+          sources=()
+          while IFS= read -r -d '' file; do
+            sources+=("$file")
+          done < <(find Sources/DMVariableBlurView -name '*.swift' -print0)
+          xcrun --sdk iphonesimulator swiftc \
+            -target arm64-apple-ios17.0-simulator \
+            -sdk "$(xcrun --sdk iphonesimulator --show-sdk-path)" \
+            -module-name DMVariableBlurView \
+            -package-name DMVariableBlurView \
+            -swift-version 6 -enable-upcoming-feature ExistentialAny \
+            -parse-as-library -whole-module-optimization -warnings-as-errors \
+            -c -o "$RUNNER_TEMP/DMVariableBlurView.o" \
+            "${sources[@]}"
 
   consumer:
     name: consumer
