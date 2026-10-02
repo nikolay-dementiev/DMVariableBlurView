@@ -11,6 +11,7 @@ package protocol ReduceTransparencySetting {
 }
 
 /// The setting as UIKit reports it.
+@MainActor
 package final class SystemReduceTransparencySetting: NSObject, ReduceTransparencySetting {
     private var handlers: [@MainActor () -> Void] = []
 
@@ -33,8 +34,18 @@ package final class SystemReduceTransparencySetting: NSObject, ReduceTransparenc
         handlers.append(handler)
     }
 
+    /// UIKit posts the notification on the main thread. A post from another thread is
+    /// moved to the main thread, because the handlers belong to the main actor.
     @objc
-    private func statusDidChange() {
+    private nonisolated func statusDidChange() {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { self.callHandlers() }
+            return
+        }
+        MainActor.assumeIsolated { callHandlers() }
+    }
+
+    private func callHandlers() {
         handlers.forEach { $0() }
     }
 }
