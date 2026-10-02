@@ -10,7 +10,7 @@ final class BlurViewAccessibilityTests: XCTestCase {
         defer { sut.hide() }
 
         XCTAssertFalse(sut.blurView.isAccessibilityElement, "the blur view is not an element")
-        XCTAssertEqual(sut.blurView.accessibilityElementCount(), 0, "it offers no elements of its own")
+        XCTAssertEqual(sut.blurView.accessibilityElements?.count ?? 0, 0, "it offers no elements of its own")
     }
 
     // MARK: - Helpers
