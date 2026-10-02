@@ -55,9 +55,11 @@ fi
 
 cp -R "$SANDBOX/$EXAMPLE/$PROJECT" "$SANDBOX/$EXAMPLE/$PROJECT.generated"
 
-# Only tracked files are compared: Xcode writes user data into the project folder.
+# Only tracked files are compared: Xcode writes user data into the project folder. The
+# resolved versions of the packages come from resolving them, not from the generator.
 mkdir -p "$COPY/committed"
-(cd "$ROOT" && git ls-files -z -- "$EXAMPLE/$PROJECT" | xargs -0 -I{} rsync -R {} "$COPY/committed/")
+(cd "$ROOT" && git ls-files -z -- "$EXAMPLE/$PROJECT" ":(exclude)$EXAMPLE/$PROJECT/project.xcworkspace/xcshareddata/swiftpm" \
+    | xargs -0 -I{} rsync -R {} "$COPY/committed/")
 
 # The generator gives the product of a package that a target does not link a new random
 # identifier on every run. It is the only part of the project that is not reproducible.
@@ -76,7 +78,8 @@ if [ "${1:-}" = "--update" ]; then
         sed -E "s/TEMP_[0-9A-F-]{36}/$KEPT_ID/g" "$GENERATED" > "$GENERATED.kept"
         mv "$GENERATED.kept" "$GENERATED"
     fi
-    rsync -a --delete --exclude xcuserdata "$SANDBOX/$EXAMPLE/$PROJECT.generated/" "$ROOT/$EXAMPLE/$PROJECT/"
+    rsync -a --delete --exclude xcuserdata --filter 'P /project.xcworkspace/xcshareddata/' \
+        "$SANDBOX/$EXAMPLE/$PROJECT.generated/" "$ROOT/$EXAMPLE/$PROJECT/"
     echo "check-example-project: the project was regenerated from its spec: $EXAMPLE/$PROJECT"
     exit 0
 fi

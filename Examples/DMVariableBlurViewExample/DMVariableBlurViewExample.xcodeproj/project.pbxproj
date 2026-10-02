@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		C62DC469E572BB4377A36AFC /* DMVariableBlurView in Frameworks */ = {isa = PBXBuildFile; productRef = 82FB12BE996AF268EF85F98A /* DMVariableBlurView */; };
+		CA9EDB85B924DDCDD3B370CF /* SnapshotTesting in Frameworks */ = {isa = PBXBuildFile; productRef = 1762D13E4F06961D705ADDF5 /* SnapshotTesting */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -83,6 +84,14 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		1FCA823A49ADC9E1065BAAAE /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CA9EDB85B924DDCDD3B370CF /* SnapshotTesting in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		C1E97DD9FE57C1B687234759 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -181,6 +190,7 @@
 			buildPhases = (
 				DA362D08901BC375E862B96F /* Sources */,
 				9A359C40E5459BB11E27359C /* Resources */,
+				1FCA823A49ADC9E1065BAAAE /* Frameworks */,
 			);
 			buildRules = (
 			);
@@ -195,6 +205,7 @@
 			);
 			name = DMVariableBlurViewExampleTests;
 			packageProductDependencies = (
+				1762D13E4F06961D705ADDF5 /* SnapshotTesting */,
 			);
 			productName = DMVariableBlurViewExampleTests;
 			productReference = D69C2666D07D4A3DF8EFC21F /* DMVariableBlurViewExampleTests.xctest */;
@@ -234,6 +245,7 @@
 			mainGroup = C28D11F11DA155CC94A9B79E;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				18C3BD24BD4B1784AA19B0B3 /* XCRemoteSwiftPackageReference "swift-snapshot-testing" */,
 				1A11C670651C1E63FAA33EC6 /* XCLocalSwiftPackageReference "../.." */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -601,7 +613,23 @@
 		};
 /* End XCLocalSwiftPackageReference section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		18C3BD24BD4B1784AA19B0B3 /* XCRemoteSwiftPackageReference "swift-snapshot-testing" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/pointfreeco/swift-snapshot-testing";
+			requirement = {
+				kind = exactVersion;
+				version = 1.19.6;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
+		1762D13E4F06961D705ADDF5 /* SnapshotTesting */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 18C3BD24BD4B1784AA19B0B3 /* XCRemoteSwiftPackageReference "swift-snapshot-testing" */;
+			productName = SnapshotTesting;
+		};
 		82FB12BE996AF268EF85F98A /* DMVariableBlurView */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = DMVariableBlurView;

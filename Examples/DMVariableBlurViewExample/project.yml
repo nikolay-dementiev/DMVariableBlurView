@@ -24,6 +24,10 @@ settings:
 packages:
   DMVariableBlurView:
     path: ../..
+  # Snapshot tests of the example only; never a dependency of the library.
+  SnapshotTesting:
+    url: https://github.com/pointfreeco/swift-snapshot-testing
+    exactVersion: 1.19.6
 targets:
   DMVariableBlurViewExample:
     type: application
@@ -61,6 +65,8 @@ targets:
       # would put two copies of every class into the test process.
       - package: DMVariableBlurView
         link: false
+      - package: SnapshotTesting
+        product: SnapshotTesting
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.dmvariableblurview.example.tests
