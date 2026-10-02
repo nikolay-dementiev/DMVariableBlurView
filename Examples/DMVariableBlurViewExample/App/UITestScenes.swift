@@ -6,7 +6,7 @@ enum UITestScene: String {
     /// Stripes under a blur of the top 70 % of the screen, and a button that switches the
     /// app to the dark appearance.
     case appearance
-    /// A button under a full blur that lets touches through: the recipe of the README.
+    /// A button under a full blur that lets touches through with `.allowsHitTesting(false)`.
     case passThrough
     /// The same button under a full blur that keeps its default and takes touches.
     case blocking
@@ -19,6 +19,7 @@ enum UITestScene: String {
         return UITestScene(rawValue: arguments[index + 1])
     }
 
+    @MainActor
     @ViewBuilder
     var view: some View {
         switch self {
@@ -35,10 +36,15 @@ enum UITestScene: String {
 /// The top 70 % of the screen is blurred over stripes; the stripes from 74 % to 84 % stay
 /// bare and serve as the reference of the measurement.
 struct AppearanceScene: View {
-    /// The share of the height the blur covers, which the UI test measures against.
+    /// The share of the height the blur covers. The UI test measures the same share of its
+    /// screenshot, so the two numbers change together.
     static let blurredShare = 0.7
 
-    @State private var isDark = false
+    @State private var isDark: Bool
+
+    init(isDark: Bool = false) {
+        _isDark = State(initialValue: isDark)
+    }
 
     var body: some View {
         GeometryReader { proxy in
@@ -53,11 +59,7 @@ struct AppearanceScene: View {
                         .accessibilityIdentifier("switch-to-dark")
                         .padding()
                         .background(Color.white)
-                    if isDark {
-                        Text("Dark")
-                            .accessibilityIdentifier("appearance-dark")
-                            .background(Color.white)
-                    }
+                    DarkAppearanceLabel()
                 }
                 .padding(.bottom, 40)
             }
@@ -65,6 +67,21 @@ struct AppearanceScene: View {
         .ignoresSafeArea()
         .statusBarHidden()
         .preferredColorScheme(isDark ? .dark : .light)
+    }
+}
+
+/// Shows "Dark" once the views receive the dark appearance. It follows the environment,
+/// not the button, so the UI test measures only after the change reached the views.
+private struct DarkAppearanceLabel: View {
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        if colorScheme == .dark {
+            Text(verbatim: "Dark")
+                .foregroundStyle(.black)
+                .accessibilityIdentifier("appearance-dark")
+                .background(Color.white)
+        }
     }
 }
 
@@ -80,7 +97,8 @@ struct TapScene: View {
                 Button("Tap me") { taps += 1 }
                     .accessibilityIdentifier("tap-target")
                     .font(.title)
-                Text("Taps: \(taps)")
+                // Verbatim: a localized number could be written with other digits.
+                Text(verbatim: "Taps: \(taps)")
                     .accessibilityIdentifier("tap-count")
             }
             DMVariableBlurView(direction: .blurredFully)
@@ -94,6 +112,10 @@ struct TapScene: View {
 
 #Preview("Appearance scene") {
     AppearanceScene()
+}
+
+#Preview("Appearance scene, dark") {
+    AppearanceScene(isDark: true)
 }
 
 #Preview("Touches pass through") {

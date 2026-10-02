@@ -8,8 +8,8 @@ final class BlurUITests: XCTestCase {
         continueAfterFailure = false
     }
 
-    /// The label appears after the switch, which only proves that the app got there; the
-    /// pixels of the screenshot prove the blur.
+    /// The label appears once the views have the dark appearance, which proves that the
+    /// change reached them; the pixels of the screenshot prove the blur.
     @MainActor
     func test_appearanceScene_appSwitchesToDark_keepsTheClearEdgeSharp() throws {
         let app = makeSUT(scene: "appearance")
