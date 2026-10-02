@@ -6,9 +6,34 @@ import UIKit
 
 /// credit https://github.com/jtrivedi/VariableBlurView
 public class DMVariableBlurUIView: UIVisualEffectView {
+    private let installer: any VariableBlurInstaller
 
-    init() {
+    /// A view that shows the plain blur of the system.
+    package init(installer: any VariableBlurInstaller) {
+        self.installer = installer
         super.init(effect: UIBlurEffect(style: .regular))
+    }
+
+    convenience init() {
+        self.init(installer: SystemVariableBlurInstaller())
+    }
+
+    /// A view that shows the variable blur of a configuration.
+    ///
+    /// The effect view is used for its backdrop, which draws filters over the views
+    /// underneath in real time.
+    package convenience init(
+        configuration: VariableBlurConfiguration,
+        maskRenderer: any MaskImageRenderer,
+        installer: any VariableBlurInstaller
+    ) throws {
+        self.init(installer: installer)
+
+        let mask = try maskRenderer.makeMaskImage(for: configuration.maskProfile())
+        let installation = installer.install(maxBlurRadius: configuration.maxBlurRadius, mask: mask, on: self)
+        if case .unavailable(let reason) = installation {
+            throw DMVariableBlurError(reason)
+        }
     }
 
     convenience init(
@@ -16,43 +41,15 @@ public class DMVariableBlurUIView: UIVisualEffectView {
         direction: DMVariableBlurDirection = .blurredCenterClearTopBottom(),
         startOffset: CGFloat = 0
     ) throws {
-        self.init()
-
-        // `CAFilter` is a private QuartzCore class that dynamically create using Objective-C runtime.
-        guard let CAFilter = NSClassFromString("CAFilter") as? NSObject.Type else {
-            throw VariableBlurError.findFilterFromVariableBlur
-        }
-        guard let variableBlur = CAFilter.self.perform(
-            NSSelectorFromString("filterWithType:"),
-            with: "variableBlur"
-        ).takeUnretainedValue() as? NSObject else {
-            throw VariableBlurError.findVariableBlurFromFilter
-        }
-
-        // The blur radius at each pixel depends on the alpha value of the corresponding pixel in the gradient mask.
-        // An alpha of 1 results in the max blur radius, while an alpha of 0 is completely unblurred.
-        let configuration = VariableBlurConfiguration(
-            maxBlurRadius: maxBlurRadius,
-            direction: direction,
-            startOffset: startOffset
+        try self.init(
+            configuration: VariableBlurConfiguration(
+                maxBlurRadius: maxBlurRadius,
+                direction: direction,
+                startOffset: startOffset
+            ),
+            maskRenderer: CoreImageMaskImageRenderer(),
+            installer: SystemVariableBlurInstaller()
         )
-        let gradientImage = try CoreImageMaskImageRenderer().makeMaskImage(for: configuration.maskProfile())
-
-        variableBlur.setValue(maxBlurRadius, forKey: "inputRadius")
-        variableBlur.setValue(gradientImage, forKey: "inputMaskImage")
-        variableBlur.setValue(true, forKey: "inputNormalizeEdges")
-
-        // We use a `UIVisualEffectView` here purely to get access to its `CABackdropLayer`,
-        // which is able to apply various, real-time CAFilters onto the views underneath.
-        let backdropLayer = subviews.first?.layer
-
-        // Replace the standard filters (i.e. `gaussianBlur`, `colorSaturate`, etc.) with only the variableBlur.
-        backdropLayer?.filters = [variableBlur]
-
-        // Get rid of the visual effect view's dimming/tint view, so we don't see a hard line.
-        for subview in subviews.dropFirst() {
-            subview.alpha = 0
-        }
     }
 
     @available(*, unavailable)
@@ -62,10 +59,23 @@ public class DMVariableBlurUIView: UIVisualEffectView {
 
     public override func didMoveToWindow() {
         // fixes visible pixelization at unblurred edge (https://github.com/nikstar/VariableBlur/issues/1)
-        guard let window, let backdropLayer = subviews.first?.layer else { return }
-        backdropLayer.setValue(window.screen.scale, forKey: "scale")
+        guard let window else { return }
+        installer.setBackdropScale(window.screen.scale, on: self)
     }
 
     /// The name release 1.0.0 gave the error type.
     typealias VariableBlurError = DMVariableBlurError
+}
+
+private extension DMVariableBlurError {
+    /// The error type has one case for a missing filter class and one case for every
+    /// other reason the system gives for not showing the effect.
+    init(_ reason: VariableBlurInstallation.Reason) {
+        switch reason {
+        case .filterClassMissing:
+            self = .findFilterFromVariableBlur
+        case .filterFactoryMissing, .filterTypeMissing, .filterCreationFailed, .backdropMissing, .notApplied:
+            self = .findVariableBlurFromFilter
+        }
+    }
 }
