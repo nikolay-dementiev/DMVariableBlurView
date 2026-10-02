@@ -23,10 +23,12 @@ CURRENT="$WORK/public-interface.txt"
 
 mkdir -p "$WORK"
 
+# The files are passed in one fixed order. A plain sort follows the locale of the machine,
+# and the order of the files is the order in which the compiler emits the declarations.
 SOURCES=()
 while IFS= read -r file; do
     SOURCES+=("$file")
-done < <(find "$ROOT/Sources/$MODULE" -name '*.swift' | sort)
+done < <(find "$ROOT/Sources/$MODULE" -name '*.swift' | LC_ALL=C sort)
 
 # The package cannot be built for the host, so the compiler is called for the simulator.
 # It is called directly, because the module and its main type share a name: qualified
