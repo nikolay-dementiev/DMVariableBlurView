@@ -205,6 +205,25 @@ jobs:
       - name: Lint the podspec and check what a consumer links
         run: Scripts/check-podspec.sh
 
+  docs:
+    name: docs
+    runs-on: macos-26
+    timeout-minutes: 20
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # A broken symbol link is a warning to DocC and an error here.
+      - name: Build the documentation
+        run: |
+          xcodebuild docbuild \
+            -scheme DMVariableBlurView \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            OTHER_DOCC_FLAGS="--warnings-as-errors"
+
   example:
     name: example (${{ matrix.name }})
     runs-on: ${{ matrix.runner }}
