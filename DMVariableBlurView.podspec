@@ -19,6 +19,8 @@ Pod::Spec.new do |s|
   s.source_files = 'Sources/DMVariableBlurView/**/*.swift'
   s.requires_arc = true
   s.frameworks = 'Foundation'
+  # The sources use the package access level, which needs the name of the package.
+  s.pod_target_xcconfig = { 'OTHER_SWIFT_FLAGS' => '-package-name DMVariableBlurView' }
   
   s.cocoapods_version = '>= 1.4.0'
   if s.respond_to?(:swift_versions) then

@@ -32,3 +32,11 @@ function_parameter_count:
 line_length:
   warning: 130
   error: 200
+
+custom_rules:
+  domain_imports:
+    name: "Domain imports"
+    included: "Sources/.*/Domain/.*\\.swift"
+    regex: '^\s*(@\w+\s+)*import\s+(?!CoreGraphics\b|Foundation\b)\w+'
+    message: "The Domain folder imports only Foundation and CoreGraphics: no UI and no rendering framework."
+    severity: error
