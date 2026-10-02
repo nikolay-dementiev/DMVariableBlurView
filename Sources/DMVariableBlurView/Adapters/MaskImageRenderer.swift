@@ -10,7 +10,7 @@ package protocol MaskImageRenderer {
 }
 
 /// Draws the mask with Core Image gradients, as release 1.0.0 does.
-struct CoreImageMaskImageRenderer: MaskImageRenderer {
+package struct CoreImageMaskImageRenderer: MaskImageRenderer {
     /// The step of the drawing that gave no image.
     enum Failure: Error {
         case gradientWithoutImage
@@ -22,7 +22,9 @@ struct CoreImageMaskImageRenderer: MaskImageRenderer {
     // ramps are.
     private let extent = CGRect(x: 0, y: 0, width: 100, height: 100)
 
-    func makeMaskImage(for profile: BlurMaskProfile) throws -> CGImage {
+    package init() {}
+
+    package func makeMaskImage(for profile: BlurMaskProfile) throws -> CGImage {
         let context = CIContext()
 
         // Core Image counts rows from the bottom edge, the profile counts from the top.

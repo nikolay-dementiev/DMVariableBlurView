@@ -29,6 +29,35 @@ final class BlurViewReapplicationTests: XCTestCase {
         expectTheVariableBlur(on: sut, after: "a new effect")
     }
 
+    /// The same without SwiftUI: the view in a plain UIKit hierarchy, with the collaborators
+    /// the library uses.
+    @MainActor
+    func test_blurUIView_inAUIKitHierarchy_appearanceChangesToDark_keepsTheVariableBlur() throws {
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 200, height: 400))
+        let controller = UIViewController()
+        window.rootViewController = controller
+        window.isHidden = false
+        defer { window.isHidden = true }
+        let sut = DMVariableBlurUIView(
+            maskRenderer: CoreImageMaskImageRenderer(),
+            installer: SystemVariableBlurInstaller(),
+            failureLog: SystemFailureLog()
+        )
+        sut.frame = controller.view.bounds
+        controller.view.addSubview(sut)
+        sut.apply(VariableBlurConfiguration(maxBlurRadius: 7, direction: .blurredTopClearBottom, startOffset: 0))
+        window.layoutIfNeeded()
+
+        window.overrideUserInterfaceStyle = .dark
+        window.layoutIfNeeded()
+
+        let filterTypes = (sut.subviews.first?.layer.filters ?? []).map {
+            (($0 as? NSObject)?.value(forKey: "type") as? String) ?? "unknown"
+        }
+        XCTAssertEqual(filterTypes, ["variableBlur"], "the backdrop carries the variable blur and nothing else")
+        XCTAssertEqual(sut.subviews.dropFirst().map(\.alpha), [0], "the tint stays hidden")
+    }
+
     // MARK: - Helpers
 
     @MainActor
