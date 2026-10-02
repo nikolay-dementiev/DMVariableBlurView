@@ -15,9 +15,8 @@
 set -euo pipefail
 
 # ==== Settings of this repository =======================================================
-# The packages DMAction, DMVariableBlurView and DMUnLoader share this script. Only this
-# block differs between them. Everything below the end marker is identical in the three:
-# a change there is made in the copy of DMVariableBlurView and synced to the other two.
+# Everything that is specific to this repository sits in this block, so the part below
+# the end marker can be shared by packages that check their coverage the same way.
 
 # The target whose line coverage is checked, as the coverage report names it.
 TARGET="DMVariableBlurView"
