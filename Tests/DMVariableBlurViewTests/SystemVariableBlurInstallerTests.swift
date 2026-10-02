@@ -5,9 +5,9 @@ import XCTest
 /// The installer against the real system, and against classes that behave like a system
 /// on which the private filter changed.
 ///
-/// The filter class is private, so no documentation describes its states. The two fake
+/// The filter class is private, so no documentation describes its states. The fake
 /// classes below model changes the guards of the installer are written for: a factory
-/// that returns nothing, and a filter that does not keep its values. The other guards are
+/// that returns nothing, and filters that do not keep their values. The other guards are
 /// reached with names the real system does not know.
 final class SystemVariableBlurInstallerTests: XCTestCase {
     @MainActor
@@ -80,6 +80,13 @@ final class SystemVariableBlurInstallerTests: XCTestCase {
     @MainActor
     func test_install_filterThatDoesNotKeepItsValues_reportsThatItWasNotAppliedAndRestoresTheStandardFilters() throws {
         let sut = SystemVariableBlurInstaller(filterClassName: "DMFilterClassWithForgetfulFilters")
+
+        try expect(sut, toReport: .notApplied)
+    }
+
+    @MainActor
+    func test_install_filterThatLosesItsMask_reportsThatItWasNotApplied() throws {
+        let sut = SystemVariableBlurInstaller(filterClassName: "DMFilterClassThatLosesMasks")
 
         try expect(sut, toReport: .notApplied)
     }
@@ -176,6 +183,34 @@ private final class FilterClassWithForgetfulFilters: NSObject {
     @objc(filterWithType:)
     static func filter(withType type: String) -> NSObject? {
         ForgetfulFilter()
+    }
+}
+
+/// A filter class whose filters keep their radius and lose their mask.
+@objc(DMFilterClassThatLosesMasks)
+private final class FilterClassThatLosesMasks: NSObject {
+    @objc
+    static func filterTypes() -> [String] {
+        ["variableBlur"]
+    }
+
+    @objc(filterWithType:)
+    static func filter(withType type: String) -> NSObject? {
+        MaskLosingFilter()
+    }
+}
+
+private final class MaskLosingFilter: NSObject {
+    private var radius: Any?
+
+    override func setValue(_ value: Any?, forUndefinedKey key: String) {
+        if key == "inputRadius" {
+            radius = value
+        }
+    }
+
+    override func value(forUndefinedKey key: String) -> Any? {
+        key == "inputRadius" ? radius : nil
     }
 }
 
