@@ -1,9 +1,3 @@
-public enum DMVariableBlurDirection {
-  case blurredTopClearBottom
-  case blurredBottomClearTop
-  case blurredCenterClearTopBottom(centerBandProportion: CoreFoundation.CGFloat = 0.3)
-  case blurredFully
-}
 @_Concurrency.MainActor @preconcurrency public struct DMVariableBlurView : SwiftUI.UIViewRepresentable {
   @_Concurrency.MainActor @preconcurrency public init(maxBlurRadius: CoreFoundation.CGFloat = 20, direction: DMVariableBlurView.DMVariableBlurDirection = .blurredCenterClearTopBottom(), startOffset: CoreFoundation.CGFloat = .zero)
   @_Concurrency.MainActor @preconcurrency public func makeUIView(context: DMVariableBlurView.DMVariableBlurView.Context) -> DMVariableBlurView.DMVariableBlurUIView
@@ -17,3 +11,9 @@ public enum DMVariableBlurDirection {
   @objc deinit
 }
 extension DMVariableBlurView.DMVariableBlurView : Swift.Sendable {}
+public enum DMVariableBlurDirection {
+  case blurredTopClearBottom
+  case blurredBottomClearTop
+  case blurredCenterClearTopBottom(centerBandProportion: CoreFoundation.CGFloat = 0.3)
+  case blurredFully
+}

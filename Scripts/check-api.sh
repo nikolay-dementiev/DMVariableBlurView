@@ -50,8 +50,21 @@ if ! xcrun --sdk iphonesimulator swiftc \
     exit 2
 fi
 
-# Header comments carry the compiler version and flags; imports are not API.
-grep -v -E '^(//|import )' "$INTERFACE" > "$CURRENT"
+# Header comments carry the compiler version and flags; imports are not API. The compiler
+# emits declarations in the order of the source files, so the top-level declarations are
+# sorted: moving a type to another file must not look like an API change.
+grep -v -E '^(//|import )' "$INTERFACE" | python3 -c '
+import sys
+blocks, current = [], []
+for line in sys.stdin.read().splitlines():
+    if line and not line[0].isspace() and line != "}" and current:
+        blocks.append("\n".join(current))
+        current = []
+    current.append(line)
+if current:
+    blocks.append("\n".join(current))
+print("\n".join(sorted(blocks)))
+' > "$CURRENT"
 
 if [ "${1:-}" = "--update" ]; then
     mkdir -p "$(dirname "$BASELINE")"
