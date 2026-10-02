@@ -112,3 +112,51 @@ public struct DMVariableBlurView: UIViewRepresentable {
         VariableBlurConfiguration(maxBlurRadius: maxBlurRadius, direction: direction, startOffset: startOffset)
     }
 }
+
+// The previews stay out of the release build that ships in an app.
+#if DEBUG
+
+// MARK: - Previews
+
+#Preview("Blurred top, clear bottom") {
+    BlurPreview(direction: .blurredTopClearBottom)
+}
+
+#Preview("Blurred bottom, clear top") {
+    BlurPreview(direction: .blurredBottomClearTop)
+}
+
+#Preview("Blurred center band") {
+    BlurPreview(direction: .blurredCenterClearTopBottom(centerBandProportion: 0.4))
+}
+
+#Preview("Blurred fully") {
+    BlurPreview(direction: .blurredFully)
+}
+
+#Preview("Rejected value: the plain blur of the system") {
+    BlurPreview(direction: .blurredTopClearBottom, maxBlurRadius: -1)
+}
+
+/// Labelled stripes under a blur, so that the course of the blur shows in the canvas.
+private struct BlurPreview: View {
+    let direction: DMVariableBlurDirection
+    var maxBlurRadius: CGFloat = 20
+
+    var body: some View {
+        ZStack {
+            VStack(spacing: 0) {
+                ForEach(1...12, id: \.self) { row in
+                    Text(verbatim: "Row \(row)")
+                        .font(.title2)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(row.isMultiple(of: 2) ? Color.orange : Color.teal)
+                }
+            }
+            DMVariableBlurView(maxBlurRadius: maxBlurRadius, direction: direction)
+        }
+        .ignoresSafeArea()
+    }
+}
+
+#endif
