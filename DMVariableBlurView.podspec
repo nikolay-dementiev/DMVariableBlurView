@@ -1,12 +1,12 @@
 
 Pod::Spec.new do |s|
   s.name             = 'DMVariableBlurView'
-  s.version          = '1.0.0'
-  s.summary          = 'SwiftUI-compatible SDK for applying dynamic blur effects with customizable configurations'
+  s.version          = '1.1.0'
+  s.summary          = 'A blur whose radius changes from row to row, for SwiftUI and UIKit.'
   s.description      = <<-DESC
-    a SwiftUI-compatible library for applying dynamic blur effects with customizable configurations. 
-    Features include support for multiple blur directions (e.g., blurredTopClearBottom, blurredFully), 
-    dynamic blur radius adjustments, and improved error handling.
+    DMVariableBlurView blurs what lies behind it. The blur is strongest where you ask for it
+    and fades linearly to clear: from the top, from the bottom, from a band across the middle,
+    or not at all. It uses a private filter of the system: read the README before you ship it.
                        DESC
 
   s.homepage         = 'https://github.com/nikolay-dementiev/DMVariableBlurView'
