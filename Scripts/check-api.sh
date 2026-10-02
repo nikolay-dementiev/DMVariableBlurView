@@ -2,8 +2,10 @@
 #
 # Compares the public interface of the library with the committed baseline.
 #
-#   Scripts/check-api.sh            compare, exit 1 on any difference
-#   Scripts/check-api.sh --update   rewrite the baseline from the current sources
+#   Scripts/check-api.sh               compare, exit 1 on any difference
+#   Scripts/check-api.sh --update      rewrite the baseline from the current sources
+#   Scripts/check-api.sh --self-test   run the normalisation on the cases in
+#                                      Fixtures/API/normalizer, no compiler needed
 #
 # Any difference fails. A removed or changed line is a break of the public contract.
 # An added line is new public API: run with --update and commit the baseline together
@@ -22,35 +24,6 @@ INTERFACE="$WORK/$MODULE.swiftinterface"
 CURRENT="$WORK/public-interface.txt"
 
 mkdir -p "$WORK"
-
-# The files are passed in one fixed order. A plain sort follows the locale of the machine,
-# and the order of the files is the order in which the compiler emits the declarations.
-SOURCES=()
-while IFS= read -r file; do
-    SOURCES+=("$file")
-done < <(find "$ROOT/Sources/$MODULE" -name '*.swift' | LC_ALL=C sort)
-
-# The package cannot be built for the host, so the compiler is called for the simulator.
-# It is called directly, because the module and its main type share a name: qualified
-# names in the emitted interface are ambiguous to the interface verifier, which a build
-# through xcodebuild always runs. The emitted text is still the complete interface.
-if ! xcrun --sdk iphonesimulator swiftc \
-    -target arm64-apple-ios17.0-simulator \
-    -sdk "$(xcrun --sdk iphonesimulator --show-sdk-path)" \
-    -module-name "$MODULE" \
-    -package-name "$MODULE" \
-    -swift-version 6 \
-    -enable-upcoming-feature ExistentialAny \
-    -enable-library-evolution \
-    -emit-module -emit-module-path "$WORK/$MODULE.swiftmodule" \
-    -emit-module-interface-path "$INTERFACE" \
-    -no-verify-emitted-module-interface \
-    "${SOURCES[@]}" \
-    > "$WORK/swiftc.log" 2>&1; then
-    echo "check-api: the library does not compile. See ${WORK#"$ROOT"/}/swiftc.log" >&2
-    grep -E "error:" "$WORK/swiftc.log" | sort -u | head -20 >&2 || true
-    exit 2
-fi
 
 # Header comments carry the compiler version and flags; imports are not API. The compiler
 # emits declarations in the order of the source files, so the top-level declarations are
@@ -93,6 +66,62 @@ if current:
 print("\n".join(sorted(blocks)))
 '
 }
+
+# Each case holds two interface texts and says whether they must normalise to the same
+# text. A change to normalize() that hides an API change, or reports one that is not
+# there, fails one of them.
+if [ "${1:-}" = "--self-test" ]; then
+    CASES="$ROOT/Fixtures/API/normalizer"
+    FAILED=0
+    for CASE in "$CASES"/*.txt; do
+        NAME="$(basename "$CASE" .txt)"
+        EXPECTED="$(sed -n 's/^# expect: //p' "$CASE")"
+        awk '/^--- A ---$/ { part = "A"; next } /^--- B ---$/ { part = "B"; next } part == "A"' "$CASE" > "$WORK/case-a.txt"
+        awk '/^--- B ---$/ { part = "B"; next } part == "B"' "$CASE" > "$WORK/case-b.txt"
+        if ! normalize "$WORK/case-a.txt" > "$WORK/case-a.normalized" || ! normalize "$WORK/case-b.txt" > "$WORK/case-b.normalized"; then
+            echo "check-api: FAIL $NAME: the normalisation stopped with an error" >&2
+            FAILED=1
+            continue
+        fi
+        if cmp -s "$WORK/case-a.normalized" "$WORK/case-b.normalized"; then ACTUAL="same"; else ACTUAL="different"; fi
+        if [ "$ACTUAL" = "$EXPECTED" ]; then
+            echo "check-api: ok   $NAME"
+        else
+            echo "check-api: FAIL $NAME: expected $EXPECTED, the normalised texts are $ACTUAL" >&2
+            FAILED=1
+        fi
+    done
+    exit "$FAILED"
+fi
+
+# The files are passed in one fixed order. A plain sort follows the locale of the machine,
+# and the order of the files is the order in which the compiler emits the declarations.
+SOURCES=()
+while IFS= read -r file; do
+    SOURCES+=("$file")
+done < <(find "$ROOT/Sources/$MODULE" -name '*.swift' | LC_ALL=C sort)
+
+# The package cannot be built for the host, so the compiler is called for the simulator.
+# It is called directly, because the module and its main type share a name: qualified
+# names in the emitted interface are ambiguous to the interface verifier, which a build
+# through xcodebuild always runs. The emitted text is still the complete interface.
+if ! xcrun --sdk iphonesimulator swiftc \
+    -target arm64-apple-ios17.0-simulator \
+    -sdk "$(xcrun --sdk iphonesimulator --show-sdk-path)" \
+    -module-name "$MODULE" \
+    -package-name "$MODULE" \
+    -swift-version 6 \
+    -enable-upcoming-feature ExistentialAny \
+    -enable-library-evolution \
+    -emit-module -emit-module-path "$WORK/$MODULE.swiftmodule" \
+    -emit-module-interface-path "$INTERFACE" \
+    -no-verify-emitted-module-interface \
+    "${SOURCES[@]}" \
+    > "$WORK/swiftc.log" 2>&1; then
+    echo "check-api: the library does not compile. See ${WORK#"$ROOT"/}/swiftc.log" >&2
+    grep -E "error:" "$WORK/swiftc.log" | sort -u | head -20 >&2 || true
+    exit 2
+fi
 
 normalize "$INTERFACE" > "$CURRENT"
 
