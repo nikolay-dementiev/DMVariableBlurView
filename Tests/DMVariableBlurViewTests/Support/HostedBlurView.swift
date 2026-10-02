@@ -112,13 +112,13 @@ struct HostedBlurView {
 extension XCTestCase {
     /// Compares the mask of a hosted blur view with a recorded profile, row by row.
     ///
-    /// The tolerance covers rounding in the renderer. The recorded profiles came out
-    /// identical on three iOS versions.
+    /// The tolerance of one step of 255 covers rounding in the renderer. The recorded
+    /// profiles came out identical on three iOS versions.
     @MainActor
     func assertMaskProfile(
         of sut: HostedBlurView,
         matches recorded: [UInt8],
-        tolerance: Int = 2,
+        tolerance: Int = 1,
         file: StaticString = #filePath,
         line: UInt = #line
     ) {

@@ -15,11 +15,11 @@ final class SystemVariableBlurInstallerTests: XCTestCase {
         let effectView = makeEffectView()
         let mask = try makeMaskImage()
 
-        let outcome = SystemVariableBlurInstaller().install(maxBlurRadius: 7.3, mask: mask, on: effectView)
+        let outcome = makeSUT().install(maxBlurRadius: 7.3, mask: mask, on: effectView)
 
         let filters = filters(of: effectView.subviews.first)
         XCTAssertEqual(outcome, .installed, "the system takes the filter")
-        XCTAssertEqual(filters.map(type(of:)), ["variableBlur"], "the backdrop carries the variable blur and nothing else")
+        XCTAssertEqual(filters.map(filterType(of:)), ["variableBlur"], "the backdrop carries the variable blur and nothing else")
         XCTAssertEqual(
             (filters.first?.value(forKey: "inputRadius") as? NSNumber)?.doubleValue,
             7.3,
@@ -41,75 +41,112 @@ final class SystemVariableBlurInstallerTests: XCTestCase {
         let tint = try XCTUnwrap(effectView.subviews.first)
         XCTAssertFalse(tint === backdrop, "precondition: the backdrop is no longer the first subview")
 
-        let outcome = SystemVariableBlurInstaller().install(maxBlurRadius: 7, mask: try makeMaskImage(), on: effectView)
+        let outcome = makeSUT().install(maxBlurRadius: 7, mask: try makeMaskImage(), on: effectView)
 
         XCTAssertEqual(outcome, .installed, "the system takes the filter")
-        XCTAssertEqual(filters(of: backdrop).map(type(of:)), ["variableBlur"], "the backdrop carries the variable blur")
+        XCTAssertEqual(filters(of: backdrop).map(filterType(of:)), ["variableBlur"], "the backdrop carries the variable blur")
         XCTAssertEqual(filters(of: tint).count, 0, "the other subview gets no filter")
         XCTAssertEqual([backdrop.alpha, tint.alpha], [1, 0], "the other subview is hidden and the backdrop is not")
     }
 
     @MainActor
     func test_install_filterClassTheSystemDoesNotHave_reportsTheMissingClass() throws {
-        let sut = SystemVariableBlurInstaller(filterClassName: "DMFilterClassTheSystemDoesNotHave")
+        let sut = makeSUT(filterClassName: "DMFilterClassTheSystemDoesNotHave")
 
         try expect(sut, toReport: .filterClassMissing)
     }
 
     @MainActor
     func test_install_classThatDoesNotAnswerTheFilterCalls_reportsTheMissingFactory() throws {
-        let sut = SystemVariableBlurInstaller(filterClassName: "NSObject")
+        let sut = makeSUT(filterClassName: "NSObject")
+
+        try expect(sut, toReport: .filterFactoryMissing)
+    }
+
+    @MainActor
+    func test_install_classThatListsNoTypes_reportsTheMissingFactory() throws {
+        let sut = makeSUT(filterClassName: "DMFilterClassWithoutTypeList")
+
+        try expect(sut, toReport: .filterFactoryMissing)
+    }
+
+    @MainActor
+    func test_install_classThatCreatesNoFilters_reportsTheMissingFactory() throws {
+        let sut = makeSUT(filterClassName: "DMFilterClassWithoutFactory")
 
         try expect(sut, toReport: .filterFactoryMissing)
     }
 
     @MainActor
     func test_install_filterTypeTheSystemDoesNotList_reportsTheMissingType() throws {
-        let sut = SystemVariableBlurInstaller(filterType: "dmBlurTheSystemDoesNotList")
+        let sut = makeSUT(filterType: "dmBlurTheSystemDoesNotList")
 
         try expect(sut, toReport: .filterTypeMissing)
     }
 
     @MainActor
     func test_install_factoryThatReturnsNothing_reportsTheFailedCreation() throws {
-        let sut = SystemVariableBlurInstaller(filterClassName: "DMFilterClassThatCreatesNothing")
+        let sut = makeSUT(filterClassName: "DMFilterClassThatCreatesNothing")
 
         try expect(sut, toReport: .filterCreationFailed)
     }
 
     @MainActor
     func test_install_filterThatDoesNotKeepItsValues_reportsThatItWasNotAppliedAndRestoresTheStandardFilters() throws {
-        let sut = SystemVariableBlurInstaller(filterClassName: "DMFilterClassWithForgetfulFilters")
+        let sut = makeSUT(filterClassName: "DMFilterClassWithForgetfulFilters")
 
         try expect(sut, toReport: .notApplied)
     }
 
     @MainActor
     func test_install_filterThatLosesItsMask_reportsThatItWasNotApplied() throws {
-        let sut = SystemVariableBlurInstaller(filterClassName: "DMFilterClassThatLosesMasks")
+        let sut = makeSUT(filterClassName: "DMFilterClassThatLosesMasks")
 
         try expect(sut, toReport: .notApplied)
+    }
+
+    /// Release 1.0.0 installs a radius that is not a number, and so does the installer.
+    @MainActor
+    func test_install_radiusThatIsNotANumber_isInstalled() throws {
+        let outcome = makeSUT().install(maxBlurRadius: .nan, mask: try makeMaskImage(), on: makeEffectView())
+
+        XCTAssertEqual(outcome, .installed)
     }
 
     @MainActor
     func test_install_effectViewWithoutAnEffect_reportsTheMissingBackdrop() throws {
         let effectView = UIVisualEffectView(effect: nil)
 
-        let outcome = SystemVariableBlurInstaller().install(maxBlurRadius: 7, mask: try makeMaskImage(), on: effectView)
+        let outcome = makeSUT().install(maxBlurRadius: 7, mask: try makeMaskImage(), on: effectView)
 
         XCTAssertEqual(outcome, .unavailable(.backdropMissing))
     }
 
     @MainActor
-    func test_setBackdropScale_setsTheScaleOfTheBackdropLayer() {
+    func test_setBackdropScale_onAnEffectView_setsTheScaleOfTheBackdropLayer() {
         let effectView = makeEffectView()
 
-        SystemVariableBlurInstaller().setBackdropScale(3, on: effectView)
+        makeSUT().setBackdropScale(3, on: effectView)
 
         XCTAssertEqual(effectView.subviews.first?.layer.value(forKey: "scale") as? NSNumber, 3)
     }
 
     // MARK: - Helpers
+
+    /// The installer with the names the system uses, or with one of them replaced.
+    @MainActor
+    private func makeSUT(filterClassName: String? = nil, filterType: String? = nil) -> SystemVariableBlurInstaller {
+        switch (filterClassName, filterType) {
+        case let (className?, type?):
+            SystemVariableBlurInstaller(filterClassName: className, filterType: type)
+        case let (className?, nil):
+            SystemVariableBlurInstaller(filterClassName: className)
+        case let (nil, type?):
+            SystemVariableBlurInstaller(filterType: type)
+        case (nil, nil):
+            SystemVariableBlurInstaller()
+        }
+    }
 
     @MainActor
     private func makeEffectView() -> UIVisualEffectView {
@@ -126,14 +163,14 @@ final class SystemVariableBlurInstallerTests: XCTestCase {
         line: UInt = #line
     ) throws {
         let effectView = makeEffectView()
-        let standardFilters = filters(of: effectView.subviews.first).map(type(of:))
+        let standardFilters = filters(of: effectView.subviews.first).map(filterType(of:))
         let standardAlphas = effectView.subviews.map(\.alpha)
 
         let outcome = sut.install(maxBlurRadius: 7, mask: try makeMaskImage(), on: effectView)
 
         XCTAssertEqual(outcome, .unavailable(reason), "the outcome names the reason", file: file, line: line)
         XCTAssertEqual(
-            filters(of: effectView.subviews.first).map(type(of:)),
+            filters(of: effectView.subviews.first).map(filterType(of:)),
             standardFilters,
             "the backdrop keeps its standard filters",
             file: file,
@@ -153,8 +190,26 @@ final class SystemVariableBlurInstallerTests: XCTestCase {
         (view?.layer.filters ?? []).compactMap { $0 as? NSObject }
     }
 
-    private func type(of filter: NSObject) -> String {
+    private func filterType(of filter: NSObject) -> String {
         (filter.value(forKey: "type") as? String) ?? "unknown"
+    }
+}
+
+/// A filter class that creates filters and does not list its types.
+@objc(DMFilterClassWithoutTypeList)
+private final class FilterClassWithoutTypeList: NSObject {
+    @objc(filterWithType:)
+    static func filter(withType type: String) -> NSObject? {
+        ForgetfulFilter()
+    }
+}
+
+/// A filter class that lists its types and does not create filters.
+@objc(DMFilterClassWithoutFactory)
+private final class FilterClassWithoutFactory: NSObject {
+    @objc
+    static func filterTypes() -> [String] {
+        ["variableBlur"]
     }
 }
 
