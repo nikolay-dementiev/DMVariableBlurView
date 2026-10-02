@@ -1,0 +1,19 @@
+public enum DMVariableBlurDirection {
+  case blurredTopClearBottom
+  case blurredBottomClearTop
+  case blurredCenterClearTopBottom(centerBandProportion: CoreFoundation.CGFloat = 0.3)
+  case blurredFully
+}
+@_Concurrency.MainActor @preconcurrency public struct DMVariableBlurView : SwiftUI.UIViewRepresentable {
+  @_Concurrency.MainActor @preconcurrency public init(maxBlurRadius: CoreFoundation.CGFloat = 20, direction: DMVariableBlurView.DMVariableBlurDirection = .blurredCenterClearTopBottom(), startOffset: CoreFoundation.CGFloat = .zero)
+  @_Concurrency.MainActor @preconcurrency public func makeUIView(context: DMVariableBlurView.DMVariableBlurView.Context) -> DMVariableBlurView.DMVariableBlurUIView
+  @_Concurrency.MainActor @preconcurrency public func updateUIView(_ uiView: DMVariableBlurView.DMVariableBlurUIView, context: DMVariableBlurView.DMVariableBlurView.Context)
+  public typealias Body = Swift.Never
+  public typealias Coordinator = Swift.Void
+  public typealias UIViewType = DMVariableBlurView.DMVariableBlurUIView
+}
+@objc @_hasMissingDesignatedInitializers @_Concurrency.MainActor @preconcurrency public class DMVariableBlurUIView : UIKit.UIVisualEffectView {
+  @_Concurrency.MainActor @preconcurrency @objc override dynamic public func didMoveToWindow()
+  @objc deinit
+}
+extension DMVariableBlurView.DMVariableBlurView : Swift.Sendable {}
