@@ -1,0 +1,135 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: lint
+    runs-on: macos-26
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Lint
+        run: Scripts/lint.sh
+
+  test:
+    name: test (${{ matrix.name }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: iOS 26.5
+            runner: macos-26
+            xcode: /Applications/Xcode_26.6.app
+            destination: platform=iOS Simulator,name=iPhone 17,OS=26.5
+          - name: iOS 18.5
+            runner: macos-15
+            xcode: /Applications/Xcode_16.4.app
+            destination: platform=iOS Simulator,name=iPhone 16,OS=18.5
+    env:
+      DEVELOPER_DIR: ${{ matrix.xcode }}/Contents/Developer
+      DESTINATION: ${{ matrix.destination }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build and test
+        run: |
+          xcodebuild clean build test \
+            -scheme DMVariableBlurView \
+            -sdk iphonesimulator \
+            -destination "$DESTINATION" \
+            -enableCodeCoverage YES \
+            -resultBundlePath .build/results/ci/package.xcresult \
+            SWIFT_TREAT_WARNINGS_AS_ERRORS=YES
+      - name: Upload the result bundle
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: package-${{ matrix.runner }}-xcresult
+          path: .build/results/ci/package.xcresult
+
+  floor:
+    # The oldest toolchain the tools version of Package.swift promises: Swift 6.0.
+    name: floor
+    runs-on: macos-15
+    timeout-minutes: 20
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_16.0.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build with Swift 6.0
+        run: |
+          xcodebuild build \
+            -scheme DMVariableBlurView \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator'
+
+  consumer:
+    name: consumer
+    runs-on: macos-26
+    timeout-minutes: 20
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Check what a consumer gets
+        run: Scripts/check-manifest.sh
+
+  api:
+    # The interface text depends on the compiler, so this job runs on one pinned Xcode.
+    name: api
+    runs-on: macos-26
+    timeout-minutes: 10
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Compare the public interface with the baseline
+        run: Scripts/check-api.sh
+
+  example:
+    name: example (${{ matrix.name }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: iOS 26.5
+            runner: macos-26
+            xcode: /Applications/Xcode_26.6.app
+            destination: platform=iOS Simulator,name=iPhone 17,OS=26.5
+          - name: iOS 18.5
+            runner: macos-15
+            xcode: /Applications/Xcode_16.4.app
+            destination: platform=iOS Simulator,name=iPhone 16,OS=18.5
+    env:
+      DEVELOPER_DIR: ${{ matrix.xcode }}/Contents/Developer
+      DESTINATION: ${{ matrix.destination }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build the example and run its tests
+        run: |
+          xcodebuild test \
+            -project Examples/DMVariableBlurViewExample/DMVariableBlurViewExample.xcodeproj \
+            -scheme DMVariableBlurViewExample \
+            -destination "$DESTINATION" \
+            -resultBundlePath .build/results/ci/example.xcresult
+      - name: Upload the result bundle
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: example-${{ matrix.runner }}-xcresult
+          path: .build/results/ci/example.xcresult
