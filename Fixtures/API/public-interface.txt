@@ -8,6 +8,11 @@
   public typealias UIViewType = DMVariableBlurView.DMVariableBlurUIView
 }
 @objc @_hasMissingDesignatedInitializers @_Concurrency.MainActor @preconcurrency final public class DMVariableBlurUIView : UIKit.UIVisualEffectView {
+  @_Concurrency.MainActor @preconcurrency final public var failure: DMVariableBlurView.DMVariableBlurError? {
+    get
+  }
+  @_Concurrency.MainActor @preconcurrency convenience public init(maxBlurRadius: CoreFoundation.CGFloat = 20, direction: DMVariableBlurView.DMVariableBlurDirection = .blurredCenterClearTopBottom(), startOffset: CoreFoundation.CGFloat = 0)
+  @_Concurrency.MainActor @preconcurrency final public func update(maxBlurRadius: CoreFoundation.CGFloat, direction: DMVariableBlurView.DMVariableBlurDirection, startOffset: CoreFoundation.CGFloat)
   @_Concurrency.MainActor @preconcurrency @objc override final public func layoutSubviews()
   @_Concurrency.MainActor @preconcurrency @objc override final public func didMoveToWindow()
   @objc deinit

@@ -22,6 +22,17 @@ enum AddedAPI {
             }
     }
 
+    /// A UIKit host: the defaults, explicit values, an update and the failure state.
+    static func uiKitHost() -> [DMVariableBlurUIView] {
+        let defaults = DMVariableBlurUIView()
+        let explicit = DMVariableBlurUIView(maxBlurRadius: 12, direction: .blurredTopClearBottom, startOffset: -0.1)
+        explicit.update(maxBlurRadius: 8, direction: .blurredBottomClearTop, startOffset: 0)
+        if let reason = explicit.failure {
+            print(reason.localizedDescription)
+        }
+        return [defaults, explicit]
+    }
+
     static func directionCrossesToAnotherTask() async -> DMVariableBlurDirection {
         let direction = DMVariableBlurDirection.blurredCenterClearTopBottom(centerBandProportion: 0.4)
         return await Task.detached { direction }.value

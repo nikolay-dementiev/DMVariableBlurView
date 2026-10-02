@@ -10,9 +10,17 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
     private let installer: any VariableBlurInstaller
     private let failureLog: any FailureLog
 
-    /// Why the view shows the plain blur of the system, or `nil` when nothing prevents the
-    /// variable blur.
-    package private(set) var failure: DMVariableBlurError?
+    /// The reason the view cannot show the variable blur it was asked for, or `nil` when
+    /// nothing prevents it.
+    ///
+    /// The value changes when the view is created, when
+    /// ``update(maxBlurRadius:direction:startOffset:)`` is called, and when the view applies
+    /// its values again after the system rebuilt the effect, for example on a change between
+    /// light and dark appearance. Each recorded reason also writes one line to the unified
+    /// log, also one recorded later on such a re-application. A view made by
+    /// ``DMVariableBlurView`` with ``DMVariableBlurView/onFailure(_:)`` hands the reason to
+    /// that handler instead.
+    public private(set) var failure: DMVariableBlurError?
 
     /// Receives each recorded failure in a later turn of the main actor. Without it, the
     /// failure goes to the log.
@@ -53,14 +61,30 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
         super.init(effect: UIBlurEffect(style: .regular))
     }
 
-    /// A view that works with the system: CoreGraphics draws the mask, the filter of the
-    /// system blurs, and failures go to the unified log.
-    convenience init() {
+    /// Creates a blur view for a UIKit hierarchy.
+    ///
+    /// The view always exists after this call. When the values are not valid, or the
+    /// system does not offer the effect, the view shows the plain blur of the system over
+    /// its whole frame and ``failure`` gives the reason.
+    ///
+    /// - Parameters:
+    ///   - maxBlurRadius: The radius of the blur where it is strongest, in points. A finite
+    ///     number, 0 or greater.
+    ///   - direction: Where the blur is strongest and where it fades out.
+    ///   - startOffset: Moves the point where the blur ends, as a fraction of the height.
+    ///     Any finite number; from 1 on, the top and bottom modes blur nothing. It does not
+    ///     shape the center band or the full blur.
+    public convenience init(
+        maxBlurRadius: CGFloat = 20,
+        direction: DMVariableBlurDirection = .blurredCenterClearTopBottom(),
+        startOffset: CGFloat = 0
+    ) {
         self.init(
             maskRenderer: CoreGraphicsMaskImageRenderer(),
             installer: SystemVariableBlurInstaller(),
             failureLog: SystemFailureLog()
         )
+        apply(VariableBlurConfiguration(maxBlurRadius: maxBlurRadius, direction: direction, startOffset: startOffset))
     }
 
     /// The view is made in code only. Decoding it, from an archive or a storyboard,
@@ -107,6 +131,14 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
         }
         installedBlur = InstalledBlur(maxBlurRadius: configuration.maxBlurRadius, mask: mask)
         failure = nil
+    }
+
+    /// Replaces the values of the view and applies them.
+    ///
+    /// A call with the values the view already has does nothing. After the call ``failure``
+    /// describes the new values.
+    public func update(maxBlurRadius: CGFloat, direction: DMVariableBlurDirection, startOffset: CGFloat) {
+        apply(VariableBlurConfiguration(maxBlurRadius: maxBlurRadius, direction: direction, startOffset: startOffset))
     }
 
     public override func layoutSubviews() {

@@ -45,7 +45,12 @@ public struct DMVariableBlurView: UIViewRepresentable {
     }
 
     public func makeUIView(context: Context) -> DMVariableBlurUIView {
-        let view = DMVariableBlurUIView()
+        // The handler must be in place before the first configuration is applied.
+        let view = DMVariableBlurUIView(
+            maskRenderer: CoreGraphicsMaskImageRenderer(),
+            installer: SystemVariableBlurInstaller(),
+            failureLog: SystemFailureLog()
+        )
         view.failureHandler = failureHandler
         view.apply(configuration)
         return view
