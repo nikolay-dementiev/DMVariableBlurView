@@ -14,6 +14,15 @@ public class DMVariableBlurUIView: UIVisualEffectView {
     /// variable blur.
     package private(set) var failure: DMVariableBlurError?
 
+    /// The blur the view put on its backdrop, kept so that it can go back on when UIKit
+    /// rebuilds the effect.
+    private var installedBlur: InstalledBlur?
+
+    private struct InstalledBlur {
+        let maxBlurRadius: CGFloat
+        let mask: CGImage
+    }
+
     /// A view that shows the plain blur of the system until a configuration is applied.
     ///
     /// The effect view is used for its backdrop, which draws filters over the views
@@ -68,6 +77,24 @@ public class DMVariableBlurUIView: UIVisualEffectView {
 
         let installation = installer.install(maxBlurRadius: configuration.maxBlurRadius, mask: mask, on: self)
         if case .unavailable(let reason) = installation {
+            record(.effectUnavailable, detail: String(describing: reason))
+            return
+        }
+        installedBlur = InstalledBlur(maxBlurRadius: configuration.maxBlurRadius, mask: mask)
+    }
+
+    public override func layoutSubviews() {
+        super.layoutSubviews()
+        // After a change of appearance or of `effect`, UIKit puts the standard filters of
+        // the effect back inside this layout pass. The variable blur goes back on in the same
+        // pass, before the transaction reaches the screen.
+        guard let installedBlur,
+              !installer.isInstalled(maxBlurRadius: installedBlur.maxBlurRadius, mask: installedBlur.mask, on: self)
+        else { return }
+        let installation = installer.install(maxBlurRadius: installedBlur.maxBlurRadius, mask: installedBlur.mask, on: self)
+        if case .unavailable(let reason) = installation {
+            // Trying again in every layout pass would not change the answer of the system.
+            self.installedBlur = nil
             record(.effectUnavailable, detail: String(describing: reason))
         }
     }

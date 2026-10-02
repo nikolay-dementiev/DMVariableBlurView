@@ -36,6 +36,10 @@ package protocol VariableBlurInstaller {
     ///   - mask: The image whose alpha sets the radius of every row.
     func install(maxBlurRadius: CGFloat, mask: CGImage, on effectView: UIVisualEffectView) -> VariableBlurInstallation
 
+    /// Whether the effect view still shows the blur that ``install(maxBlurRadius:mask:on:)``
+    /// put on it: the one filter with this radius and mask, and the tint hidden.
+    func isInstalled(maxBlurRadius: CGFloat, mask: CGImage, on effectView: UIVisualEffectView) -> Bool
+
     /// Tells the backdrop of the effect view the scale of the screen it is shown on.
     func setBackdropScale(_ scale: CGFloat, on effectView: UIVisualEffectView)
 }
@@ -110,6 +114,14 @@ package struct SystemVariableBlurInstaller: VariableBlurInstaller {
             subview.alpha = 0
         }
         return .installed
+    }
+
+    package func isInstalled(maxBlurRadius: CGFloat, mask: CGImage, on effectView: UIVisualEffectView) -> Bool {
+        guard let backdrop = backdropView(of: effectView),
+              carriesOneFilter(withRadius: maxBlurRadius, mask: mask, on: backdrop.layer) else {
+            return false
+        }
+        return effectView.subviews.allSatisfy { $0 === backdrop || $0.alpha == 0 }
     }
 
     package func setBackdropScale(_ scale: CGFloat, on effectView: UIVisualEffectView) {

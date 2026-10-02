@@ -7,6 +7,7 @@
   public typealias UIViewType = DMVariableBlurView.DMVariableBlurUIView
 }
 @objc @_hasMissingDesignatedInitializers @_Concurrency.MainActor @preconcurrency public class DMVariableBlurUIView : UIKit.UIVisualEffectView {
+  @_Concurrency.MainActor @preconcurrency @objc override dynamic public func layoutSubviews()
   @_Concurrency.MainActor @preconcurrency @objc override dynamic public func didMoveToWindow()
   @objc deinit
 }
