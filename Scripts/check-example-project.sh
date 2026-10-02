@@ -2,12 +2,13 @@
 #
 # Checks that the committed example project is what XcodeGen generates from its spec.
 #
-#   Scripts/check-example-project.sh
+#   Scripts/check-example-project.sh            compare, exit 1 on any difference
+#   Scripts/check-example-project.sh --update   regenerate the committed project from the spec
 #
 # The spec, Examples/DMVariableBlurViewExample/project.yml, is the source of the project.
-# To change the project, change the spec and regenerate:
-#
-#   cd Examples/DMVariableBlurViewExample && xcodegen generate
+# To change the project, change the spec and run this script with --update. It generates
+# the project the same way the comparison does, in a folder named like the package, so the
+# result does not depend on the name of the folder of the checkout.
 #
 # This is a local check. CI does not run it, because CI does not install the generator.
 # The script installs nothing: it needs XcodeGen on the machine and says so when it is
@@ -52,6 +53,8 @@ if ! (cd "$SANDBOX/$EXAMPLE" && xcodegen generate) > "$WORK/xcodegen.log" 2>&1; 
     exit 2
 fi
 
+cp -R "$SANDBOX/$EXAMPLE/$PROJECT" "$SANDBOX/$EXAMPLE/$PROJECT.generated"
+
 # Only tracked files are compared: Xcode writes user data into the project folder.
 mkdir -p "$COPY/committed"
 (cd "$ROOT" && git ls-files -z -- "$EXAMPLE/$PROJECT" | xargs -0 -I{} rsync -R {} "$COPY/committed/")
@@ -63,6 +66,21 @@ for project_file in "$COPY/committed/$EXAMPLE/$PROJECT/project.pbxproj" "$SANDBO
     mv "$project_file.normalized" "$project_file"
 done
 
+if [ "${1:-}" = "--update" ]; then
+    # The generated project, not the normalised copy. The random identifier keeps the
+    # value the committed project has, so an update without a change in the spec leaves
+    # the project file untouched.
+    GENERATED="$SANDBOX/$EXAMPLE/$PROJECT.generated/project.pbxproj"
+    KEPT_ID="$(grep -o -E 'TEMP_[0-9A-F-]{36}' "$ROOT/$EXAMPLE/$PROJECT/project.pbxproj" | head -1 || true)"
+    if [ -n "$KEPT_ID" ]; then
+        sed -E "s/TEMP_[0-9A-F-]{36}/$KEPT_ID/g" "$GENERATED" > "$GENERATED.kept"
+        mv "$GENERATED.kept" "$GENERATED"
+    fi
+    rsync -a --delete --exclude xcuserdata "$SANDBOX/$EXAMPLE/$PROJECT.generated/" "$ROOT/$EXAMPLE/$PROJECT/"
+    echo "check-example-project: the project was regenerated from its spec: $EXAMPLE/$PROJECT"
+    exit 0
+fi
+
 if diff -r "$COPY/committed/$EXAMPLE/$PROJECT" "$SANDBOX/$EXAMPLE/$PROJECT" > "$WORK/project.diff"; then
     echo "check-example-project: the project matches its spec."
     exit 0
@@ -70,6 +88,6 @@ fi
 
 echo "check-example-project: the committed project differs from what the spec generates." >&2
 echo "  '<' is the committed project, '>' is the generated one." >&2
-echo "  Change $EXAMPLE/project.yml, regenerate and commit both." >&2
+echo "  Change $EXAMPLE/project.yml, run Scripts/check-example-project.sh --update and commit both." >&2
 head -40 "$WORK/project.diff" >&2
 exit 1
