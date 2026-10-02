@@ -13,7 +13,6 @@ import XCTest
 struct HostedBlurView {
     let blurView: DMVariableBlurUIView
     let window: UIWindow
-    private let controller: UIViewController
 
     init(_ view: some View, file: StaticString = #filePath, line: UInt = #line) throws {
         let controller = UIHostingController(rootView: view)
@@ -22,14 +21,19 @@ struct HostedBlurView {
         window.isHidden = false
         controller.view.frame = window.bounds
         controller.view.layoutIfNeeded()
-        blurView = try XCTUnwrap(
-            Self.firstBlurView(in: controller.view),
-            "the SwiftUI view created no DMVariableBlurUIView",
-            file: file,
-            line: line
-        )
+        do {
+            blurView = try XCTUnwrap(
+                Self.firstBlurView(in: controller.view),
+                "the SwiftUI view created no DMVariableBlurUIView",
+                file: file,
+                line: line
+            )
+        } catch {
+            // No caller holds the window yet, so nobody else can take it off the screen.
+            window.isHidden = true
+            throw error
+        }
         self.window = window
-        self.controller = controller
     }
 
     /// The types of the filters on the backdrop layer, in order.
@@ -55,6 +59,8 @@ struct HostedBlurView {
     var maskAlphaProfile: [UInt8]? {
         guard let value = variableBlurFilter?.value(forKey: "inputMaskImage") else { return nil }
         let object = value as AnyObject
+        // A conditional cast to a Core Foundation type always succeeds, so the type
+        // identifier is what proves that the value is an image.
         guard CFGetTypeID(object) == CGImage.typeID else { return nil }
         let image = unsafeDowncast(object, to: CGImage.self)
         let width = image.width
