@@ -185,6 +185,20 @@ final class BlurUIViewCollaborationTests: XCTestCase {
         XCTAssertEqual(collaborators.installer.installations.count, 1, "the blur of the old configuration stays off")
     }
 
+    @MainActor
+    func test_apply_newConfigurationCannotBeInstalled_stopsPuttingTheOldBlurBack() throws {
+        let (sut, collaborators) = try makeSUT()
+        sut.apply(validConfiguration)
+        collaborators.installer.outcome = .unavailable(.notApplied)
+
+        sut.apply(VariableBlurConfiguration(maxBlurRadius: 9, direction: .blurredBottomClearTop, startOffset: 0))
+        collaborators.installer.blurIsStillInstalled = false
+        layOut(sut)
+
+        XCTAssertEqual(sut.failure, .effectUnavailable, "the failure of the new configuration is recorded")
+        XCTAssertEqual(collaborators.installer.installations.count, 2, "the blur of the old configuration stays off")
+    }
+
     // MARK: - Layout passes
 
     @MainActor
