@@ -92,6 +92,70 @@ final class BlurUIViewCollaborationTests: XCTestCase {
         XCTAssertEqual(collaborators.installer.installations.count, 0, "nothing is installed for values that are not valid")
     }
 
+    // MARK: - Layout passes
+
+    @MainActor
+    func test_layout_blurStillInstalled_installsNothingAgain() throws {
+        let (sut, collaborators) = try makeSUT()
+        sut.apply(validConfiguration)
+
+        layOut(sut)
+
+        XCTAssertEqual(collaborators.installer.installations.count, 1)
+    }
+
+    @MainActor
+    func test_layout_blurGone_installsTheSameMaskWithTheSameRadiusAgain() throws {
+        let mask = try makeMaskImage()
+        let (sut, collaborators) = try makeSUT(renderer: MaskImageRendererSpy(result: .success(mask)))
+        sut.apply(validConfiguration)
+        collaborators.installer.blurIsStillInstalled = false
+
+        layOut(sut)
+
+        let installations = collaborators.installer.installations
+        XCTAssertEqual(installations.count, 2, "the blur is installed again")
+        XCTAssertEqual(installations.last?.maxBlurRadius, 7, "with the radius of the configuration")
+        XCTAssertTrue(installations.last?.mask === mask, "with the mask that was drawn for it")
+        XCTAssertEqual(collaborators.renderer.profiles.count, 1, "the mask is not drawn again")
+        XCTAssertEqual(collaborators.log.entries, [], "a successful installation logs nothing")
+    }
+
+    /// A configuration that was shown and then cannot be installed again is a new failure.
+    @MainActor
+    func test_layout_installingAgainFails_recordsTheFailureLogsItOnceAndStopsTrying() throws {
+        let (sut, collaborators) = try makeSUT()
+        sut.apply(validConfiguration)
+        collaborators.installer.blurIsStillInstalled = false
+        collaborators.installer.outcome = .unavailable(.notApplied)
+
+        layOut(sut)
+        layOut(sut)
+
+        XCTAssertEqual(sut.failure, .effectUnavailable, "the failure is recorded")
+        XCTAssertEqual(
+            collaborators.log.entries,
+            [.init(error: .effectUnavailable, detail: "notApplied")],
+            "the failure is logged once, although the view was laid out twice"
+        )
+        XCTAssertEqual(collaborators.installer.installations.count, 2, "one installation, one attempt, no third")
+    }
+
+    @MainActor
+    func test_layout_afterARejectedConfiguration_installsNothing() throws {
+        let (sut, collaborators) = try makeSUT()
+        sut.apply(VariableBlurConfiguration(
+            maxBlurRadius: 7,
+            direction: .blurredCenterClearTopBottom(centerBandProportion: 1.25),
+            startOffset: 0
+        ))
+        collaborators.installer.blurIsStillInstalled = false
+
+        layOut(sut)
+
+        XCTAssertEqual(collaborators.installer.installations.count, 0)
+    }
+
     @MainActor
     func test_blurUIView_movedToAWindow_tellsTheInstallerTheScaleOfTheScreen() throws {
         let (sut, collaborators) = try makeSUT()
@@ -107,6 +171,12 @@ final class BlurUIViewCollaborationTests: XCTestCase {
     }
 
     // MARK: - Helpers
+
+    @MainActor
+    private func layOut(_ sut: DMVariableBlurUIView) {
+        sut.setNeedsLayout()
+        sut.layoutIfNeeded()
+    }
 
     private var validConfiguration: VariableBlurConfiguration {
         VariableBlurConfiguration(maxBlurRadius: 7, direction: .blurredTopClearBottom, startOffset: 0)

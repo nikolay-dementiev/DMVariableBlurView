@@ -123,6 +123,55 @@ final class SystemVariableBlurInstallerTests: XCTestCase {
     }
 
     @MainActor
+    func test_isInstalled_rightAfterTheInstallation_isTrue() throws {
+        let effectView = makeEffectView()
+        let mask = try makeMaskImage()
+        let sut = makeSUT()
+        XCTAssertEqual(sut.install(maxBlurRadius: 7, mask: mask, on: effectView), .installed, "precondition")
+
+        XCTAssertTrue(sut.isInstalled(maxBlurRadius: 7, mask: mask, on: effectView))
+    }
+
+    /// Assigning an effect makes UIKit put the standard filters back and show the tint.
+    @MainActor
+    func test_isInstalled_afterTheSystemRebuildsTheEffect_isFalse() throws {
+        let effectView = makeEffectView()
+        let mask = try makeMaskImage()
+        let sut = makeSUT()
+        XCTAssertEqual(sut.install(maxBlurRadius: 7, mask: mask, on: effectView), .installed, "precondition")
+
+        effectView.effect = UIBlurEffect(style: .dark)
+
+        XCTAssertFalse(sut.isInstalled(maxBlurRadius: 7, mask: mask, on: effectView))
+    }
+
+    @MainActor
+    func test_isInstalled_anotherMaskOrRadius_isFalse() throws {
+        let effectView = makeEffectView()
+        let mask = try makeMaskImage()
+        let sut = makeSUT()
+        XCTAssertEqual(sut.install(maxBlurRadius: 7, mask: mask, on: effectView), .installed, "precondition")
+
+        XCTAssertFalse(
+            sut.isInstalled(maxBlurRadius: 7, mask: try makeMaskImage(), on: effectView),
+            "another mask is not the installed blur"
+        )
+        XCTAssertFalse(sut.isInstalled(maxBlurRadius: 8, mask: mask, on: effectView), "another radius is not the installed blur")
+    }
+
+    @MainActor
+    func test_isInstalled_tintVisibleAgain_isFalse() throws {
+        let effectView = makeEffectView()
+        let mask = try makeMaskImage()
+        let sut = makeSUT()
+        XCTAssertEqual(sut.install(maxBlurRadius: 7, mask: mask, on: effectView), .installed, "precondition")
+
+        effectView.subviews.last?.alpha = 1
+
+        XCTAssertFalse(sut.isInstalled(maxBlurRadius: 7, mask: mask, on: effectView))
+    }
+
+    @MainActor
     func test_setBackdropScale_onAnEffectView_setsTheScaleOfTheBackdropLayer() {
         let effectView = makeEffectView()
 

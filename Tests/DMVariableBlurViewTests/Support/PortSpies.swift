@@ -22,12 +22,18 @@ final class VariableBlurInstallerSpy: VariableBlurInstaller {
     private(set) var installations: [Installation] = []
     private(set) var scaleUpdates: [ScaleUpdate] = []
     var outcome: VariableBlurInstallation = .installed
+    /// What the spy answers when the view asks whether its blur is still on.
+    var blurIsStillInstalled = true
 
     func install(maxBlurRadius: CGFloat, mask: CGImage, on effectView: UIVisualEffectView) -> VariableBlurInstallation {
         installations.append(
             Installation(maxBlurRadius: maxBlurRadius, mask: mask, effectView: ObjectIdentifier(effectView))
         )
         return outcome
+    }
+
+    func isInstalled(maxBlurRadius: CGFloat, mask: CGImage, on effectView: UIVisualEffectView) -> Bool {
+        blurIsStillInstalled
     }
 
     func setBackdropScale(_ scale: CGFloat, on effectView: UIVisualEffectView) {
