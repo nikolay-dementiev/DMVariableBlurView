@@ -41,7 +41,8 @@ final class BlurViewReapplicationTests: XCTestCase {
         let sut = DMVariableBlurUIView(
             maskRenderer: CoreGraphicsMaskImageRenderer(),
             installer: SystemVariableBlurInstaller(),
-            failureLog: SystemFailureLog()
+            failureLog: SystemFailureLog(),
+            reduceTransparency: SystemReduceTransparencySetting()
         )
         sut.frame = controller.view.bounds
         controller.view.addSubview(sut)

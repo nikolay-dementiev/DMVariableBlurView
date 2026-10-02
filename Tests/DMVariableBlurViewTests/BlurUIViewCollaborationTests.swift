@@ -11,6 +11,7 @@ final class BlurUIViewCollaborationTests: XCTestCase {
         let renderer: MaskImageRendererSpy
         let installer: VariableBlurInstallerSpy
         let log: FailureLogSpy
+        let reduceTransparency: ReduceTransparencySettingSpy
     }
 
     @MainActor
@@ -199,6 +200,86 @@ final class BlurUIViewCollaborationTests: XCTestCase {
         XCTAssertEqual(collaborators.installer.installations.count, 2, "the blur of the old configuration stays off")
     }
 
+    // MARK: - Reduce Transparency
+
+    /// The view follows the setting: the standard effect of the system, which the system
+    /// draws without transparency, and no failure, because nothing failed.
+    @MainActor
+    func test_apply_optionOnAndSettingOn_installsNothingAndRecordsNoFailure() throws {
+        let (sut, collaborators) = try makeSUT(reduceTransparencyEnabled: true)
+        sut.respectsReduceTransparency = true
+
+        sut.apply(validConfiguration)
+        collaborators.installer.blurIsStillInstalled = false
+        layOut(sut)
+
+        XCTAssertEqual(collaborators.installer.installations.count, 0, "no variable blur, not even in a layout pass")
+        XCTAssertNil(sut.failure, "following the setting is not a failure")
+        XCTAssertEqual(collaborators.log.entries, [], "nothing is logged")
+    }
+
+    @MainActor
+    func test_apply_optionOffAndSettingOn_installsTheVariableBlur() throws {
+        let (sut, collaborators) = try makeSUT(reduceTransparencyEnabled: true)
+
+        sut.apply(validConfiguration)
+
+        XCTAssertEqual(collaborators.installer.installations.count, 1)
+    }
+
+    @MainActor
+    func test_apply_optionOnAndSettingOff_installsTheVariableBlur() throws {
+        let (sut, collaborators) = try makeSUT(reduceTransparencyEnabled: false)
+        sut.respectsReduceTransparency = true
+
+        sut.apply(validConfiguration)
+
+        XCTAssertEqual(collaborators.installer.installations.count, 1)
+    }
+
+    @MainActor
+    func test_settingTurnsOnAndOff_followsBothChanges() throws {
+        let (sut, collaborators) = try makeSUT()
+        sut.respectsReduceTransparency = true
+        sut.apply(validConfiguration)
+
+        collaborators.reduceTransparency.simulateChange(to: true)
+        collaborators.installer.blurIsStillInstalled = false
+        layOut(sut)
+        let installationsWhileOn = collaborators.installer.installations.count
+        collaborators.reduceTransparency.simulateChange(to: false)
+
+        XCTAssertEqual(installationsWhileOn, 1, "while the setting is on, the blur is not put back")
+        XCTAssertEqual(collaborators.installer.installations.count, 2, "when it goes off, the blur comes back")
+        XCTAssertEqual(collaborators.renderer.profiles.count, 1, "the kept mask is used, nothing is drawn again")
+    }
+
+    @MainActor
+    func test_respectsReduceTransparency_setWhileTheSettingIsOn_takesEffectAtOnce() throws {
+        let (sut, collaborators) = try makeSUT(reduceTransparencyEnabled: true)
+        sut.apply(validConfiguration)
+
+        sut.respectsReduceTransparency = true
+        collaborators.installer.blurIsStillInstalled = false
+        layOut(sut)
+        sut.respectsReduceTransparency = false
+
+        XCTAssertEqual(collaborators.installer.installations.count, 2, "on: no blur put back; off again: the blur at once")
+    }
+
+    @MainActor
+    func test_settingChanges_afterARejectedConfiguration_logsNothingNew() throws {
+        let (sut, collaborators) = try makeSUT()
+        sut.respectsReduceTransparency = true
+        sut.apply(rejectedConfiguration(centerBandProportion: 1.25))
+
+        collaborators.reduceTransparency.simulateChange(to: true)
+        collaborators.reduceTransparency.simulateChange(to: false)
+
+        XCTAssertEqual(collaborators.log.entries.count, 1, "the rejection is logged once")
+        XCTAssertEqual(collaborators.installer.installations.count, 0, "nothing is installed")
+    }
+
     // MARK: - Layout passes
 
     @MainActor
@@ -298,16 +379,21 @@ final class BlurUIViewCollaborationTests: XCTestCase {
     }
 
     @MainActor
-    private func makeSUT(renderer: MaskImageRendererSpy? = nil) throws -> (DMVariableBlurUIView, Collaborators) {
+    private func makeSUT(
+        renderer: MaskImageRendererSpy? = nil,
+        reduceTransparencyEnabled: Bool = false
+    ) throws -> (DMVariableBlurUIView, Collaborators) {
         let collaborators = Collaborators(
             renderer: try renderer ?? MaskImageRendererSpy(result: .success(makeMaskImage())),
             installer: VariableBlurInstallerSpy(),
-            log: FailureLogSpy()
+            log: FailureLogSpy(),
+            reduceTransparency: ReduceTransparencySettingSpy(isEnabled: reduceTransparencyEnabled)
         )
         let sut = DMVariableBlurUIView(
             maskRenderer: collaborators.renderer,
             installer: collaborators.installer,
-            failureLog: collaborators.log
+            failureLog: collaborators.log,
+            reduceTransparency: collaborators.reduceTransparency
         )
         return (sut, collaborators)
     }

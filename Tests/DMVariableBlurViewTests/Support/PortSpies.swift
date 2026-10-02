@@ -57,6 +57,32 @@ final class MaskImageRendererSpy: MaskImageRenderer {
     }
 }
 
+/// Stands in for the Reduce Transparency setting of the device.
+///
+/// It takes only the states the system has: `UIAccessibility.isReduceTransparencyEnabled`
+/// is a `Bool`, and a change is announced by
+/// `UIAccessibility.reduceTransparencyStatusDidChangeNotification`, which `simulateChange`
+/// stands for.
+@MainActor
+final class ReduceTransparencySettingSpy: ReduceTransparencySetting {
+    var isEnabled: Bool
+    private var handlers: [@MainActor () -> Void] = []
+
+    init(isEnabled: Bool = false) {
+        self.isEnabled = isEnabled
+    }
+
+    func onChange(_ handler: @escaping @MainActor () -> Void) {
+        handlers.append(handler)
+    }
+
+    /// Changes the setting and announces it, as the system does.
+    func simulateChange(to isEnabled: Bool) {
+        self.isEnabled = isEnabled
+        handlers.forEach { $0() }
+    }
+}
+
 /// Records the failures a blur view writes to its log.
 final class FailureLogSpy: FailureLog {
     struct Entry: Equatable {
