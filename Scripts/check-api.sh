@@ -13,11 +13,32 @@
 #
 # The interface text depends on the compiler and the SDK. CI runs this check on one
 # pinned Xcode; after a toolchain change the baseline may need --update with no API change.
+#
+# Exit codes: 0 the same interface, 1 a different interface, 2 the check could not run.
 
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# ==== Settings of this repository =======================================================
+# The packages DMAction, DMVariableBlurView and DMUnLoader share this script. Only this
+# block differs between them. Everything below the end marker is identical in the three:
+# a change there is made in the copy of DMVariableBlurView and synced to the other two.
+
+# The module whose public interface is checked.
 MODULE="DMVariableBlurView"
+# The directory the manifest compiles for that module, relative to the repository root.
+SOURCE_DIR="Sources/DMVariableBlurView"
+# The language mode and the upcoming features the manifest sets for the module.
+SWIFT_FLAGS=(-swift-version 6 -enable-upcoming-feature ExistentialAny)
+# "yes" to emit the interface with library evolution, "no" without it.
+LIBRARY_EVOLUTION="yes"
+# Modules of package dependencies that the module imports, compiled first and in this
+# order. One entry per module: "<module>|<source directory>|<compiler flags>", where the
+# flags mirror the manifest of the dependency, including its -package-name.
+DEPENDENCIES=()
+
+# ==== End of the settings ===============================================================
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BASELINE="$ROOT/Fixtures/API/public-interface.txt"
 WORK="$ROOT/.build/check-api"
 INTERFACE="$WORK/$MODULE.swiftinterface"
@@ -25,14 +46,15 @@ CURRENT="$WORK/public-interface.txt"
 
 mkdir -p "$WORK"
 
-# Header comments carry the compiler version and flags; imports are not API. The compiler
-# emits declarations in the order of the source files, so the top-level declarations are
-# sorted: moving a type to another file must not look like an API change. An attribute
-# that the compiler prints on a line of its own, such as @available, stays with the
-# declaration below it, and a compiler condition (#if ... #endif) stays one block with
-# what it guards: moving either to another declaration is an API change.
+# Header comments carry the compiler version and flags; imports are not API; an empty
+# line only marks where a source file ended. The compiler emits declarations in the
+# order of the source files, so the top-level declarations are sorted: moving a type to
+# another file must not look like an API change. An attribute that the compiler prints
+# on a line of its own, such as @available, stays with the declaration below it, and a
+# compiler condition (#if ... #endif) stays one block with what it guards: moving either
+# to another declaration is an API change.
 normalize() {
-    { grep -v -E '^(//|import )' "$1" || true; } | python3 -c '
+    { grep -v -E '^(//|import |$)' "$1" || true; } | python3 -c '
 import sys
 
 def attributes_only(line):
@@ -112,25 +134,67 @@ if [ "${1:-}" = "--self-test" ]; then
     exit "$FAILED"
 fi
 
-# The files are passed in one fixed order. A plain sort follows the locale of the machine,
-# and the order of the files is the order in which the compiler emits the declarations.
+# The files of a module are passed in one fixed order. A plain sort follows the locale
+# of the machine, and the order of the files is the order in which the compiler emits
+# the declarations.
+swift_sources() {
+    find "$ROOT/$1" -name '*.swift' | LC_ALL=C sort
+}
+
+# The compiler is called for the iOS simulator, a platform the packages are released
+# for. It is called directly, because a module that shares its name with one of its
+# types cannot pass the interface verifier that a build through xcodebuild always runs.
+SDK_PATH="$(xcrun --sdk iphonesimulator --show-sdk-path)"
+TARGET="arm64-apple-ios17.0-simulator"
+
+# Bash 3.2, the version macOS ships, treats an empty array as unbound under set -u, hence
+# the ${name[@]+"${name[@]}"} form for arrays that may be empty.
+for DEPENDENCY in ${DEPENDENCIES[@]+"${DEPENDENCIES[@]}"}; do
+    DEPENDENCY_MODULE="${DEPENDENCY%%|*}"
+    REST="${DEPENDENCY#*|}"
+    DEPENDENCY_DIR="${REST%%|*}"
+    read -r -a DEPENDENCY_FLAGS <<< "${REST#*|}"
+    DEPENDENCY_SOURCES=()
+    while IFS= read -r file; do
+        DEPENDENCY_SOURCES+=("$file")
+    done < <(swift_sources "$DEPENDENCY_DIR")
+    if [ "${#DEPENDENCY_SOURCES[@]}" -eq 0 ]; then
+        echo "check-api: no Swift source in $DEPENDENCY_DIR for the dependency $DEPENDENCY_MODULE." >&2
+        exit 2
+    fi
+    if ! xcrun --sdk iphonesimulator swiftc \
+        -target "$TARGET" -sdk "$SDK_PATH" -I "$WORK" \
+        -module-name "$DEPENDENCY_MODULE" \
+        ${DEPENDENCY_FLAGS[@]+"${DEPENDENCY_FLAGS[@]}"} \
+        -emit-module -emit-module-path "$WORK/$DEPENDENCY_MODULE.swiftmodule" \
+        "${DEPENDENCY_SOURCES[@]}" \
+        > "$WORK/swiftc-$DEPENDENCY_MODULE.log" 2>&1; then
+        echo "check-api: the dependency $DEPENDENCY_MODULE does not compile. See ${WORK#"$ROOT"/}/swiftc-$DEPENDENCY_MODULE.log" >&2
+        grep -E "error:" "$WORK/swiftc-$DEPENDENCY_MODULE.log" | sort -u | head -20 >&2 || true
+        exit 2
+    fi
+done
+
 SOURCES=()
 while IFS= read -r file; do
     SOURCES+=("$file")
-done < <(find "$ROOT/Sources/$MODULE" -name '*.swift' | LC_ALL=C sort)
+done < <(swift_sources "$SOURCE_DIR")
+if [ "${#SOURCES[@]}" -eq 0 ]; then
+    echo "check-api: no Swift source in $SOURCE_DIR. Check SOURCE_DIR in the settings." >&2
+    exit 2
+fi
 
-# The package cannot be built for the host, so the compiler is called for the simulator.
-# It is called directly, because the module and its main type share a name: qualified
-# names in the emitted interface are ambiguous to the interface verifier, which a build
-# through xcodebuild always runs. The emitted text is still the complete interface.
+EVOLUTION_FLAGS=()
+if [ "$LIBRARY_EVOLUTION" = "yes" ]; then
+    EVOLUTION_FLAGS=(-enable-library-evolution)
+fi
+
 if ! xcrun --sdk iphonesimulator swiftc \
-    -target arm64-apple-ios17.0-simulator \
-    -sdk "$(xcrun --sdk iphonesimulator --show-sdk-path)" \
+    -target "$TARGET" -sdk "$SDK_PATH" -I "$WORK" \
     -module-name "$MODULE" \
     -package-name "$MODULE" \
-    -swift-version 6 \
-    -enable-upcoming-feature ExistentialAny \
-    -enable-library-evolution \
+    "${SWIFT_FLAGS[@]}" \
+    ${EVOLUTION_FLAGS[@]+"${EVOLUTION_FLAGS[@]}"} \
     -emit-module -emit-module-path "$WORK/$MODULE.swiftmodule" \
     -emit-module-interface-path "$INTERFACE" \
     -no-verify-emitted-module-interface \
