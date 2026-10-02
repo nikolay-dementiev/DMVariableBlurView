@@ -5,6 +5,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  # The release workflow runs this workflow on a version tag.
+  workflow_call:
+  # An early warning when a new runner image or iOS version breaks the package.
+  schedule:
+    - cron: "17 5 * * 1"
 
 permissions:
   contents: read
