@@ -1,15 +1,37 @@
 import SwiftUI
 
+/// A view that blurs what lies behind it, with a blur radius that changes from row to row.
+///
+/// Place it over the content to blur, for example in a `ZStack` or an `overlay`. Where
+/// the blur is strongest and where it fades to clear is set by ``DMVariableBlurDirection``.
+///
+/// - The view takes the touches in its frame, as SwiftUI does for a view that wraps a
+///   UIKit view. Add `.allowsHitTesting(false)` to let them reach the views underneath.
+/// - No view of the blur is an accessibility element.
+/// - The blur uses a private filter of the system. When the filter is not available, or a
+///   value is not valid, the view shows the plain blur of the system instead and reports
+///   the reason: see ``onFailure(_:)``.
 public struct DMVariableBlurView: UIViewRepresentable {
     var maxBlurRadius: CGFloat
     var direction: DMVariableBlurDirection
-    /// By default, variable blur starts from 0 blur radius and linearly increases to `maxBlurRadius`.
-    /// Setting `startOffset` to a small negative coefficient (e.g. -0.1) will start
-    /// blur from larger radius value which might look better in some cases.
     var startOffset: CGFloat
     private var failureHandler: (@MainActor (DMVariableBlurError) -> Void)?
     private var followsReduceTransparency = false
 
+    /// Creates a blur view.
+    ///
+    /// - Parameters:
+    ///   - maxBlurRadius: The blur radius where the blur is strongest, in points: a finite
+    ///     number, 0 or greater. Another value is rejected with
+    ///     ``DMVariableBlurError/invalidMaxBlurRadius(_:)``.
+    ///   - direction: Where the view blurs and where it fades to clear. The default is a
+    ///     blurred band of 30 % of the height in the middle, clear at the top and bottom.
+    ///   - startOffset: Where the fade of the top and bottom modes ends, as a share of the
+    ///     height. With 0 the fade spans the whole height. A positive value leaves that
+    ///     share clear at the clear edge, and from 1 on nothing is blurred. A negative value
+    ///     keeps some blur at the clear edge. The center band and the full blur ignore it.
+    ///     A value that is not finite is rejected with
+    ///     ``DMVariableBlurError/invalidStartOffset(_:)``.
     public init(
         maxBlurRadius: CGFloat = 20,
         direction: DMVariableBlurDirection = .blurredCenterClearTopBottom(),
@@ -63,6 +85,7 @@ public struct DMVariableBlurView: UIViewRepresentable {
         return view
     }
 
+    /// Creates the UIKit view that draws the blur. SwiftUI calls this method.
     public func makeUIView(context: Context) -> DMVariableBlurUIView {
         // The handler must be in place before the first configuration is applied.
         let view = DMVariableBlurUIView(
@@ -77,6 +100,8 @@ public struct DMVariableBlurView: UIViewRepresentable {
         return view
     }
 
+    /// Applies the values of this view to the UIKit view. SwiftUI calls this method when
+    /// the values change; values equal to the applied ones change nothing.
     public func updateUIView(_ uiView: DMVariableBlurUIView, context: Context) {
         uiView.failureHandler = failureHandler
         uiView.respectsReduceTransparency = followsReduceTransparency

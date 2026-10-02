@@ -9,9 +9,15 @@ included:
 opt_in_rules:
   - force_unwrapping
   - implicitly_unwrapped_optional
+  - missing_docs
 
 analyzer_rules:
   - unused_import
+
+# By default the rule skips a type that inherits or conforms, and everything inside it:
+# here that would leave out both views of the library.
+missing_docs:
+  excludes_inherited_types: false
 
 identifier_name:
   min_length: 2

@@ -1,10 +1,24 @@
-// Created by Mykola Dementiev
-//
-// for detail, pls. check the original file github page: https://github.com/nikstar/VariableBlur?tab=readme-ov-file
+// Created by Mykola Dementiev. Derived from VariableBlurView by jtrivedi
+// (https://github.com/jtrivedi/VariableBlurView) and VariableBlur by nikstar
+// (https://github.com/nikstar/VariableBlur), both under the MIT licence.
 
 import UIKit
 
-/// credit https://github.com/jtrivedi/VariableBlurView
+/// A UIKit view that blurs what lies behind it, with a blur radius that changes from row to
+/// row.
+///
+/// Add it over the content to blur and give it a frame. Where the blur is strongest and
+/// where it fades to clear is set by ``DMVariableBlurDirection``;
+/// ``update(maxBlurRadius:direction:startOffset:)`` changes the values later.
+///
+/// - Like every view, it is used on the main thread.
+/// - It receives the touches in its frame. Set `isUserInteractionEnabled` to `false` to
+///   let them reach the views underneath.
+/// - No view of it is an accessibility element.
+/// - The blur uses a private filter of the system. When the filter is not available, or a
+///   value is not valid, the view shows the plain blur of the system instead, and
+///   ``failure`` gives the reason.
+/// - It cannot be decoded from an archive or a storyboard: decoding returns `nil`.
 public final class DMVariableBlurUIView: UIVisualEffectView {
     private let maskRenderer: any MaskImageRenderer
     private let installer: any VariableBlurInstaller
