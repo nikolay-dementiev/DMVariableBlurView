@@ -105,14 +105,6 @@ final class SystemVariableBlurInstallerTests: XCTestCase {
         try expect(sut, toReport: .notApplied)
     }
 
-    /// Release 1.0.0 installs a radius that is not a number, and so does the installer.
-    @MainActor
-    func test_install_radiusThatIsNotANumber_isInstalled() throws {
-        let outcome = makeSUT().install(maxBlurRadius: .nan, mask: try makeMaskImage(), on: makeEffectView())
-
-        XCTAssertEqual(outcome, .installed)
-    }
-
     @MainActor
     func test_install_effectViewWithoutAnEffect_reportsTheMissingBackdrop() throws {
         let effectView = UIVisualEffectView(effect: nil)

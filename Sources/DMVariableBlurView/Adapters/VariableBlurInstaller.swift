@@ -146,8 +146,6 @@ package struct SystemVariableBlurInstaller: VariableBlurInstaller {
         guard let storedRadius = (filter.value(forKey: "inputRadius") as? NSNumber)?.doubleValue else {
             return false
         }
-        // A radius that is not a number never equals itself, and it is still the value
-        // that was asked for.
-        return storedRadius == Double(radius) || (storedRadius.isNaN && radius.isNaN)
+        return storedRadius == Double(radius)
     }
 }

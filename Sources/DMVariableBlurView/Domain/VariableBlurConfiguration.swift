@@ -17,9 +17,25 @@ package struct VariableBlurConfiguration: Equatable {
 
     /// The mask the direction and the offset ask for.
     ///
-    /// - Throws: ``DMVariableBlurError/invalidCenterBandProportion(_:)`` when the proportion
-    ///   of the center band is outside `0...1` or is not a number.
+    /// The values are checked in the order of the parameters, and the first rejected one
+    /// is reported.
+    ///
+    /// - Throws: ``DMVariableBlurError/invalidMaxBlurRadius(_:)`` for a radius that is
+    ///   negative or not finite, ``DMVariableBlurError/invalidCenterBandProportion(_:)`` for
+    ///   a proportion outside `0...1` or not a number, and
+    ///   ``DMVariableBlurError/invalidStartOffset(_:)`` for an offset that is not finite,
+    ///   in every direction.
     package func maskProfile() throws(DMVariableBlurError) -> BlurMaskProfile {
+        guard maxBlurRadius.isFinite, maxBlurRadius >= 0 else {
+            throw .invalidMaxBlurRadius(maxBlurRadius)
+        }
+        if case .blurredCenterClearTopBottom(let centerBandProportion) = direction, !(0...1 ~= centerBandProportion) {
+            throw .invalidCenterBandProportion(centerBandProportion)
+        }
+        guard startOffset.isFinite else {
+            throw .invalidStartOffset(startOffset)
+        }
+
         switch direction {
         case .blurredTopClearBottom:
             return BlurMaskProfile(ramps: [
@@ -30,11 +46,12 @@ package struct VariableBlurConfiguration: Equatable {
                 .init(start: 1, end: startOffset, startAlpha: 1, endAlpha: 0)
             ])
         case .blurredCenterClearTopBottom(let centerBandProportion):
-            guard 0...1 ~= centerBandProportion else {
-                throw .invalidCenterBandProportion(centerBandProportion)
-            }
             // The band is centered: the blur rises from each edge over the same distance.
             let margin = (1 - centerBandProportion) / 2
+            // A band of the whole height leaves no edge to rise from: everything is blurred.
+            guard margin > 0 else {
+                return BlurMaskProfile(ramps: [])
+            }
             return BlurMaskProfile(ramps: [
                 .init(start: 0, end: margin, startAlpha: 0, endAlpha: 1),
                 .init(start: 1, end: 1 - margin, startAlpha: 0, endAlpha: 1)
