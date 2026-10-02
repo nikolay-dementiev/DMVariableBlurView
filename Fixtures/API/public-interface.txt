@@ -6,9 +6,9 @@
   public typealias Coordinator = Swift.Void
   public typealias UIViewType = DMVariableBlurView.DMVariableBlurUIView
 }
-@objc @_hasMissingDesignatedInitializers @_Concurrency.MainActor @preconcurrency public class DMVariableBlurUIView : UIKit.UIVisualEffectView {
-  @_Concurrency.MainActor @preconcurrency @objc override dynamic public func layoutSubviews()
-  @_Concurrency.MainActor @preconcurrency @objc override dynamic public func didMoveToWindow()
+@objc @_hasMissingDesignatedInitializers @_Concurrency.MainActor @preconcurrency final public class DMVariableBlurUIView : UIKit.UIVisualEffectView {
+  @_Concurrency.MainActor @preconcurrency @objc override final public func layoutSubviews()
+  @_Concurrency.MainActor @preconcurrency @objc override final public func didMoveToWindow()
   @objc deinit
 }
 extension DMVariableBlurView.DMVariableBlurView : Swift.Sendable {}

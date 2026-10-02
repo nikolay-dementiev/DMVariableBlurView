@@ -5,7 +5,7 @@
 import UIKit
 
 /// credit https://github.com/jtrivedi/VariableBlurView
-public class DMVariableBlurUIView: UIVisualEffectView {
+public final class DMVariableBlurUIView: UIVisualEffectView {
     private let maskRenderer: any MaskImageRenderer
     private let installer: any VariableBlurInstaller
     private let failureLog: any FailureLog
@@ -59,9 +59,11 @@ public class DMVariableBlurUIView: UIVisualEffectView {
         )
     }
 
+    /// The view is made in code only. Decoding it, from an archive or a storyboard,
+    /// returns `nil` and leaves the host running.
     @available(*, unavailable)
     required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
+        nil
     }
 
     /// Shows the variable blur of a configuration.

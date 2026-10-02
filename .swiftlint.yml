@@ -43,3 +43,10 @@ custom_rules:
     match_kinds: [keyword, identifier, attribute.builtin, attribute.id]
     message: "The Domain folder imports only Foundation and CoreGraphics: no UI and no rendering framework."
     severity: error
+  no_termination:
+    name: "No termination"
+    included: "Sources/.*\\.swift"
+    regex: '\b(fatalError|preconditionFailure|assertionFailure)\s*\('
+    match_kinds: [identifier]
+    message: "Library code never stops the host: return nil, throw, or record a failure instead."
+    severity: error

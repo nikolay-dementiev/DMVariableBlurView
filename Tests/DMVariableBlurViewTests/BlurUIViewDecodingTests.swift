@@ -1,5 +1,4 @@
 import DMVariableBlurView
-import UIKit
 import XCTest
 
 /// The view cannot be made from an archive or a storyboard, and asking for it must not
