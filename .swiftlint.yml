@@ -46,7 +46,8 @@ custom_rules:
   no_termination:
     name: "No termination"
     included: "Sources/.*\\.swift"
-    regex: '\b(fatalError|preconditionFailure|assertionFailure)\s*\('
+    excluded: "(Examples|Fixtures)/"
+    regex: '\b(fatalError|preconditionFailure|assertionFailure|precondition|assert|dispatchPrecondition|abort|exit)\s*\('
     match_kinds: [identifier]
     message: "Library code never stops the host: return nil, throw, or record a failure instead."
     severity: error
