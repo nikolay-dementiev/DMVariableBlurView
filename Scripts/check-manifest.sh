@@ -8,8 +8,10 @@
 #    refuses a version requirement on a package that has an unstable dependency, and a
 #    build plugin of a dependency runs in every consumer's build.
 # 2. A consumer that asks for the package by version resolves it.
-# 3. Fixtures/Consumer builds. It uses the released API and the README samples, so if it
-#    stops building, a consumer's code stops building.
+# 3. Fixtures/Consumer builds. It uses every call shape of the released API and every
+#    declaration added since, so if it stops building, a consumer's code stops building.
+# 4. The library ships no resource bundle.
+# 5. Every Swift block of README.md compiles as written.
 
 set -euo pipefail
 
@@ -17,12 +19,16 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORK="$ROOT/.build/check-manifest"
 FAILED=0
 
-# The version probe and the build folder are throw-away. The logs next to them stay.
+# The version probe and the build folders are throw-away. The logs next to them stay.
 PROBE=""
 DERIVED=""
+SNIPPETS=""
+SNIPPETS_DERIVED=""
 cleanup() {
     [ -z "$PROBE" ] || rm -rf "$PROBE"
     [ -z "$DERIVED" ] || rm -rf "$DERIVED"
+    [ -z "$SNIPPETS" ] || rm -rf "$SNIPPETS"
+    [ -z "$SNIPPETS_DERIVED" ] || rm -rf "$SNIPPETS_DERIVED"
 }
 trap cleanup EXIT
 
@@ -128,6 +134,118 @@ if [ -n "$BUNDLES" ]; then
     FAILED=1
 else
     echo "check-manifest: the library ships no resource bundle."
+fi
+
+# 5. The Swift blocks of README.md, each compiled in a context of its own, so that a block
+#    cannot use a name another block declares and one broken block cannot hide another.
+#    A block that contains `Package(` is a complete package manifest, and SwiftPM
+#    evaluates it. Every other block is a target of its own in a generated package for
+#    iOS that depends on this checkout by path, the way Fixtures/Consumer does. A warning
+#    in a block fails the check too.
+SNIPPETS="$(mktemp -d "$WORK/readme.XXXXXX")"
+SNIPPETS_DERIVED="$(mktemp -d "$WORK/readme-DerivedData.XXXXXX")"
+README_FAILED=0
+if ! python3 - "$ROOT/README.md" "$SNIPPETS" > "$WORK/readme-blocks.txt" <<'PY'
+import os
+import re
+import sys
+
+readme, work = sys.argv[1], sys.argv[2]
+lines = open(readme, encoding="utf-8").read().split("\n")
+block, start, number = None, 0, 0
+for index, line in enumerate(lines, start=1):
+    if block is None:
+        if line.strip() == "```swift":
+            block, start = [], index + 1
+        elif re.match(r"^\s*(```|~~~)", line) and "swift" in line.lower():
+            sys.exit(f"README.md:{index}: write the fence of a Swift block as ```swift, so that it is compiled")
+    elif line.strip() == "```":
+        number += 1
+        text = "\n".join(block) + "\n"
+        kind = "manifest" if "Package(" in text else "ios"
+        name = f"Snippet{number:02d}"
+        os.makedirs(os.path.join(work, "blocks"), exist_ok=True)
+        with open(os.path.join(work, "blocks", f"{name}.swift"), "w", encoding="utf-8") as out:
+            out.write(text)
+        print(kind, name, start)
+        block = None
+    else:
+        block.append(line)
+if block is not None:
+    sys.exit(f"README.md: the Swift block that starts on line {start} is not closed")
+PY
+then
+    README_FAILED=1
+elif [ ! -s "$WORK/readme-blocks.txt" ]; then
+    echo "check-manifest: README.md has no Swift block." >&2
+    README_FAILED=1
+else
+    IOS_BLOCKS=()
+    while read -r KIND NAME LINE; do
+        if [ "$KIND" = "manifest" ]; then
+            mkdir -p "$SNIPPETS/$NAME"
+            cp "$SNIPPETS/blocks/$NAME.swift" "$SNIPPETS/$NAME/Package.swift"
+            if ! swift package dump-package --package-path "$SNIPPETS/$NAME" > "$WORK/readme-$NAME.log" 2>&1; then
+                echo "check-manifest: the manifest at README.md:$LINE does not evaluate:" >&2
+                grep -E "error:" "$WORK/readme-$NAME.log" | head -10 >&2 || true
+                README_FAILED=1
+            fi
+        else
+            mkdir -p "$SNIPPETS/ios/Sources/$NAME"
+            cp "$SNIPPETS/blocks/$NAME.swift" "$SNIPPETS/ios/Sources/$NAME/$NAME.swift"
+            IOS_BLOCKS+=("$NAME")
+        fi
+    done < "$WORK/readme-blocks.txt"
+
+    if [ "${#IOS_BLOCKS[@]}" -gt 0 ]; then
+        {
+            echo "// swift-tools-version: 6.0"
+            echo "import PackageDescription"
+            echo "let package = Package("
+            echo "    name: \"ReadmeSnippets\","
+            echo "    platforms: [.iOS(.v17)],"
+            echo "    products: [.library(name: \"ReadmeSnippets\", targets: [$(printf '"%s", ' "${IOS_BLOCKS[@]}")])],"
+            echo "    dependencies: [.package(name: \"DMVariableBlurView\", path: \"$ROOT\")],"
+            echo "    targets: ["
+            for NAME in "${IOS_BLOCKS[@]}"; do
+                echo "        .target(name: \"$NAME\", dependencies: [.product(name: \"DMVariableBlurView\", package: \"DMVariableBlurView\")]),"
+            done
+            echo "    ]"
+            echo ")"
+        } > "$SNIPPETS/ios/Package.swift"
+        if (cd "$SNIPPETS/ios" && xcodebuild build \
+                -scheme ReadmeSnippets \
+                -sdk iphonesimulator \
+                -destination 'generic/platform=iOS Simulator' \
+                -derivedDataPath "$SNIPPETS_DERIVED" \
+                ARCHS=arm64 ONLY_ACTIVE_ARCH=NO) > "$WORK/readme-build.log" 2>&1; then
+            # A block counts only when the log shows it compiled in this run.
+            for NAME in "${IOS_BLOCKS[@]}"; do
+                if ! grep -qE "^SwiftCompile .*/Sources/$NAME/$NAME\.swift" "$WORK/readme-build.log"; then
+                    echo "check-manifest: the block at README.md:$(grep " $NAME " "$WORK/readme-blocks.txt" | cut -d ' ' -f 3) was not compiled" >&2
+                    README_FAILED=1
+                fi
+            done
+            WARNINGS="$(grep -E "/Sources/Snippet[0-9]+/[^:]+:[0-9]+:[0-9]+: warning:" "$WORK/readme-build.log" | sort -u || true)"
+            if [ -n "$WARNINGS" ]; then
+                echo "check-manifest: a Swift block of README.md compiles with warnings:" >&2
+                echo "$WARNINGS" | head -20 >&2
+                echo "  The block numbers map to README lines in ${WORK#"$ROOT"/}/readme-blocks.txt" >&2
+                README_FAILED=1
+            fi
+        else
+            echo "check-manifest: a Swift block of README.md does not compile:" >&2
+            grep -E "error:" "$WORK/readme-build.log" | sort -u | head -20 >&2 || true
+            echo "  The block numbers map to README lines in ${WORK#"$ROOT"/}/readme-blocks.txt" >&2
+            README_FAILED=1
+        fi
+    fi
+    if [ "$README_FAILED" -eq 0 ]; then
+        echo "check-manifest: the $(wc -l < "$WORK/readme-blocks.txt" | tr -d ' ') Swift blocks of README.md compile."
+    fi
+fi
+if [ "$README_FAILED" -ne 0 ]; then
+    FAILED=1
 fi
 
 exit "$FAILED"
