@@ -2,12 +2,12 @@
 #
 # To change the project, change this file and regenerate. Do not edit the project by hand.
 #
-#   cd Examples/DMVariableBlurViewExample && xcodegen generate
+#   Scripts/check-example-project.sh --update
 #
 # Scripts/check-example-project.sh proves that the committed project matches this file.
 # The folders are synced: a new source file needs neither a change here nor a regeneration.
-# The generator names the package reference after the folder of the checkout, so
-# regenerate in a checkout whose folder is called DMVariableBlurView.
+# The update generates in a folder named like the package, because the generator names
+# the package reference after the folder of the checkout.
 name: DMVariableBlurViewExample
 options:
   deploymentTarget:
