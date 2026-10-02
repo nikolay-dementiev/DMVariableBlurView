@@ -11,9 +11,10 @@
   @objc deinit
 }
 extension DMVariableBlurView.DMVariableBlurView : Swift.Sendable {}
-public enum DMVariableBlurDirection {
+public enum DMVariableBlurDirection : Swift.Sendable, Swift.Equatable {
   case blurredTopClearBottom
   case blurredBottomClearTop
   case blurredCenterClearTopBottom(centerBandProportion: CoreFoundation.CGFloat = 0.3)
   case blurredFully
+  public static func == (a: DMVariableBlurView.DMVariableBlurDirection, b: DMVariableBlurView.DMVariableBlurDirection) -> Swift.Bool
 }
