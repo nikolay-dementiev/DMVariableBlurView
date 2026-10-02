@@ -9,10 +9,11 @@ on:
 permissions:
   contents: read
 
-# A newer commit of a pull request replaces the run of the older one. A run on main is
-# never cancelled: every commit there keeps its own result.
+# A newer commit of a pull request replaces the run of the older one. Every other run has
+# a group of its own: GitHub keeps one pending run per group and drops the others, so a
+# shared group would lose runs of main even without cancelling.
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
@@ -128,6 +129,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Check the normalisation of the interface
+        run: Scripts/check-api.sh --self-test
       - name: Compare the public interface with the baseline
         run: Scripts/check-api.sh
 
