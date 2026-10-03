@@ -95,6 +95,41 @@ jobs:
           name: package-${{ matrix.runner }}-xcresult
           path: .build/results/ci/package.xcresult
 
+  thread-sanitizer:
+    # The package's tests under the Thread Sanitizer. The library has code that runs off
+    # the main thread: a change of the Reduce Transparency setting can be posted on another
+    # thread and is moved to the main actor, and a test posts it from another thread; the
+    # failure handler runs in a task. Debug, no coverage, no example app.
+    name: thread-sanitizer
+    runs-on: macos-26
+    timeout-minutes: 30
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+      # Without it a race is reported and the tests still pass: the sanitizer stops the
+      # test process at the first report, and the run fails.
+      TEST_RUNNER_TSAN_OPTIONS: halt_on_error=1
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Test the package under the Thread Sanitizer
+        run: |
+          set -o pipefail
+          mkdir -p .build/results/ci
+          xcodebuild test \
+            -scheme DMVariableBlurView \
+            -sdk iphonesimulator \
+            -destination 'platform=iOS Simulator,name=iPhone 17,OS=26.5' \
+            -enableThreadSanitizer YES \
+            -resultBundlePath .build/results/ci/thread-sanitizer.xcresult \
+            | tee .build/results/ci/thread-sanitizer.log
+      - name: Upload the result bundle
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: thread-sanitizer-xcresult
+          path: .build/results/ci/thread-sanitizer.xcresult
+
   floor:
     # The oldest toolchain the tools version of Package.swift promises: Swift 6.0.
     #
