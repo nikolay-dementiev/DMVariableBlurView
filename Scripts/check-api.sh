@@ -174,6 +174,16 @@ if [ "${1:-}" = "--self-test" ]; then
         EXPECTED="$(sed -n 's/^# expect: //p' "$CASE")"
         awk '/^--- A ---$/ { part = "A"; next } /^--- B ---$/ { part = "B"; next } part == "A"' "$CASE" > "$WORK/case-a.txt"
         awk '/^--- B ---$/ { part = "B"; next } part == "B"' "$CASE" > "$WORK/case-b.txt"
+        # A case that expects an error passes when the normalisation of its text A fails.
+        if [ "$EXPECTED" = "error" ]; then
+            if normalize "$WORK/case-a.txt" > /dev/null 2>&1; then
+                echo "check-api: FAIL $NAME: expected an error, the normalisation of A succeeded" >&2
+                FAILED=1
+            else
+                echo "check-api: ok   $NAME"
+            fi
+            continue
+        fi
         if ! normalize "$WORK/case-a.txt" > "$WORK/case-a.normalized" || ! normalize "$WORK/case-b.txt" > "$WORK/case-b.normalized"; then
             echo "check-api: FAIL $NAME: the normalisation stopped with an error" >&2
             FAILED=1
