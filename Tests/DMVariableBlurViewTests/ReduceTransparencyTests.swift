@@ -19,6 +19,43 @@ final class ReduceTransparencyTests: XCTestCase {
 
     /// The SwiftUI method sets the option of the UIKit view, when it is made and when it is
     /// updated.
+    /// What a view that follows the setting draws, with the installer of the library: the
+    /// standard effect of the system while the setting is on, which is no failure, and the
+    /// variable blur again when the setting is turned off.
+    @MainActor
+    func test_blurUIView_optionOnAndSettingOn_showsTheStandardEffectAndReportsNothing() throws {
+        let setting = ReduceTransparencySettingSpy(isEnabled: false)
+        let view = DMVariableBlurUIView(
+            maskRenderer: CoreGraphicsMaskImageRenderer(),
+            installer: SystemVariableBlurInstaller(),
+            failureLog: FailureLogSpy(),
+            reduceTransparency: setting
+        )
+        view.respectsReduceTransparency = true
+        view.apply(VariableBlurConfiguration(maxBlurRadius: 7, direction: .blurredTopClearBottom, startOffset: 0))
+        let sut = HostedBlurView(placing: view)
+        defer { sut.hide() }
+        let filtersWithTheSettingOff = sut.filterTypes
+
+        setting.simulateChange(to: true)
+        sut.window.layoutIfNeeded()
+
+        XCTAssertEqual(filtersWithTheSettingOff, ["variableBlur"], "precondition: the variable blur is shown")
+        XCTAssertFalse(sut.filterTypes.contains("variableBlur"), "the setting on: no variable blur")
+        XCTAssertFalse(sut.filterTypes.isEmpty, "the backdrop carries the standard filters of the effect")
+        XCTAssertEqual(sut.tintAlphas, [1], "the tint of the standard effect is visible")
+        XCTAssertNil(view.failure, "following the setting is no failure")
+
+        setting.simulateChange(to: false)
+        sut.window.layoutIfNeeded()
+
+        XCTAssertEqual(sut.filterTypes, ["variableBlur"], "the setting off: the variable blur is back")
+        XCTAssertEqual(sut.radius, 7, "with its radius")
+        XCTAssertEqual(sut.tintAlphas, [0], "and the tint hidden")
+        assertMaskProfile(of: sut, matches: MaskProfileFixtures.topZeroOffset)
+        XCTAssertNil(view.failure, "nothing failed")
+    }
+
     @MainActor
     func test_blurView_respectsReduceTransparency_setsTheOptionOfTheUIKitView() throws {
         let sut = try makeSUT(DMVariableBlurView().respectsReduceTransparency())
