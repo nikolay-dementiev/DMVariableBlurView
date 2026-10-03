@@ -11,4 +11,4 @@
 
 - [ ] The public interface is unchanged, or `Fixtures/API/public-interface.txt` is updated in the same commit
 - [ ] Every change that people using the package can notice is in `CHANGELOG.md`
-- [ ] No new private name of the system, or the pull request names it and the README lists it
+- [ ] No new private name of the system, or the pull request names it and the README and the article How the blur works list it

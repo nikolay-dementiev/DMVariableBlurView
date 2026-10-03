@@ -5,7 +5,8 @@ how to propose a change.
 
 ## Build and test
 
-You need Xcode 16.0 or later (Swift 6.0) and an iOS simulator. CI runs Xcode 16.4 and 26.6. The
+You need Xcode 16.0 or later (Swift 6.0) and an iOS simulator. CI tests with Xcode 16.4 and 26.6,
+and compiles the library with Xcode 16.0. The
 library is for iOS only, so its tests run on a simulator, with warnings as errors:
 
 ```bash
@@ -21,7 +22,7 @@ The checks below are scripts in `Scripts/`, and CI runs them as you do, except
 |---|---|
 | `Scripts/lint.sh` | SwiftLint, at the version pinned in `.swiftlint.yml`. The first run fetches that version into `.build/tools` and checks its checksum. `--analyze <xcodebuild log>` also runs the analyzer rule for unused imports |
 | `Scripts/check-api.sh` | the public interface against `Fixtures/API/public-interface.txt`; `--self-test` runs the cases of its normalisation. A deliberate change of the public API updates the baseline in the same commit |
-| `Scripts/check-manifest.sh` | the manifest, installation by version, the consumer fixture, that no resource bundle ships, and every Swift block of `README.md`, each compiled on its own. A warning in a block fails it too |
+| `Scripts/check-manifest.sh` | the manifest, installation by version, the consumer fixture, that no resource bundle ships, and every Swift block of `README.md`, each on its own: a manifest block is evaluated, every other block compiled. A warning in a block fails it too |
 | `Scripts/check-podspec.sh` | `pod lib lint` in Swift 5.0 and 6.0 mode, and that the pod links no test framework |
 | `Scripts/coverage-gate.sh <result bundle>` | the line coverage of the library against its floor |
 | `Scripts/check-release.sh <version>` | that the podspec and the changelog agree on a version |
@@ -72,7 +73,7 @@ check is yours to run before you commit a change to the example's project.
   visible.
 - A change that people using the package can notice gets an entry in `CHANGELOG.md`.
 - A new private name of the system in the library is a decision for the maintainer: say so in the
-  pull request, and add it to the list in the README.
+  pull request, and add it to the lists in the README and in the article How the blur works.
 
 ## Releases
 

@@ -6,6 +6,7 @@ A blur whose radius changes from row to row, for SwiftUI and UIKit.
 [![Swift 6.0+](https://img.shields.io/badge/Swift-6.0%2B-orange?style=flat-square)](#requirements)
 [![Platforms](https://img.shields.io/badge/Platforms-iOS_17%2B-yellowgreen?style=flat-square)](#requirements)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fnikolay-dementiev%2FDMVariableBlurView.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fnikolay-dementiev%2FDMVariableBlurView?ref=badge_shield)
 
 ![The same photo of a parrot on four phone screens, one for each direction of the blur: a blurred band across the middle, a blur at the top, a blur at the bottom, and a blur over the whole screen.](Documentation/Images/blur-modes.jpeg)
 
@@ -46,7 +47,9 @@ When not to use it:
 The view is a `UIVisualEffectView` whose backdrop draws the content behind it through a list
 of filters. The view replaces that list with the system's `variableBlur` filter, which blurs
 every row of pixels with its own radius. That filter is not public. The library reaches it
-through these names, which appear as plain strings in its binary:
+through these names, which it writes out in full and does not disguise. In a release build a
+short name may sit in the machine code rather than among the strings of the binary; that does
+not hide it from a scan.
 
 | Name | What it is |
 |---|---|
@@ -66,8 +69,11 @@ through these names, which appear as plain strings in its binary:
   effect has a backdrop. After installing it, the view reads the filter back. When a check
   fails, the view shows the plain blur of the system and reports
   `DMVariableBlurError.effectUnavailable`.
+- The view also relies on how the effect view is built, which is not documented: the backdrop
+  is the first subview whose layer carries filters, and the other subviews, except
+  `contentView`, are the tint, which the view hides.
 - These checks contain the risk of a system that changed; they cannot remove it. An exception
-  raised inside the private code cannot be caught from Swift.
+  raised inside the private code cannot be caught from Swift, so it ends the app.
 
 Whether to ship it is your decision.
 
@@ -80,8 +86,9 @@ What each version is verified with:
 
 | What | How |
 |---|---|
-| iOS 26.5 (Xcode 26.6), iOS 18.5 (Xcode 16.4) | the tests of the package and of the example app run on simulators in CI |
-| iOS 17.5, iOS 18.6, iOS 26.5 (Xcode 26.6) | the same tests run on simulators before a release |
+| iOS 26.5 (Xcode 26.6), iOS 18.5 (Xcode 16.4) | the tests of the package and of the example app run on simulators in CI; the snapshot tests compare on iOS 26.5 only |
+| iOS 17.5 (Xcode 26.6) | the same tests run on a simulator before each release |
+| iOS 18.6, iOS 26.5 (Xcode 26.6) | the same tests ran on simulators for 1.1.0 |
 | Swift 6.0 (Xcode 16.0) | CI compiles the library with that compiler; no test runs with it |
 
 ## Installation
@@ -179,19 +186,29 @@ struct AdjustableBlur: View {
     @State private var blursTop = true
 
     var body: some View {
-        VStack {
+        ZStack {
+            Text(String(repeating: "The content under the blur. ", count: 40))
+                .padding()
             DMVariableBlurView(
                 maxBlurRadius: radius,
                 direction: blursTop ? .blurredTopClearBottom : .blurredBottomClearTop
             )
-            Slider(value: $radius, in: 0...30)
-            Toggle("Blur the top", isOn: $blursTop)
+            .allowsHitTesting(false)
+            VStack {
+                Spacer()
+                Slider(value: $radius, in: 0...30)
+                Toggle("Blur the top", isOn: $blursTop)
+            }
+            .padding()
         }
     }
 }
 ```
 
 ### UIKit
+
+Content you add to the `contentView` of the view stays visible over the blur. To fade the
+view out, a host may set `effect` to `nil`; new values given meanwhile wait for the effect.
 
 ```swift
 import DMVariableBlurView
@@ -230,7 +247,7 @@ blur of the system over its whole frame and records the reason as a `DMVariableB
 | Case | Reason |
 |---|---|
 | `invalidMaxBlurRadius(_:)` | the radius is negative, infinite or not a number |
-| `invalidCenterBandProportion(_:)` | the proportion of the center band is outside `0...1` |
+| `invalidCenterBandProportion(_:)` | the proportion of the center band is outside `0...1`, or not a number |
 | `invalidStartOffset(_:)` | the offset is infinite or not a number |
 | `effectUnavailable` | the system does not offer the variable blur, or did not accept it |
 | `maskCreationFailed` | the image that shapes the blur could not be created |
@@ -260,14 +277,16 @@ after a valid configuration. Without a handler, the view writes one line for eac
 the unified log, under the subsystem `DMVariableBlurView` and the category `failure`. In
 UIKit, the `failure` property holds the reason, and each reason also goes to the log.
 
+`onFailure(_:)` and `respectsReduceTransparency(_:)` are methods of `DMVariableBlurView`:
+call them before other modifiers such as `.frame`.
+
 ## Behaviour your app must know
 
 ### Touches
 
 The blur takes the touches in its frame. In SwiftUI, add `.allowsHitTesting(false)` to let
-them reach the views underneath: SwiftUI gives the touches in the frame of a view that wraps
-a UIKit view to that view, whatever the UIKit view does. In UIKit, set
-`isUserInteractionEnabled` to `false`.
+them reach the views underneath: SwiftUI gives a view that wraps a UIKit view the touches in
+its frame. In UIKit, set `isUserInteractionEnabled` to `false`.
 
 ```swift
 import DMVariableBlurView
@@ -343,8 +362,9 @@ How the package is tested:
 DMVariableBlurView follows semantic versioning. [CHANGELOG.md](CHANGELOG.md) records every
 release.
 
-Coming from 1.0.x: no declaration was removed or changed, but some behaviour was, and the
-changelog lists each change. The ones most likely to matter:
+Coming from 1.0.x: no declaration was removed, and the UIKit class is now `final`, which no
+code outside the package could notice because it was never `open`. Some behaviour changed,
+and the changelog lists each change. The ones most likely to matter:
 
 - the blur keeps its shape after the appearance changes and after `effect` is assigned;
 - SwiftUI applies new values to a view that is already on the screen;
@@ -371,3 +391,5 @@ DMVariableBlurView is one of three packages that share their conventions:
   [VariableBlur](https://github.com/nikstar/VariableBlur) by nikstar, both under the MIT
   License; their notices are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 - The demo photo is a stock photo under a free licence.
+
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fnikolay-dementiev%2FDMVariableBlurView.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Fnikolay-dementiev%2FDMVariableBlurView?ref=badge_large)

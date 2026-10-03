@@ -20,7 +20,9 @@ Changelog 1.1.0, and versions follow Semantic Versioning 2.0.0.
   default.
 - `DMVariableBlurUIView.init(maxBlurRadius:direction:startOffset:)`,
   `update(maxBlurRadius:direction:startOffset:)` and `failure`: the UIKit view can be created
-  with values, updated, and asked why it shows no variable blur.
+  with values, updated, and asked why it shows no variable blur. Content in its `contentView`
+  stays visible over the blur, and new values given while a host has set `effect` to `nil`
+  wait for the effect.
 - `DMVariableBlurDirection` is `Sendable` and `Equatable`.
 - Documentation for every public symbol, and a documentation catalog with the articles How the
   blur works, which lists every private name the view uses, and Handling failures.
@@ -39,7 +41,8 @@ Changelog 1.1.0, and versions follow Semantic Versioning 2.0.0.
   `effect` of the view is assigned. In 1.0.0 the standard blur of the system replaced it.
 - SwiftUI applies new values to a view that is already on the screen. In 1.0.0 they were
   ignored.
-- `centerBandProportion: 1` blurs the whole height. In 1.0.0 it blurred nothing.
+- `centerBandProportion: 1`, and a value so close to 1 that the clear margins vanish in the
+  arithmetic, blur the whole height. In 1.0.0 a proportion of 1 blurred nothing.
 - `localizedDescription` of an error carries its description. In 1.0.0 it was a generic text.
 - Decoding `DMVariableBlurUIView` from an archive or a storyboard returns `nil`. In 1.0.0 it
   stopped the app.
@@ -52,7 +55,7 @@ Changelog 1.1.0, and versions follow Semantic Versioning 2.0.0.
 
 ### Changed
 
-Behaviour changes. None of them changes a declaration; each one is pinned by a test.
+Behaviour changes. None of them removes a declaration; each one is pinned by a test.
 
 - A `startOffset` of 1 or more blurs nothing in the top and bottom modes. In 1.0.0 it blurred
   everything. Any finite negative offset is allowed.

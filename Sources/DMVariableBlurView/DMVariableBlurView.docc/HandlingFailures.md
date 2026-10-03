@@ -11,7 +11,7 @@ reason as a ``DMVariableBlurError``:
 - ``DMVariableBlurError/invalidMaxBlurRadius(_:)``: the radius is negative, infinite or
   not a number.
 - ``DMVariableBlurError/invalidCenterBandProportion(_:)``: the proportion of the center
-  band is outside `0...1`.
+  band is outside `0...1`, or not a number.
 - ``DMVariableBlurError/invalidStartOffset(_:)``: the offset is infinite or not a number.
 - ``DMVariableBlurError/effectUnavailable``: the system does not offer the variable blur,
   or did not accept it.

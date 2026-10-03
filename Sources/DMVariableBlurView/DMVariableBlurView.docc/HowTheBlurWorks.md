@@ -15,8 +15,9 @@ hard line marks where the blur ends.
 
 ### The private parts
 
-The filter is not public. The view reaches it through these names, which appear as plain
-strings in the binary:
+The filter is not public. The view reaches it through these names, which it writes out in
+full and does not disguise. In a release build a short name may sit in the machine code
+rather than among the strings of the binary; that does not hide it from a scan:
 
 - the class `CAFilter`, its class method `filterWithType:` and its class property
   `filterTypes`;
@@ -37,8 +38,12 @@ the effect has a backdrop. After installing it, the view reads the filter back. 
 step fails, the view keeps the plain blur of the system and reports
 ``DMVariableBlurError/effectUnavailable``.
 
+The view also relies on how the effect view is built, which is not documented: the
+backdrop is the first subview whose layer carries filters, and the other subviews, except
+`contentView`, are the tint, which the view hides.
+
 These checks contain the risk of a system that changed; they cannot remove it. An
-exception raised inside the private code cannot be caught from Swift.
+exception raised inside the private code cannot be caught from Swift, so it ends the app.
 
 ### When the system rebuilds the effect
 
