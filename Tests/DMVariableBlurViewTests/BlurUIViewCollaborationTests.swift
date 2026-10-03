@@ -457,16 +457,18 @@ final class BlurUIViewCollaborationTests: XCTestCase {
     }
 
     @MainActor
-    func test_blurUIView_movedToAWindow_tellsTheInstallerTheScaleOfTheScreen() throws {
+    func test_blurUIView_movedIntoAWindowAndOut_handsTheInstallerTheDisplayScaleOfItsTraitsOnce() throws {
         let (sut, collaborators) = try makeSUT()
         let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 200, height: 400))
 
         window.addSubview(sut)
+        let scaleInTheWindow = sut.traitCollection.displayScale
         sut.removeFromSuperview()
 
         XCTAssertEqual(
             collaborators.installer.scaleUpdates,
-            [.init(scale: window.screen.scale, effectView: ObjectIdentifier(sut))]
+            [.init(scale: scaleInTheWindow, effectView: ObjectIdentifier(sut))],
+            "one update with the display scale of the traits in the window, none when the view leaves it"
         )
     }
 
