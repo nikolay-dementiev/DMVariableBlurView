@@ -21,7 +21,7 @@ package struct SystemFailureLog: FailureLog {
         // states, never data of the host. Interpolated strings are private in the unified log
         // unless they are marked public.
         let description = error.errorDescription ?? String(describing: error)
-        let consequence = "The view shows the plain blur of the system."
+        let consequence = "The view shows the plain blur of the system, or nothing while the host has removed its effect."
         if let detail {
             logger.error(
                 "\(description, privacy: .public). \(consequence, privacy: .public) Detail: \(detail, privacy: .public)"
