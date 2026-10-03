@@ -55,24 +55,26 @@ for MODE in $MODES; do
         continue
     fi
 
-    # grep exits 1 when nothing matches, and 2 when it cannot read what it searches.
+    # grep exits 1 when nothing matches, and 2 when it cannot read what it searches. Its
+    # output is kept in a variable: a file that cannot be written would end the command
+    # before grep runs, with the status of "nothing matches".
     SEARCH=0
-    grep -r -l "XCTest" "$CONSUMER/Pods/Target Support Files" > "$WORK/xctest-swift$MODE.txt" || SEARCH=$?
-    rm -rf "$CONSUMER"
+    MATCHES="$(grep -r -l "XCTest" "$CONSUMER/Pods/Target Support Files")" || SEARCH=$?
     case "$SEARCH" in
         0)
             echo "check-podspec: in Swift $MODE mode a consumer of the pod links XCTest:" >&2
-            sed "s#^$CONSUMER/##" "$WORK/xctest-swift$MODE.txt" >&2
+            printf '%s\n' "$MATCHES" | sed "s#^$CONSUMER/##" >&2
             FAILED=1
             ;;
         1)
             echo "check-podspec: the pod passes the lint in Swift $MODE mode and links no test framework."
             ;;
         *)
-            echo "check-podspec: cannot search the build configuration of the Swift $MODE consumer." >&2
+            echo "check-podspec: cannot search the build configuration of the Swift $MODE consumer in $CONSUMER." >&2
             exit 2
             ;;
     esac
+    rm -rf "$CONSUMER"
 done
 
 exit "$FAILED"
