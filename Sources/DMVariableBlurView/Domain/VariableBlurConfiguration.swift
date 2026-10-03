@@ -56,7 +56,9 @@ package struct VariableBlurConfiguration: Equatable {
             // The band is centered: the blur rises from each edge over the same distance.
             let margin = (1 - centerBandProportion) / 2
             // A band of the whole height leaves no edge to rise from: everything is blurred.
-            guard margin > 0 else {
+            // So does a margin so small that 1 minus it rounds to 1, which would leave the
+            // bottom ramp without a length.
+            guard margin > 0, 1 - margin < 1 else {
                 return BlurMaskProfile(ramps: [])
             }
             return BlurMaskProfile(ramps: [
