@@ -74,8 +74,11 @@ def balance(text, opening, closing, state=None):
     # Characters inside a string literal, such as a message or a return value, or inside a
     # comment do not count. Block comments nest, so their depth is counted. A block comment
     # and a multiline string literal can go on over the next lines: the caller passes `state`
-    # to carry them to the next line, and learns there of a raw string, which has delimiters
-    # and escapes of its own that this count does not follow.
+    # to carry them to the next line.
+    # The normaliser balances braces outside comments and plain string literals; a construct
+    # it does not model inside a hidden body stops the check, it is never assumed balanced.
+    # Such a construct is named in `state`: a raw string, whose delimiters and escapes are its
+    # own, and a string interpolation, which holds code and strings of its own.
     total, in_string, position = 0, False, 0
     comments = state.get("comment", 0) if state else 0
     multiline = bool(state.get("multiline")) if state else False
@@ -91,6 +94,9 @@ def balance(text, opening, closing, state=None):
                 position += 1
             continue
         if multiline:
+            if state is not None and text.startswith("\\(", position):
+                state["unmodelled"] = "a string interpolation"
+                break
             if text[position] == "\\":
                 position += 2
             elif text.startswith("\"\"\"", position):
@@ -101,6 +107,9 @@ def balance(text, opening, closing, state=None):
             continue
         character = text[position]
         if in_string:
+            if state is not None and text.startswith("\\(", position):
+                state["unmodelled"] = "a string interpolation"
+                break
             if character == "\\":
                 position += 1
             elif character == "\"":
@@ -112,7 +121,7 @@ def balance(text, opening, closing, state=None):
             position += 2
             continue
         elif state is not None and character == "#" and text[position:].lstrip("#").startswith("\""):
-            state["raw"] = True
+            state["unmodelled"] = "a raw string literal"
             break
         elif text.startswith("\"\"\"", position):
             multiline = True
@@ -163,16 +172,17 @@ def hidden_declaration(line):
             return False
     return False
 
-def refuse_raw_string(state, line):
-    if state.get("raw"):
-        sys.exit("check-api: a raw string literal in a hidden body is not supported: " + line.strip())
+def refuse_unmodelled(state, line):
+    construct = state.get("unmodelled")
+    if construct:
+        sys.exit("check-api: " + construct + " in a hidden body is not supported: " + line.strip())
 
 def public_lines(lines):
     kept, held, depth, state = [], [], 0, {"comment": 0, "multiline": False}
     for line in lines:
         if depth > 0:
             depth += balance(line, "{", "}", state)
-            refuse_raw_string(state, line)
+            refuse_unmodelled(state, line)
             continue
         if line.strip() and attributes_only(line):
             held.append(line)
@@ -182,7 +192,7 @@ def public_lines(lines):
             state["comment"] = 0
             state["multiline"] = False
             depth = balance(line, "{", "}", state)
-            refuse_raw_string(state, line)
+            refuse_unmodelled(state, line)
             continue
         kept.extend(held)
         held = []
