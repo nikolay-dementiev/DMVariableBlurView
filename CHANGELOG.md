@@ -39,6 +39,11 @@ Changelog 1.1.0, and versions follow Semantic Versioning 2.0.0.
 - The pod no longer makes the apps that use it link XCTest.
 - The blur keeps its shape when the appearance changes between light and dark, and when the
   `effect` of the view is assigned. In 1.0.0 the standard blur of the system replaced it.
+- The backdrop scale follows the display scale after a fade-in and after a trait change, so
+  the clear edge stays sharp: the backdrop takes the display scale of the view's traits when
+  the view enters a window, when the blur is installed, also after a host set `effect` to
+  `nil` before the view entered the window, and when the display scale changes. In 1.0.0 it
+  took the scale of the screen, once, when the view entered a window.
 - SwiftUI applies new values to a view that is already on the screen. In 1.0.0 they were
   ignored.
 - `centerBandProportion: 1`, and a value so close to 1 that the clear margins vanish in the

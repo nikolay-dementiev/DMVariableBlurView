@@ -72,6 +72,9 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
     /// What the view was last asked to show. A request equal to it changes nothing.
     private var lastRequest: Request?
 
+    /// The display scale last handed to the backdrop. An equal scale is not handed over again.
+    private var appliedBackdropScale: CGFloat?
+
     private struct InstalledBlur {
         let maxBlurRadius: CGFloat
         let mask: CGImage
@@ -104,6 +107,10 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
             // With the option off the view ignores the setting, its changes included.
             guard let self, self.respectsReduceTransparency else { return }
             self.settingChanged()
+        }
+        // UIKit hands the view to the handler, so the handler holds no reference to it.
+        registerForTraitChanges([UITraitDisplayScale.self]) { (self: Self, _: UITraitCollection) in
+            self.applyBackdropScale()
         }
     }
 
@@ -190,17 +197,30 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
             // Trying again in every layout pass would not change the answer of the system.
             self.installedBlur = nil
             record(.effectUnavailable, detail: String(describing: reason))
+            return
         }
+        applyBackdropScale()
     }
 
     /// Sets the backdrop to the display scale of the view's traits in the new window, so that
     /// the clear edge stays sharp.
     public override func didMoveToWindow() {
         super.didMoveToWindow()
+        applyBackdropScale()
+    }
+
+    /// Hands the display scale of the view's traits to the backdrop: when the view enters a
+    /// window, after each installation of the blur, and when the display scale changes.
+    private func applyBackdropScale() {
         // Without it the clear edge looks pixelated (https://github.com/nikstar/VariableBlur/issues/1):
-        // by default the backdrop renders at a fraction of the display scale.
-        guard window != nil else { return }
-        installer.setBackdropScale(traitCollection.displayScale, on: self)
+        // by default the backdrop renders at a fraction of the display scale. Out of a window
+        // there is no display, and without an effect there is no backdrop, so the scale waits
+        // for both. UIKit keeps the backdrop, with its scale, while a host takes the effect away.
+        guard window != nil, effect != nil else { return }
+        let scale = traitCollection.displayScale
+        guard scale != appliedBackdropScale else { return }
+        installer.setBackdropScale(scale, on: self)
+        appliedBackdropScale = scale
     }
 
     /// Shows the last valid configuration as the option allows: the standard effect while
@@ -246,6 +266,7 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
         }
         installedBlur = blur
         failure = nil
+        applyBackdropScale()
     }
 
     /// The option or the setting changed. A configuration that failed stays as it is:
