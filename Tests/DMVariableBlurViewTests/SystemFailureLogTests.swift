@@ -15,7 +15,8 @@ final class SystemFailureLogTests: XCTestCase {
         XCTAssertEqual(
             lines.first?.composedMessage,
             "The system does not offer the variable blur effect, or did not accept it. "
-                + "The view shows the plain blur of the system. Detail: filterTypeMissing",
+                + "The view shows the plain blur of the system, or nothing while the host has removed its effect. "
+                + "Detail: filterTypeMissing",
             "the line holds the description, the consequence and the detail"
         )
     }
@@ -27,7 +28,10 @@ final class SystemFailureLogTests: XCTestCase {
 
         XCTAssertEqual(
             try log.libraryLines().map(\.composedMessage),
-            ["centerBandProportion must be in the range 0...1, but it is 1.5. The view shows the plain blur of the system."]
+            [
+                "centerBandProportion must be in the range 0...1, but it is 1.5. "
+                    + "The view shows the plain blur of the system, or nothing while the host has removed its effect."
+            ]
         )
     }
 
