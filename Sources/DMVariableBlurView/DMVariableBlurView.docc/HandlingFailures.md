@@ -4,9 +4,12 @@ What the view shows when it cannot show the variable blur, and how you learn why
 
 ## Overview
 
-A value out of range, or a system that does not offer the filter, never leaves the view
-empty. The view shows the plain blur of the system over its whole frame and records the
-reason as a ``DMVariableBlurError``:
+A value out of range, or a system that does not offer the filter, does not leave the view
+empty: the view shows the plain blur of the system over its whole frame. The one exception
+is a ``DMVariableBlurUIView`` whose `effect` the host has set to `nil`, for example to fade
+it out: it shows nothing until the host gives it an effect again.
+
+The view records the reason as a ``DMVariableBlurError``:
 
 - ``DMVariableBlurError/invalidMaxBlurRadius(_:)``: the radius is negative, infinite or
   not a number.
@@ -26,7 +29,9 @@ the first. The view checks them before it touches the system.
 Pass a handler to ``DMVariableBlurView/DMVariableBlurView/onFailure(_:)``. It runs on the
 main actor, after the update that applied the configuration, so it may change state. It
 runs once for each configuration that fails, and again when a failure returns after a
-valid configuration.
+valid configuration. A configuration rejected for the same reason as the one before it,
+the same case and value, counts as unchanged: nothing is reported again, also when its
+other values differ.
 
 Without a handler, the view writes one line for each failure to the unified log, under
 the subsystem `DMVariableBlurView` and the category `failure`. With a handler, it writes
