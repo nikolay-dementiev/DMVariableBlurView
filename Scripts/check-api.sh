@@ -68,7 +68,7 @@ mkdir -p "$WORK"
 normalize() {
     # grep exits 1 when it selects no line, as for an interface without declarations; any
     # other failure, such as a file it cannot read, stops the normalisation.
-    { grep -v -E '^(//|import |$)' "$1" || [ $? -eq 1 ]; } | python3 -c '
+    { grep -n -v -E '^(//|import |$)' "$1" || [ $? -eq 1 ]; } | python3 -c '
 import sys
 
 def balance(text, opening, closing):
@@ -123,43 +123,76 @@ def hidden_declaration(line):
             return False
     return False
 
-# A declaration that is not API is dropped by its indentation, never by reading its text:
-# the interface printer indents every member one level deeper than its type and puts the
-# closing brace of a block at the indentation of its declaration. A hidden declaration at
+# Every line read must sit where the interface printer puts it, and a declaration that is not
+# API is dropped by its indentation, never by reading its text. The printer puts the members
+# of a block two spaces deeper than the line that opens it and the closing brace at the
+# indentation of that line; the body of an inlinable declaration it prints as written in the
+# source, so that body, its closing brace included, may sit deeper. A hidden declaration at
 # indentation N goes with every following line indented deeper than N and, when its line ends
-# with {, with the next line at indentation N that is exactly }. Nothing on those lines is
-# read. This cannot pass silently: a public member of the same type sits at indentation N, so
-# nothing in a hidden body can swallow it. The only misjudgement is a serialised body with a
-# line at indentation N or less that is not its closing brace, such as a multiline string laid
-# out flat: the drop then ends early, the rest of the body leaks into the normalised text, and
-# the comparison turns red or stops with exit 2, never green.
+# with {, with the next line at indentation N that is exactly }. Any other line must be at the
+# member level of the innermost open block, or be its closing brace; a compiler directive may
+# sit anywhere. A line out of place stops the check with exit 2 and names its number, and so
+# does a directive still open at the end. This cannot pass silently: a public member sits at
+# the member level of its type, which the drop of a hidden body never reaches, and text that
+# leaks from a body, such as a multiline string or regex laid out flat, either stops the check
+# at its first line out of place or adds text at the member level, which turns the comparison
+# red.
+DIRECTIVES = ("#if", "#elseif", "#else", "#endif")
+
 def indentation(line):
     return len(line) - len(line.lstrip())
 
 def public_lines(lines):
-    kept, held, position = [], [], 0
+    kept, held, blocks, conditions, position = [], [], [], 0, 0
     while position < len(lines):
-        line = lines[position]
+        number, line = lines[position]
         position += 1
+        directive = line.lstrip()
+        if directive.startswith(DIRECTIVES):
+            if directive.startswith("#if"):
+                conditions += 1
+            elif directive.startswith("#endif"):
+                conditions -= 1
+            kept.extend(held)
+            held = []
+            kept.append(line)
+            continue
+        level = indentation(line)
+        if blocks and level == blocks[-1] and line.strip() == "}":
+            blocks.pop()
+            kept.extend(held)
+            held = []
+            kept.append(line)
+            continue
+        if level != (blocks[-1] + 2 if blocks else 0):
+            sys.exit("check-api: line " + str(number) + " is not where the interface printer puts it: " + line.strip())
         if line.strip() and attributes_only(line):
             held.append(line)
             continue
         if hidden_declaration(line):
             held = []
-            level = indentation(line)
-            while position < len(lines) and indentation(lines[position]) > level:
+            while position < len(lines) and indentation(lines[position][1]) > level:
                 position += 1
             if (line.rstrip().endswith("{") and position < len(lines)
-                    and indentation(lines[position]) == level and lines[position].strip() == "}"):
+                    and indentation(lines[position][1]) == level and lines[position][1].strip() == "}"):
                 position += 1
             continue
         kept.extend(held)
         held = []
         kept.append(line)
+        if line.rstrip().endswith("{"):
+            blocks.append(level)
+    if conditions != 0:
+        sys.exit("check-api: a compiler directive is still open at the end of the interface")
     return kept + held
 
+numbered = []
+for raw in sys.stdin.read().splitlines():
+    number, _, line = raw.partition(":")
+    numbered.append((int(number), line))
+
 blocks, current, conditions = [], [], 0
-for line in public_lines(sys.stdin.read().splitlines()):
+for line in public_lines(numbered):
     starts_declaration = bool(line) and not line[0].isspace() and line != "}"
     if starts_declaration and current and conditions == 0 and not all(attributes_only(held) for held in current):
         blocks.append("\n".join(current))
