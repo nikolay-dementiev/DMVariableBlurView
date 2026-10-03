@@ -20,11 +20,13 @@ set -euo pipefail
 
 # The target whose line coverage is checked, as the coverage report names it.
 TARGET="DMVariableBlurView"
+# Functions left out of the measurement, by a part of their name: the SwiftUI previews,
+# which only the Xcode canvas runs. Empty to measure every function.
+EXCLUDED_FUNCTIONS="Preview"
 # The lowest accepted line coverage of that target, in percent. Never below 90. Measured
-# for 1.1.0: 90.79 % (424 of 467 lines). The 43 lines no test runs are the 40 lines of the
-# SwiftUI previews, which only the Xcode canvas runs, and three defensive lines; without
-# the previews the tests cover 424 of 427 lines.
-FLOOR_PERCENT=90
+# for 1.1.0 without the previews: 99.32 % (439 of 442 lines); the three lines no test runs
+# are defensive.
+FLOOR_PERCENT=99
 
 # ==== End of the settings ===============================================================
 
@@ -49,11 +51,11 @@ if ! xcrun xccov view --report --json "$BUNDLE" > "$REPORT" 2> "$ERRORS"; then
     exit 2
 fi
 
-python3 - "$REPORT" "$TARGET" "$FLOOR_PERCENT" <<'PY'
+python3 - "$REPORT" "$TARGET" "$FLOOR_PERCENT" "$EXCLUDED_FUNCTIONS" <<'PY'
 import json
 import sys
 
-report_path, target, floor = sys.argv[1], sys.argv[2], float(sys.argv[3])
+report_path, target, floor, excluded = sys.argv[1], sys.argv[2], float(sys.argv[3]), sys.argv[4]
 if floor < 90:
     print(f"coverage-gate: the floor {floor:g} % is below 90 %. Check FLOOR_PERCENT.", file=sys.stderr)
     sys.exit(2)
@@ -65,9 +67,23 @@ try:
     if len(targets) != 1:
         print(f"coverage-gate: the report has {len(targets)} targets named {target}, not one.", file=sys.stderr)
         sys.exit(2)
-    covered, executable = int(targets[0]["coveredLines"]), int(targets[0]["executableLines"])
-    files = [(entry["name"], int(entry["coveredLines"]), int(entry["executableLines"]))
-             for entry in targets[0].get("files", [])]
+    # The lines are summed over the functions of each file, so that the functions named in
+    # EXCLUDED_FUNCTIONS can be left out. A file with lines but no function list cannot be
+    # measured that way.
+    files, left_out = [], 0
+    for entry in targets[0].get("files", []):
+        functions = entry.get("functions")
+        if functions is None and int(entry["executableLines"]) > 0:
+            print(f"coverage-gate: the report lists no functions for {entry['name']}.", file=sys.stderr)
+            sys.exit(2)
+        kept = [function for function in functions or [] if not (excluded and excluded in function["name"])]
+        left_out += sum(int(function["executableLines"]) for function in functions or []) \
+            - sum(int(function["executableLines"]) for function in kept)
+        files.append((entry["name"],
+                      sum(int(function["coveredLines"]) for function in kept),
+                      sum(int(function["executableLines"]) for function in kept)))
+    covered = sum(file_covered for _, file_covered, _ in files)
+    executable = sum(file_executable for _, _, file_executable in files)
 except (ValueError, KeyError, TypeError, AttributeError) as error:
     print(f"coverage-gate: the coverage report has an unexpected form: {error!r}", file=sys.stderr)
     sys.exit(2)
@@ -78,6 +94,8 @@ if executable == 0:
 
 percent = 100 * covered / executable
 print(f"coverage-gate: {target} {percent:.2f} % of lines ({covered} of {executable}), floor {floor:g} %.")
+if left_out:
+    print(f"  left out: {left_out} lines of functions named with '{excluded}'")
 for name, file_covered, file_executable in sorted(files):
     if file_executable > file_covered:
         print(f"  {name}: {file_executable - file_covered} of {file_executable} lines not covered")
