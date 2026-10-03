@@ -63,7 +63,8 @@ mkdir -p "$WORK"
 # compiler condition (#if ... #endif) stays one block with what it guards: moving either
 # to another declaration is an API change. A declaration whose own access level is
 # private, fileprivate, internal or package is not API: it is dropped with its attribute
-# lines and its body. A build without library evolution prints such stored properties.
+# lines and its block, which must follow the grammar of a hidden block stated below. A build
+# without library evolution prints such stored properties.
 normalize() {
     # grep exits 1 when it selects no line, as for an interface without declarations; any
     # other failure, such as a file it cannot read, stops the normalisation.
@@ -71,14 +72,9 @@ normalize() {
 import sys
 
 def balance(text, opening, closing, state=None):
-    # Characters inside a string literal, such as a message or a return value, or inside a
-    # comment do not count. Block comments nest, so their depth is counted. A block comment
-    # and a multiline string literal can go on over the next lines: the caller passes `state`
-    # to carry them to the next line.
-    # The normaliser balances braces outside comments and plain string literals; a construct
-    # it does not model inside a hidden body stops the check, it is never assumed balanced.
-    # Such a construct is named in `state`: a raw string, whose delimiters and escapes are its
-    # own, and a string interpolation, which holds code and strings of its own.
+    # Counts the brackets of one line outside comments and plain string literals, the lexing
+    # the grammar of a hidden block below relies on; `state` carries a comment or a multiline
+    # string to the next line and names a literal this count does not model.
     total, in_string, position = 0, False, 0
     comments = state.get("comment", 0) if state else 0
     multiline = bool(state.get("multiline")) if state else False
@@ -120,8 +116,9 @@ def balance(text, opening, closing, state=None):
             comments = 1
             position += 2
             continue
-        elif state is not None and character == "#" and text[position:].lstrip("#").startswith("\""):
-            state["unmodelled"] = "a raw string literal"
+        elif state is not None and character == "#" and text[position:].lstrip("#")[:1] in ("\"", "/"):
+            delimited = text[position:].lstrip("#")
+            state["unmodelled"] = "a raw string literal" if delimited.startswith("\"") else "a regex literal"
             break
         elif text.startswith("\"\"\"", position):
             multiline = True
@@ -172,6 +169,39 @@ def hidden_declaration(line):
             return False
     return False
 
+# The grammar of a hidden block. Inside the block of a declaration that is not API the
+# normaliser accepts only: a declaration, which after attributes and modifiers starts with
+# case, var, let, func, init, deinit, subscript, struct, class, enum, protocol, extension,
+# typealias, associatedtype, actor or an access level; a line of attributes, which belongs to
+# the declaration below it; an accessor (get, set, _read, _modify, unsafeAddress,
+# unsafeMutableAddress) with its attributes, mutating or nonmutating in front; a compiler
+# directive (#if, #else, #elseif, #endif); a lone { or }. Braces are counted on those lines
+# only, and a raw string, an interpolation or a regex literal on them stops the check. Any
+# other line is a statement of a serialised body and stops the check with exit 2: a construct
+# the normaliser does not model inside a hidden block is never assumed balanced.
+DECLARATIONS = {"case", "var", "let", "func", "init", "deinit", "subscript", "struct", "class",
+                "enum", "protocol", "extension", "typealias", "associatedtype", "actor"}
+ACCESS_LEVELS = {"open", "public", "package", "internal", "fileprivate", "private"}
+MODIFIERS = {"static", "final", "override", "required", "convenience", "dynamic", "lazy",
+             "optional", "mutating", "nonmutating", "indirect", "weak", "unowned", "nonisolated",
+             "isolated", "consuming", "borrowing", "__consuming", "distributed", "prefix",
+             "postfix", "infix"}
+ACCESSORS = {"get", "set", "_read", "_modify", "unsafeAddress", "unsafeMutableAddress"}
+DIRECTIVES = ("#if", "#else", "#elseif", "#endif")
+
+def belongs_to_a_hidden_block(line):
+    text = line.strip()
+    if text in ("{", "}") or text.startswith(DIRECTIVES):
+        return True
+    words = skip_attributes(line).split()
+    if not words:
+        return True
+    position = 0
+    while position < len(words) and words[position].split("(")[0] in MODIFIERS:
+        position += 1
+    keyword = words[position].split("(")[0] if position < len(words) else ""
+    return keyword in DECLARATIONS or keyword in ACCESS_LEVELS or keyword in ACCESSORS
+
 def refuse_unmodelled(state, line):
     construct = state.get("unmodelled")
     if construct:
@@ -181,6 +211,8 @@ def public_lines(lines):
     kept, held, depth, state = [], [], 0, {"comment": 0, "multiline": False}
     for line in lines:
         if depth > 0:
+            if not belongs_to_a_hidden_block(line):
+                sys.exit("check-api: a serialised body in a hidden declaration is not normalised: " + line.strip())
             depth += balance(line, "{", "}", state)
             refuse_unmodelled(state, line)
             continue
