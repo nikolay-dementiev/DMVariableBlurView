@@ -96,7 +96,7 @@ final class BlurViewReapplicationTests: XCTestCase {
         let view = DMVariableBlurUIView(maxBlurRadius: 7, direction: .blurredTopClearBottom)
         let sut = HostedBlurView(placing: view)
         defer { sut.hide() }
-        let container = try XCTUnwrap(view.superview)
+        let container = try XCTUnwrap(view.superview, "precondition: the view is in a hierarchy")
         let newScale: CGFloat = view.traitCollection.displayScale == 2 ? 3 : 2
 
         container.traitOverrides.displayScale = newScale

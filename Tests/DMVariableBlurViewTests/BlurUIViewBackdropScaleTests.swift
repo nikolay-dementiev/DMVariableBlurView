@@ -15,6 +15,7 @@ final class BlurUIViewBackdropScaleTests: XCTestCase {
         let scaleInTheWindow = sut.traitCollection.displayScale
         sut.removeFromSuperview()
 
+        XCTAssertGreaterThan(scaleInTheWindow, 0, "precondition: the traits in the window carry a display scale")
         XCTAssertEqual(
             installer.scaleUpdates,
             [.init(scale: scaleInTheWindow, effectView: ObjectIdentifier(sut))],
@@ -72,6 +73,7 @@ final class BlurUIViewBackdropScaleTests: XCTestCase {
             installationsWithoutAnEffect + 1,
             "precondition: the blur is installed again when the effect is set"
         )
+        XCTAssertGreaterThan(sut.traitCollection.displayScale, 0, "precondition: the traits carry a display scale")
         XCTAssertEqual(
             installer.scaleUpdates,
             [.init(scale: sut.traitCollection.displayScale, effectView: ObjectIdentifier(sut))],
@@ -84,6 +86,7 @@ final class BlurUIViewBackdropScaleTests: XCTestCase {
     @MainActor
     func test_blurUIView_firstBlurInstalledAfterAFadeIn_handsTheScaleWithIt() throws {
         let (sut, installer) = try makeSUT()
+        sut.apply(VariableBlurConfiguration(maxBlurRadius: -1, direction: .blurredTopClearBottom, startOffset: 0))
         sut.effect = nil
         let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 200, height: 400))
         window.addSubview(sut)
@@ -95,6 +98,7 @@ final class BlurUIViewBackdropScaleTests: XCTestCase {
 
         XCTAssertEqual(updatesBeforeTheBlur, [], "nothing is handed over while there is no blur and no backdrop at the move")
         XCTAssertEqual(installer.installations.count, 1, "precondition: the first blur is installed")
+        XCTAssertGreaterThan(sut.traitCollection.displayScale, 0, "precondition: the traits carry a display scale")
         XCTAssertEqual(
             installer.scaleUpdates.map(\.scale),
             [sut.traitCollection.displayScale],
@@ -140,11 +144,34 @@ final class BlurUIViewBackdropScaleTests: XCTestCase {
         sut.apply(VariableBlurConfiguration(maxBlurRadius: 9, direction: .blurredTopClearBottom, startOffset: 0))
 
         XCTAssertEqual(installer.installations.count, 2, "precondition: two installations in the window")
+        XCTAssertGreaterThan(sut.traitCollection.displayScale, 0, "precondition: the traits carry a display scale")
         XCTAssertEqual(
             installer.scaleUpdates.map(\.scale),
             [sut.traitCollection.displayScale],
             "one update: an equal scale is not handed over again"
         )
+    }
+
+    /// A blur that could not be installed when the effect returned needs no scale: the view
+    /// shows the plain blur of the system, at the scale UIKit gives it.
+    @MainActor
+    func test_blurUIView_blurNotInstalledAfterAFadeIn_handsNoScale() throws {
+        let (sut, installer) = try makeSUT()
+        sut.apply(VariableBlurConfiguration(maxBlurRadius: 7, direction: .blurredTopClearBottom, startOffset: 0))
+        sut.effect = nil
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 200, height: 400))
+        window.addSubview(sut)
+        window.layoutIfNeeded()
+
+        // UIKit puts the standard filters of the new effect on the backdrop, and the system
+        // does not take the variable blur this time.
+        installer.blurIsStillInstalled = false
+        installer.outcome = .unavailable(.filterTypeMissing)
+        sut.effect = UIBlurEffect(style: .regular)
+        window.layoutIfNeeded()
+
+        XCTAssertEqual(sut.failure, .effectUnavailable, "precondition: the blur could not be installed")
+        XCTAssertEqual(installer.scaleUpdates, [], "no scale for a backdrop without the variable blur")
     }
 
     // MARK: - Helpers

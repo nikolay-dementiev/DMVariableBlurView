@@ -53,6 +53,11 @@ final class ReduceTransparencyTests: XCTestCase {
         XCTAssertEqual(sut.radius, 7, "with its radius")
         XCTAssertEqual(sut.tintAlphas, [0], "and the tint hidden")
         assertMaskProfile(of: sut, matches: MaskProfileFixtures.topZeroOffset)
+        XCTAssertEqual(
+            sut.backdropScale,
+            view.traitCollection.displayScale,
+            "the backdrop keeps the display scale through the standard effect and back"
+        )
         XCTAssertNil(view.failure, "nothing failed")
     }
 
