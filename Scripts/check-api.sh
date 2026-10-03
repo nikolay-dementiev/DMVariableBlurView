@@ -72,10 +72,13 @@ import sys
 
 def balance(text, opening, closing, state=None):
     # Characters inside a string literal, such as a message or a return value, or inside a
-    # comment do not count. Block comments nest, so their depth is counted, and one can go
-    # on over the next lines: the caller passes `state` to carry the depth to the next line.
+    # comment do not count. Block comments nest, so their depth is counted. A block comment
+    # and a multiline string literal can go on over the next lines: the caller passes `state`
+    # to carry them to the next line, and learns there of a raw string, which has delimiters
+    # and escapes of its own that this count does not follow.
     total, in_string, position = 0, False, 0
     comments = state.get("comment", 0) if state else 0
+    multiline = bool(state.get("multiline")) if state else False
     while position < len(text):
         if comments:
             if text.startswith("/*", position):
@@ -84,6 +87,15 @@ def balance(text, opening, closing, state=None):
             elif text.startswith("*/", position):
                 comments -= 1
                 position += 2
+            else:
+                position += 1
+            continue
+        if multiline:
+            if text[position] == "\\":
+                position += 2
+            elif text.startswith("\"\"\"", position):
+                multiline = False
+                position += 3
             else:
                 position += 1
             continue
@@ -99,6 +111,13 @@ def balance(text, opening, closing, state=None):
             comments = 1
             position += 2
             continue
+        elif state is not None and character == "#" and text[position:].lstrip("#").startswith("\""):
+            state["raw"] = True
+            break
+        elif text.startswith("\"\"\"", position):
+            multiline = True
+            position += 3
+            continue
         elif character == "\"":
             in_string = True
         elif character == opening:
@@ -108,6 +127,7 @@ def balance(text, opening, closing, state=None):
         position += 1
     if state is not None:
         state["comment"] = comments
+        state["multiline"] = multiline
     return total
 
 def skip_attributes(line):
@@ -143,11 +163,16 @@ def hidden_declaration(line):
             return False
     return False
 
+def refuse_raw_string(state, line):
+    if state.get("raw"):
+        sys.exit("check-api: a raw string literal in a hidden body is not supported: " + line.strip())
+
 def public_lines(lines):
-    kept, held, depth, state = [], [], 0, {"comment": 0}
+    kept, held, depth, state = [], [], 0, {"comment": 0, "multiline": False}
     for line in lines:
         if depth > 0:
             depth += balance(line, "{", "}", state)
+            refuse_raw_string(state, line)
             continue
         if line.strip() and attributes_only(line):
             held.append(line)
@@ -155,7 +180,9 @@ def public_lines(lines):
         if hidden_declaration(line):
             held = []
             state["comment"] = 0
+            state["multiline"] = False
             depth = balance(line, "{", "}", state)
+            refuse_raw_string(state, line)
             continue
         kept.extend(held)
         held = []
