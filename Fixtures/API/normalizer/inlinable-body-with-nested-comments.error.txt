@@ -1,7 +1,7 @@
-# expect: different
-# Swift block comments nest. A brace after the inner comment that is still inside the
-# outer one does not open a body, so the public member after the hidden body stays in the
-# interface, and its removal is an API change.
+# expect: error
+# message: a serialised body in a hidden declaration is not normalised
+# The body of an inlinable function is code, and the normaliser does not model code:
+# whatever its strings and comments hold, a body in a hidden declaration stops the check.
 --- A ---
 public struct First {
   @inlinable internal func helper() -> Swift.Int {

@@ -1,0 +1,15 @@
+# expect: error
+# message: a regex literal
+# A regex literal has delimiters and escapes of its own, which the brace count does not
+# follow. On a declaration line of a hidden block, such as a default argument, it stops the
+# check.
+--- A ---
+public struct First {
+  package enum Hidden {
+    package static func matches(_ pattern: Regex<Substring> = #/\{/#) -> Swift.Bool
+  }
+  public func visible()
+}
+--- B ---
+public struct First {
+}
