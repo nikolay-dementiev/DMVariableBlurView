@@ -1,0 +1,329 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  # The release workflow runs this workflow on a version tag.
+  workflow_call:
+  # An early warning when a new runner image or iOS version breaks the package.
+  schedule:
+    - cron: "17 5 * * 1"
+
+permissions:
+  contents: read
+
+# A newer commit of a pull request replaces the run of the older one. Every other run has
+# a group of its own: GitHub keeps one pending run per group and drops the others, so a
+# shared group would lose runs of main even without cancelling.
+concurrency:
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  lint:
+    name: lint
+    runs-on: macos-26
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Lint
+        run: Scripts/lint.sh
+
+  test:
+    name: test (${{ matrix.name }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: iOS 26.5
+            runner: macos-26
+            xcode: /Applications/Xcode_26.6.app
+            destination: platform=iOS Simulator,name=iPhone 17,OS=26.5
+            newest: true
+          - name: iOS 18.5
+            runner: macos-15
+            xcode: /Applications/Xcode_16.4.app
+            destination: platform=iOS Simulator,name=iPhone 16,OS=18.5
+            newest: false
+    env:
+      DEVELOPER_DIR: ${{ matrix.xcode }}/Contents/Developer
+      DESTINATION: ${{ matrix.destination }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build and test
+        run: |
+          set -o pipefail
+          mkdir -p .build/results/ci
+          xcodebuild clean build test \
+            -scheme DMVariableBlurView \
+            -sdk iphonesimulator \
+            -destination "$DESTINATION" \
+            -enableCodeCoverage YES \
+            -resultBundlePath .build/results/ci/package.xcresult \
+            SWIFT_TREAT_WARNINGS_AS_ERRORS=YES \
+            | tee .build/results/ci/package.log
+      # The rule that finds unused imports needs the compiler commands of a clean build.
+      - name: Find unused imports
+        if: matrix.newest
+        run: Scripts/lint.sh --analyze .build/results/ci/package.log
+      # The tests run in Debug. This build proves that the release configuration compiles.
+      - name: Build the library for release
+        if: matrix.newest
+        run: |
+          xcodebuild build \
+            -scheme DMVariableBlurView \
+            -configuration Release \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            SWIFT_TREAT_WARNINGS_AS_ERRORS=YES
+      # The floor was measured with the toolchain of this cell, Xcode 26.6.
+      - name: Check the coverage floor
+        if: matrix.newest
+        run: Scripts/coverage-gate.sh .build/results/ci/package.xcresult
+      - name: Upload the result bundle
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: package-${{ matrix.runner }}-xcresult
+          path: .build/results/ci/package.xcresult
+
+  thread-sanitizer:
+    # The package's tests under the Thread Sanitizer. The library has code that runs off
+    # the main thread: a change of the Reduce Transparency setting can be posted on another
+    # thread and is moved to the main actor, and a test posts it from another thread; the
+    # failure handler runs in a task. Debug, no coverage, no example app.
+    name: thread-sanitizer
+    runs-on: macos-26
+    timeout-minutes: 30
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+      # Without it a race is reported and the tests still pass: the sanitizer stops the
+      # test process at the first report, and the run fails.
+      TEST_RUNNER_TSAN_OPTIONS: halt_on_error=1
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Test the package under the Thread Sanitizer
+        run: |
+          set -o pipefail
+          mkdir -p .build/results/ci
+          xcodebuild test \
+            -scheme DMVariableBlurView \
+            -sdk iphonesimulator \
+            -destination 'platform=iOS Simulator,name=iPhone 17,OS=26.5' \
+            -enableThreadSanitizer YES \
+            -resultBundlePath .build/results/ci/thread-sanitizer.xcresult \
+            | tee .build/results/ci/thread-sanitizer.log
+      - name: Upload the result bundle
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: thread-sanitizer-xcresult
+          path: .build/results/ci/thread-sanitizer.xcresult
+
+  floor:
+    # The oldest toolchain the tools version of Package.swift promises: Swift 6.0.
+    #
+    # What it proves: the manifest loads with the SwiftPM of Swift 6.0, and the sources of
+    # the library compile with the Swift 6.0 compiler of Xcode 16.0 against its iOS
+    # simulator SDK, optimized, in the language mode, for the platform and with the
+    # upcoming feature the manifest declares, warnings as errors. Object code is generated,
+    # so the diagnostics that run after type checking run too. What it does not prove:
+    # nothing is linked and no test runs here; the test job does that with newer toolchains.
+    #
+    # The compiler is called directly, as Scripts/check-api.sh does, because it needs the
+    # SDK only. An xcodebuild destination of Xcode 16.0 needs a simulator platform that the
+    # runners of this image do not always offer ("iOS 18.0 is not installed").
+    name: floor
+    runs-on: macos-15
+    timeout-minutes: 20
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_16.0.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check that the compiler is Swift 6.0
+        run: |
+          xcrun swiftc --version | tee "$RUNNER_TEMP/swiftc-version.txt"
+          grep -qE 'Apple Swift version 6\.0([. ]|$)' "$RUNNER_TEMP/swiftc-version.txt"
+      # The flags of the next step repeat the manifest. A changed manifest fails here, so
+      # the flags cannot drift from it unnoticed.
+      - name: Load the manifest and compare it with the compiler flags
+        run: |
+          xcrun swift package dump-package > "$RUNNER_TEMP/manifest.json"
+          python3 - "$RUNNER_TEMP/manifest.json" <<'PY'
+          import json
+          import sys
+
+          manifest = json.load(open(sys.argv[1]))
+          problems = []
+          modes = manifest.get("swiftLanguageVersions") or manifest.get("swiftLanguageModes")
+          if modes != ["6"]:
+              problems.append(f"language modes {modes}; the job compiles with -swift-version 6")
+          ios = [entry.get("version") for entry in manifest.get("platforms", []) if entry.get("platformName") == "ios"]
+          if ios != ["17.0"]:
+              problems.append(f"iOS versions {ios}; the job compiles for iOS 17.0")
+          target = next((entry for entry in manifest.get("targets", []) if entry.get("name") == "DMVariableBlurView"), None)
+          if target is None:
+              problems.append("no target DMVariableBlurView")
+          else:
+              if target.get("path") or target.get("sources") or target.get("exclude"):
+                  problems.append("custom source paths; the job compiles Sources/DMVariableBlurView")
+              settings = target.get("settings") or []
+              features = [setting.get("kind", {}).get("enableUpcomingFeature", {}).get("_0") for setting in settings]
+              if features != ["ExistentialAny"]:
+                  problems.append(f"swift settings {settings}; the job enables the upcoming feature ExistentialAny only")
+          for problem in problems:
+              print(f"floor: the manifest no longer matches the compiler flags: {problem}")
+          sys.exit(1 if problems else 0)
+          PY
+      - name: Compile with Swift 6.0
+        run: |
+          sources=()
+          while IFS= read -r -d '' file; do
+            sources+=("$file")
+          done < <(find Sources/DMVariableBlurView -name '*.swift' -print0)
+          xcrun --sdk iphonesimulator swiftc \
+            -target arm64-apple-ios17.0-simulator \
+            -sdk "$(xcrun --sdk iphonesimulator --show-sdk-path)" \
+            -module-name DMVariableBlurView \
+            -package-name DMVariableBlurView \
+            -swift-version 6 -enable-upcoming-feature ExistentialAny \
+            -O -parse-as-library -whole-module-optimization -warnings-as-errors \
+            -c -o "$RUNNER_TEMP/DMVariableBlurView.o" \
+            "${sources[@]}"
+
+  consumer:
+    name: consumer
+    runs-on: macos-26
+    timeout-minutes: 20
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check what a consumer gets
+        run: Scripts/check-manifest.sh
+
+  api:
+    # The interface text depends on the compiler, so this job runs on one pinned Xcode.
+    name: api
+    runs-on: macos-26
+    timeout-minutes: 10
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check the normalisation of the interface
+        run: Scripts/check-api.sh --self-test
+      - name: Compare the public interface with the baseline
+        run: Scripts/check-api.sh
+
+  podspec:
+    name: podspec
+    runs-on: macos-26
+    timeout-minutes: 30
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Lint the podspec and check what a consumer links
+        run: Scripts/check-podspec.sh
+
+  docs:
+    name: docs
+    runs-on: macos-26
+    timeout-minutes: 20
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # A broken symbol link is a warning to DocC and an error here.
+      - name: Build the documentation
+        run: |
+          xcodebuild docbuild \
+            -scheme DMVariableBlurView \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            OTHER_DOCC_FLAGS="--warnings-as-errors"
+
+  example:
+    name: example (${{ matrix.name }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: iOS 26.5
+            runner: macos-26
+            xcode: /Applications/Xcode_26.6.app
+            destination: platform=iOS Simulator,name=iPhone 17,OS=26.5
+            newest: true
+          - name: iOS 18.5
+            runner: macos-15
+            xcode: /Applications/Xcode_16.4.app
+            destination: platform=iOS Simulator,name=iPhone 16,OS=18.5
+            newest: false
+    env:
+      DEVELOPER_DIR: ${{ matrix.xcode }}/Contents/Developer
+      DESTINATION: ${{ matrix.destination }}
+      # xcodebuild hands a variable with this prefix to the test process without the
+      # prefix. The snapshot tests see CI: they never record a reference, and a runtime
+      # without references skips them, except in the newest cell, which has references
+      # and must compare them: there a missing reference fails.
+      TEST_RUNNER_CI: "true"
+      TEST_RUNNER_SNAPSHOT_REFERENCES_REQUIRED: ${{ matrix.newest }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Only the committed package versions: a resolved file that no longer matches the
+      # project fails here instead of being resolved again to whatever is newest.
+      - name: Build the example and run its tests
+        run: |
+          set -o pipefail
+          mkdir -p .build/results/ci
+          xcodebuild test \
+            -project Examples/DMVariableBlurViewExample/DMVariableBlurViewExample.xcodeproj \
+            -scheme DMVariableBlurViewExample \
+            -destination "$DESTINATION" \
+            -onlyUsePackageVersionsFromResolvedFile \
+            -resultBundlePath .build/results/ci/example.xcresult \
+            | tee .build/results/ci/example.log
+      # Xcode compiles a package dependency with its warnings suppressed, so the build
+      # cannot turn warnings into errors as a whole. The library's own warnings fail the
+      # test job; this step covers the sources of the example.
+      - name: Fail on a warning in the example
+        run: |
+          warnings="$(grep -E "/Examples/[^:]*:[0-9]+:[0-9]+: warning:" .build/results/ci/example.log | sort -u || true)"
+          if [ -n "$warnings" ]; then
+            echo "$warnings"
+            exit 1
+          fi
+      - name: Find unused imports
+        if: matrix.newest
+        run: Scripts/lint.sh --analyze .build/results/ci/example.log
+      - name: Upload the result bundle
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: example-${{ matrix.runner }}-xcresult
+          path: .build/results/ci/example.xcresult

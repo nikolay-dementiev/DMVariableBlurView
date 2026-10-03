@@ -1,0 +1,107 @@
+# The source of DMVariableBlurViewExample.xcodeproj. Generated with XcodeGen 2.45.3.
+#
+# To change the project, change this file and regenerate. Do not edit the project by hand.
+#
+#   Scripts/check-example-project.sh --update
+#
+# Scripts/check-example-project.sh proves that the committed project matches this file.
+# A changed package version here needs the resolved versions too: resolve the packages
+# (xcodebuild -resolvePackageDependencies) and commit Package.resolved. CI builds only with
+# the versions in that file.
+# The folders are synced: a new source file needs neither a change here nor a regeneration.
+# The update generates in a folder named like the package, because the generator names
+# the package reference after the folder of the checkout.
+name: DMVariableBlurViewExample
+options:
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    TARGETED_DEVICE_FAMILY: "1"
+    CODE_SIGN_STYLE: Automatic
+    DEVELOPMENT_TEAM: ""
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+packages:
+  DMVariableBlurView:
+    path: ../..
+  # Snapshot tests of the example only; never a dependency of the library.
+  SnapshotTesting:
+    url: https://github.com/pointfreeco/swift-snapshot-testing
+    exactVersion: 1.19.6
+targets:
+  DMVariableBlurViewExample:
+    type: application
+    platform: iOS
+    sources:
+      - path: App
+        type: syncedFolder
+      - path: Shared
+        type: syncedFolder
+    dependencies:
+      - package: DMVariableBlurView
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.dmvariableblurview.example
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
+        DEAD_CODE_STRIPPING: NO
+        ASSETCATALOG_COMPILER_APPICON_NAME: ""
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: ""
+  DMVariableBlurViewExampleTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests
+        type: syncedFolder
+      - path: Shared
+        type: syncedFolder
+      - path: TestSupport
+        type: syncedFolder
+    dependencies:
+      - target: DMVariableBlurViewExample
+      # The tests reach the library through the host app. Linking it a second time
+      # would put two copies of every class into the test process.
+      - package: DMVariableBlurView
+        link: false
+      - package: SnapshotTesting
+        product: SnapshotTesting
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.dmvariableblurview.example.tests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/DMVariableBlurViewExample.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/DMVariableBlurViewExample"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+  DMVariableBlurViewExampleUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: UITests
+        type: syncedFolder
+      - path: TestSupport
+        type: syncedFolder
+    dependencies:
+      - target: DMVariableBlurViewExample
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.dmvariableblurview.example.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: DMVariableBlurViewExample
+schemes:
+  DMVariableBlurViewExample:
+    build:
+      targets:
+        DMVariableBlurViewExample: all
+        DMVariableBlurViewExampleTests: [test]
+        DMVariableBlurViewExampleUITests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - DMVariableBlurViewExampleTests
+        - DMVariableBlurViewExampleUITests

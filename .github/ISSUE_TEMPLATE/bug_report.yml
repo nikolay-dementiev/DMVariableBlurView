@@ -1,0 +1,43 @@
+name: Bug report
+description: Something in DMVariableBlurView does not work as documented.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        Thank you for the report. A security problem does not belong here: report it privately,
+        as SECURITY.md describes.
+  - type: input
+    id: version
+    attributes:
+      label: DMVariableBlurView version
+      placeholder: "1.1.0"
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Xcode, Swift and the device or simulator it runs on
+      placeholder: "Xcode 26.6, Swift 6.3, iPhone 17 simulator with iOS 26.5"
+    validations:
+      required: true
+  - type: textarea
+    id: code
+    attributes:
+      label: The smallest code that shows the problem
+      render: swift
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened
+      description: A screenshot of the blur, the reason from onFailure or failure, or the line in the unified log under the subsystem DMVariableBlurView.
+    validations:
+      required: true

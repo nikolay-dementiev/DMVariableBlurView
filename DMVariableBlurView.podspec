@@ -1,12 +1,12 @@
 
 Pod::Spec.new do |s|
   s.name             = 'DMVariableBlurView'
-  s.version          = '1.0.0'
-  s.summary          = 'SwiftUI-compatible SDK for applying dynamic blur effects with customizable configurations'
+  s.version          = '1.1.0'
+  s.summary          = 'A blur whose radius changes from row to row, for SwiftUI and UIKit.'
   s.description      = <<-DESC
-    a SwiftUI-compatible library for applying dynamic blur effects with customizable configurations. 
-    Features include support for multiple blur directions (e.g., blurredTopClearBottom, blurredFully), 
-    dynamic blur radius adjustments, and improved error handling.
+    DMVariableBlurView blurs what lies behind it. The blur is strongest where you ask for it
+    and fades linearly to clear: from the top, from the bottom, from a band across the middle,
+    or not at all. It uses a private filter of the system: read the README before you ship it.
                        DESC
 
   s.homepage         = 'https://github.com/nikolay-dementiev/DMVariableBlurView'
@@ -16,15 +16,15 @@ Pod::Spec.new do |s|
   #s.watchos.deployment_target = "7.0"
   
   s.source           = { :git => 'https://github.com/nikolay-dementiev/DMVariableBlurView.git', :tag => s.version.to_s }
-  s.source_files = 'Sources/**/*.{swift,h,m,c}'
-  s.exclude_files = 'Sources/Helpers/**' #'Examples/**'
-  s.weak_framework = "XCTest"
+  s.source_files = 'Sources/DMVariableBlurView/**/*.swift'
   s.requires_arc = true
   s.frameworks = 'Foundation'
+  # The sources use the package access level, which needs the name of the package.
+  s.pod_target_xcconfig = { 'OTHER_SWIFT_FLAGS' => '-package-name DMVariableBlurView' }
   
   s.cocoapods_version = '>= 1.4.0'
   if s.respond_to?(:swift_versions) then
-    s.swift_versions = ['5.0']
+    s.swift_versions = ['5.0', '6.0']
   else
     s.swift_version = '5.0'
   end
