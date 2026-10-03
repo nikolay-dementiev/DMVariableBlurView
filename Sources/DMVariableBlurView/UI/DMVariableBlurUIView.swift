@@ -57,8 +57,8 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
     /// failure goes to the log.
     package var failureHandler: (@MainActor (DMVariableBlurError) -> Void)?
 
-    /// The blur the view put on its backdrop, kept so that it can go back on when UIKit
-    /// rebuilds the effect.
+    /// The blur the view put on its backdrop, or will put on it once the host gives the view
+    /// an effect again; kept so that it can go back on when UIKit rebuilds the effect.
     private var installedBlur: InstalledBlur?
 
     /// The mask of the last valid configuration, drawn once and kept while the view
@@ -221,6 +221,13 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
             preparedBlur = blur
         }
 
+        // A host that faded the view out removed the effect, and with it the backdrop. The
+        // blur waits: the first layout pass after the effect returns puts it on.
+        guard effect != nil else {
+            installedBlur = blur
+            failure = nil
+            return
+        }
         let installation = installer.install(maxBlurRadius: blur.maxBlurRadius, mask: blur.mask, on: self)
         if case .unavailable(let reason) = installation {
             showPlainBlur()
@@ -240,9 +247,11 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
 
     /// Brings back the standard filters and the tint of the effect, and stops putting the
     /// variable blur back in layout passes. UIKit ignores an effect equal to the current
-    /// one, so the effect goes through `nil` first.
+    /// one, so the effect goes through `nil` first. An effect the host removed stays removed:
+    /// the plain blur shows when the host gives the view an effect again.
     private func showPlainBlur() {
         installedBlur = nil
+        guard effect != nil else { return }
         effect = nil
         effect = UIBlurEffect(style: .regular)
     }
