@@ -72,17 +72,20 @@ import sys
 
 def balance(text, opening, closing, state=None):
     # Characters inside a string literal, such as a message or a return value, or inside a
-    # comment do not count. A /* comment can go on over the next lines: the caller passes
-    # `state` to carry it from one line to the next.
+    # comment do not count. Block comments nest, so their depth is counted, and one can go
+    # on over the next lines: the caller passes `state` to carry the depth to the next line.
     total, in_string, position = 0, False, 0
-    in_comment = bool(state and state.get("comment"))
+    comments = state.get("comment", 0) if state else 0
     while position < len(text):
-        if in_comment:
-            end = text.find("*/", position)
-            if end < 0:
-                break
-            in_comment = False
-            position = end + 2
+        if comments:
+            if text.startswith("/*", position):
+                comments += 1
+                position += 2
+            elif text.startswith("*/", position):
+                comments -= 1
+                position += 2
+            else:
+                position += 1
             continue
         character = text[position]
         if in_string:
@@ -93,7 +96,7 @@ def balance(text, opening, closing, state=None):
         elif text.startswith("//", position):
             break
         elif text.startswith("/*", position):
-            in_comment = True
+            comments = 1
             position += 2
             continue
         elif character == "\"":
@@ -104,7 +107,7 @@ def balance(text, opening, closing, state=None):
             total -= 1
         position += 1
     if state is not None:
-        state["comment"] = in_comment
+        state["comment"] = comments
     return total
 
 def skip_attributes(line):
@@ -141,7 +144,7 @@ def hidden_declaration(line):
     return False
 
 def public_lines(lines):
-    kept, held, depth, state = [], [], 0, {"comment": False}
+    kept, held, depth, state = [], [], 0, {"comment": 0}
     for line in lines:
         if depth > 0:
             depth += balance(line, "{", "}", state)
@@ -151,7 +154,7 @@ def public_lines(lines):
             continue
         if hidden_declaration(line):
             held = []
-            state["comment"] = False
+            state["comment"] = 0
             depth = balance(line, "{", "}", state)
             continue
         kept.extend(held)
@@ -196,10 +199,18 @@ if [ "${1:-}" = "--self-test" ]; then
         EXPECTED="$(sed -n 's/^# expect: //p' "$CASE")"
         awk '/^--- A ---$/ { part = "A"; next } /^--- B ---$/ { part = "B"; next } part == "A"' "$CASE" > "$WORK/case-a.txt"
         awk '/^--- B ---$/ { part = "B"; next } part == "B"' "$CASE" > "$WORK/case-b.txt"
-        # A case that expects an error passes when the normalisation of its text A fails.
+        # A case that expects an error passes when the normalisation of its text A fails with
+        # the message the case names: a crash, or another error, must not stand in for it.
         if [ "$EXPECTED" = "error" ]; then
-            if normalize "$WORK/case-a.txt" > /dev/null 2>&1; then
+            MESSAGE="$(sed -n 's/^# message: //p' "$CASE")"
+            if [ -z "$MESSAGE" ]; then
+                echo "check-api: FAIL $NAME: an error case needs a line '# message: <text of the error>'" >&2
+                FAILED=1
+            elif normalize "$WORK/case-a.txt" > /dev/null 2> "$WORK/case-a.error"; then
                 echo "check-api: FAIL $NAME: expected an error, the normalisation of A succeeded" >&2
+                FAILED=1
+            elif ! grep -qF -- "$MESSAGE" "$WORK/case-a.error"; then
+                echo "check-api: FAIL $NAME: expected the error '$MESSAGE', the normalisation said: $(head -c 300 "$WORK/case-a.error")" >&2
                 FAILED=1
             else
                 echo "check-api: ok   $NAME"
