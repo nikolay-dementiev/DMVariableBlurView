@@ -25,7 +25,7 @@ TARGET="DMVariableBlurView"
 # the type's name as a word followed by a dot. Empty to measure every function.
 EXCLUDED_TYPE="BlurPreview"
 # The lowest accepted line coverage of that target, in percent. Never below 90. Measured
-# for 1.1.0 without the previews: 99.32 % (439 of 442 lines); the three lines no test runs
+# for 1.1.0 without the previews: 99.35 % (460 of 463 lines); the three lines no test runs
 # are defensive.
 FLOOR_PERCENT=99
 

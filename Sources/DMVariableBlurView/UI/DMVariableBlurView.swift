@@ -70,10 +70,11 @@ public struct DMVariableBlurView: UIViewRepresentable {
 
     /// Sets whether the view follows the Reduce Transparency setting of the device.
     ///
-    /// By default the view ignores the setting and always shows the variable blur, as
-    /// release 1.0.0 does. A view that follows the setting shows the standard effect of the
-    /// system while the setting is on: the system then draws that effect without
-    /// transparency. The view changes back when the setting is turned off.
+    /// By default, as in release 1.0.0, the view ignores the setting and shows the variable
+    /// blur whenever its values are valid and the system offers the effect. A view that
+    /// follows the setting shows the standard effect of the system while the setting is on:
+    /// the system then draws that effect without transparency. The view changes back when the
+    /// setting is turned off.
     ///
     /// Following the setting is not a failure: nothing is reported.
     ///

@@ -315,10 +315,12 @@ touches on iOS 26.
 
 ### Accessibility and Reduce Transparency
 
-No view of the blur is an accessibility element. By default the view ignores the Reduce
-Transparency setting and always shows the variable blur, as release 1.0.0 does. A view that
-follows the setting shows the standard effect of the system while the setting is on, which
-the system then draws without transparency. That is not a failure: nothing is reported.
+The views of the blur itself are no accessibility elements; content added to the
+`contentView` of a `DMVariableBlurUIView` keeps its own. By default, as in release 1.0.0, the
+view ignores the Reduce Transparency setting and shows the variable blur whenever its values
+are valid and the system offers the effect. A view that follows the setting shows the
+standard effect of the system while the setting is on, which the system then draws without
+transparency. That is not a failure: nothing is reported.
 
 ```swift
 import DMVariableBlurView
