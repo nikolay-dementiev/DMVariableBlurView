@@ -49,8 +49,9 @@ tests on that iOS version, look at the new picture, and commit it with the reaso
 The Xcode project is generated with XcodeGen 2.45.3 from `Examples/DMVariableBlurViewExample/project.yml`,
 and both are committed. Change the spec, not the project:
 `Scripts/check-example-project.sh --update` regenerates the project, and
-`Scripts/check-example-project.sh` checks that the two agree. CI does not install XcodeGen, so this
-check is yours to run before you commit a change to the example's project.
+`Scripts/check-example-project.sh` checks that the two agree. Both stop when the machine has another
+version of XcodeGen. CI does not install XcodeGen, so this check is yours to run before you commit a
+change to the example's project.
 
 ## Tests
 

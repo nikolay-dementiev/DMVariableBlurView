@@ -11,9 +11,10 @@
 # result does not depend on the name of the folder of the checkout.
 #
 # This is a local check. CI does not run it, because CI does not install the generator.
-# The script installs nothing: it needs XcodeGen on the machine and says so when it is
-# missing. It regenerates the project from a copy of the example folder and compares the
-# result with the project files that are under version control.
+# The script installs nothing: it needs the pinned version of XcodeGen on the machine and
+# stops with exit 2 when that version is missing. It regenerates the project from a copy
+# of the example folder and compares the result with the project files that are under
+# version control.
 
 set -euo pipefail
 
@@ -28,10 +29,12 @@ if ! command -v xcodegen > /dev/null; then
     exit 2
 fi
 
-INSTALLED="$(xcodegen --version | sed 's/^Version: //')"
+# Another version generates another project, so its result would not test the spec.
+INSTALLED="$(xcodegen --version | sed -n 's/^Version: //p' || true)"
 if [ "$INSTALLED" != "$GENERATOR_VERSION" ]; then
-    echo "check-example-project: note: the project was generated with XcodeGen $GENERATOR_VERSION," >&2
-    echo "  this machine has $INSTALLED. A difference may come from the generator, not from the spec." >&2
+    echo "check-example-project: the project is generated with XcodeGen $GENERATOR_VERSION;" >&2
+    echo "  this machine has ${INSTALLED:-a version that cannot be read}. Install $GENERATOR_VERSION." >&2
+    exit 2
 fi
 
 mkdir -p "$WORK"
