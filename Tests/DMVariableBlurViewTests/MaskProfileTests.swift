@@ -125,6 +125,17 @@ final class MaskProfileTests: XCTestCase {
         XCTAssertEqual([0, 0.5, 1].map(sut.alpha(at:)), [1, 1, 1])
     }
 
+    /// The offset shapes the top and bottom modes only. From 1 on those blur nothing; the
+    /// center band and the full blur stay as they are.
+    func test_alpha_centerBandAndFullModesWithAnOffsetOfOneOrMore_ignoreTheOffset() throws {
+        let center = try makeSUT(.blurredCenterClearTopBottom(centerBandProportion: 0.3), startOffset: 1.5)
+        let centerWithoutOffset = try makeSUT(.blurredCenterClearTopBottom(centerBandProportion: 0.3))
+        let fully = try makeSUT(.blurredFully, startOffset: 1.5)
+
+        XCTAssertEqual(center, centerWithoutOffset, "the center band ignores the offset")
+        XCTAssertEqual([0, 0.5, 1].map(fully.alpha(at:)), [1, 1, 1], "the full blur ignores the offset")
+    }
+
     /// The largest proportion below 1 leaves margins smaller than the precision of the
     /// arithmetic: the band must blur like a proportion of 1, not turn the view clear.
     func test_alpha_centerBandProportionJustBelowOne_isOpaqueAtTheRowsOfTheMask() throws {

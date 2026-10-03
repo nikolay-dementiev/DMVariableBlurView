@@ -16,6 +16,30 @@ final class BlurViewUpdateTests: XCTestCase {
         assertMaskProfile(of: sut, matches: MaskProfileFixtures.bottomZeroOffset)
     }
 
+    /// The mask does not depend on the radius, so a new radius alone must still reach the
+    /// filter, even though the mask could be kept.
+    @MainActor
+    func test_blurView_updatedWithANewRadiusOnly_showsTheNewRadius() throws {
+        let sut = try makeSUT(DMVariableBlurView(maxBlurRadius: 5, direction: .blurredTopClearBottom))
+        defer { sut.hide() }
+
+        _ = try sut.update(DMVariableBlurView(maxBlurRadius: 9, direction: .blurredTopClearBottom))
+
+        XCTAssertEqual(sut.radius, 9, "the new radius is installed")
+        XCTAssertNil(sut.blurView.failure, "nothing failed")
+    }
+
+    /// A radius of 0 is valid: the system takes the filter, and nothing is blurred.
+    @MainActor
+    func test_blurView_withARadiusOfZero_installsTheVariableBlurWithoutAFailure() throws {
+        let sut = try makeSUT(DMVariableBlurView(maxBlurRadius: 0, direction: .blurredTopClearBottom))
+        defer { sut.hide() }
+
+        XCTAssertEqual(sut.filterTypes, ["variableBlur"], "the backdrop carries the variable blur")
+        XCTAssertEqual(sut.radius, 0, "with a radius of 0")
+        XCTAssertNil(sut.blurView.failure, "nothing failed")
+    }
+
     @MainActor
     func test_blurView_updatedToARejectedValue_showsThePlainSystemBlur() throws {
         let sut = try makeSUT(DMVariableBlurView(maxBlurRadius: 5, direction: .blurredTopClearBottom))
