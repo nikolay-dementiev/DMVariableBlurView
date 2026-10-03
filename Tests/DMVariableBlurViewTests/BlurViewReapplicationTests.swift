@@ -123,6 +123,40 @@ final class BlurViewReapplicationTests: XCTestCase {
         XCTAssertEqual(sut.subviews.dropFirst().map(\.alpha), [0], "the tint stays hidden")
     }
 
+    /// A UIKit host puts its content into the content view of the effect view, as for any
+    /// `UIVisualEffectView`. The content stays visible over the blur, also after the system
+    /// rebuilds the effect.
+    @MainActor
+    func test_blurUIView_withContentInItsContentView_keepsTheContentVisible() throws {
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 200, height: 400))
+        let controller = UIViewController()
+        window.rootViewController = controller
+        window.overrideUserInterfaceStyle = .light
+        window.isHidden = false
+        defer { window.isHidden = true }
+        let sut = DMVariableBlurUIView(maxBlurRadius: 7, direction: .blurredTopClearBottom)
+        sut.frame = controller.view.bounds
+        controller.view.addSubview(sut)
+        window.layoutIfNeeded()
+
+        let label = UILabel()
+        label.text = "Over the blur"
+        sut.contentView.addSubview(label)
+        sut.setNeedsLayout()
+        window.layoutIfNeeded()
+        let alphaAfterTheContentArrived = sut.contentView.alpha
+        window.overrideUserInterfaceStyle = .dark
+        window.layoutIfNeeded()
+
+        XCTAssertEqual(alphaAfterTheContentArrived, 1, "the content view stays visible")
+        XCTAssertEqual(sut.contentView.alpha, 1, "the content view stays visible after the change to dark")
+        let filterTypes = (sut.subviews.first?.layer.filters ?? []).map {
+            (($0 as? NSObject)?.value(forKey: "type") as? String) ?? "unknown"
+        }
+        XCTAssertEqual(filterTypes, ["variableBlur"], "the backdrop carries the variable blur")
+        XCTAssertNil(sut.failure, "nothing failed")
+    }
+
     // MARK: - Helpers
 
     @MainActor
