@@ -72,7 +72,9 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
     /// What the view was last asked to show. A request equal to it changes nothing.
     private var lastRequest: Request?
 
-    /// The display scale last handed to the backdrop. An equal scale is not handed over again.
+    /// The display scale last handed to the backdrop. An equal scale is not handed over again:
+    /// UIKit keeps the same backdrop, with its scale, when it rebuilds the effect and when a
+    /// host takes the effect away and gives it back.
     private var appliedBackdropScale: CGFloat?
 
     private struct InstalledBlur {
@@ -202,8 +204,8 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
         applyBackdropScale()
     }
 
-    /// Sets the backdrop to the display scale of the view's traits in the new window, so that
-    /// the clear edge stays sharp.
+    /// Gives the backdrop the display scale of the view's traits in the new window, so that
+    /// the clear edge stays sharp. A view without an effect gives it once the blur is back.
     public override func didMoveToWindow() {
         super.didMoveToWindow()
         applyBackdropScale()
@@ -214,8 +216,9 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
     private func applyBackdropScale() {
         // Without it the clear edge looks pixelated (https://github.com/nikstar/VariableBlur/issues/1):
         // by default the backdrop renders at a fraction of the display scale. Out of a window
-        // there is no display, and without an effect there is no backdrop, so the scale waits
-        // for both. UIKit keeps the backdrop, with its scale, while a host takes the effect away.
+        // there is no display, and without an effect the backdrop is not among the subviews,
+        // so the scale waits for both. When the effect returns, UIKit brings back the same
+        // backdrop with the scale it had.
         guard window != nil, effect != nil else { return }
         let scale = traitCollection.displayScale
         guard scale != appliedBackdropScale else { return }
