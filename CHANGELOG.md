@@ -21,8 +21,8 @@ Changelog 1.1.0, and versions follow Semantic Versioning 2.0.0.
 - `DMVariableBlurUIView.init(maxBlurRadius:direction:startOffset:)`,
   `update(maxBlurRadius:direction:startOffset:)` and `failure`: the UIKit view can be created
   with values, updated, and asked why it shows no variable blur. Content in its `contentView`
-  stays visible over the blur, and new values given while a host has set `effect` to `nil`
-  wait for the effect.
+  stays visible over the blur. Valid values given while a host has set `effect` to `nil` wait
+  for the effect; a value that is not valid is reported at once.
 - `DMVariableBlurDirection` is `Sendable` and `Equatable`.
 - Documentation for every public symbol, and a documentation catalog with the articles How the
   blur works, which lists every private name the view uses, and Handling failures.
