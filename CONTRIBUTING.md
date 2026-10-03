@@ -20,7 +20,7 @@ The checks below are scripts in `Scripts/`, and CI runs them as you do, except
 
 | Script | What it checks |
 |---|---|
-| `Scripts/lint.sh` | SwiftLint, at the version pinned in `.swiftlint.yml`. The first run fetches that version into `.build/tools` and checks its checksum. `--analyze <xcodebuild log>` also runs the analyzer rule for unused imports |
+| `Scripts/lint.sh` | SwiftLint, at the version pinned in `.swiftlint.yml`. The first run fetches that version into `.build/tools` and checks its checksum. `--analyze <xcodebuild log>` also runs the analyzer rule for unused imports. It needs the log of a clean build: a log without compiler invocations stops the run |
 | `Scripts/check-api.sh` | the public interface against `Fixtures/API/public-interface.txt`; `--self-test` runs the cases of its normalisation. A deliberate change of the public API updates the baseline in the same commit |
 | `Scripts/check-manifest.sh` | the manifest, installation by version, the consumer fixture, that no resource bundle ships, and every Swift block of `README.md`, each on its own: a manifest block is evaluated, every other block compiled. A warning in a block fails it too |
 | `Scripts/check-podspec.sh` | `pod lib lint` in Swift 5.0 and 6.0 mode, and that the pod links no test framework |

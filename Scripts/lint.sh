@@ -36,7 +36,18 @@ cd "$ROOT"
 "$SWIFTLINT" lint --strict --quiet
 
 if [ "${1:-}" = "--analyze" ]; then
-    "$SWIFTLINT" analyze --strict --quiet --compiler-log-path "${2:?give the path of an xcodebuild log}"
+    LOG="${2:?give the path of an xcodebuild log}"
+    if [ ! -r "$LOG" ]; then
+        echo "lint: cannot read $LOG" >&2
+        exit 2
+    fi
+    # The analyzer reads the lines that call swiftc with -module-name. A log without one,
+    # such as the log of an incremental build, would pass without a file being analyzed.
+    if ! grep -qE 'swiftc( .*)? -module-name ' "$LOG"; then
+        echo "lint: $LOG holds no compiler invocation; analyze the log of a clean build." >&2
+        exit 2
+    fi
+    "$SWIFTLINT" analyze --strict --quiet --compiler-log-path "$LOG"
 fi
 
 echo "lint: no violations (SwiftLint $("$SWIFTLINT" version))."
