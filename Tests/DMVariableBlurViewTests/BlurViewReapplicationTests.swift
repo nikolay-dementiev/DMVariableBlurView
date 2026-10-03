@@ -186,8 +186,8 @@ final class BlurViewReapplicationTests: XCTestCase {
         XCTAssertEqual(sut.tintAlphas, [0], "after \(event) the tint stays hidden", file: file, line: line)
         XCTAssertEqual(
             sut.backdropScale,
-            sut.window.screen.scale,
-            "after \(event) the backdrop keeps the scale of the screen",
+            sut.blurView.traitCollection.displayScale,
+            "after \(event) the backdrop keeps the display scale of its traits",
             file: file,
             line: line
         )

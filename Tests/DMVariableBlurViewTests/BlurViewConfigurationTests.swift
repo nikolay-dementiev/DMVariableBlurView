@@ -29,7 +29,7 @@ final class BlurViewConfigurationTests: XCTestCase {
         let sut = try makeSUT(DMVariableBlurView(maxBlurRadius: 7, direction: .blurredTopClearBottom))
         defer { sut.hide() }
 
-        XCTAssertEqual(sut.backdropScale, sut.window.screen.scale)
+        XCTAssertEqual(sut.backdropScale, sut.blurView.traitCollection.displayScale)
     }
 
     @MainActor

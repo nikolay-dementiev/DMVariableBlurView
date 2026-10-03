@@ -444,6 +444,33 @@ final class BlurUIViewCollaborationTests: XCTestCase {
         )
     }
 
+    // MARK: - Window
+
+    /// The scale the backdrop renders at comes from the traits the view receives, which a
+    /// host can override for a part of its hierarchy, not from the screen of the window.
+    @MainActor
+    func test_movedToWindow_underADisplayScaleOverride_handsTheTraitsScaleToTheInstaller() throws {
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 200, height: 400))
+        let controller = UIViewController()
+        window.rootViewController = controller
+        window.isHidden = false
+        defer { window.isHidden = true }
+        let container = UIView(frame: controller.view.bounds)
+        controller.view.addSubview(container)
+        let overriddenScale: CGFloat = window.screen.scale == 2 ? 3 : 2
+        container.traitOverrides.displayScale = overriddenScale
+        container.layoutIfNeeded()
+        let (sut, collaborators) = try makeSUT()
+
+        container.addSubview(sut)
+
+        XCTAssertEqual(
+            collaborators.installer.scaleUpdates.map(\.scale),
+            [overriddenScale],
+            "the installer receives the display scale of the traits, not \(window.screen.scale) of the screen"
+        )
+    }
+
     // MARK: - Helpers
 
     @MainActor
