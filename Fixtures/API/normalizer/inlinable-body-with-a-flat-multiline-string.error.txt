@@ -1,0 +1,17 @@
+# expect: error
+# message: is not where the interface printer puts it
+# A multiline string laid out flat puts a line of a hidden body at column 0, where the type
+# holds no line: the check stops there instead of comparing leaked text.
+--- A ---
+public struct First {
+  @inlinable internal func helper() -> Swift.String {
+    return """
+{
+"""
+  }
+  public func keep()
+}
+--- B ---
+public struct First {
+  public func keep()
+}

@@ -192,6 +192,24 @@ if [ "${1:-}" = "--self-test" ]; then
         EXPECTED="$(sed -n 's/^# expect: //p' "$CASE")"
         awk '/^--- A ---$/ { part = "A"; next } /^--- B ---$/ { part = "B"; next } part == "A"' "$CASE" > "$WORK/case-a.txt"
         awk '/^--- B ---$/ { part = "B"; next } part == "B"' "$CASE" > "$WORK/case-b.txt"
+        # A case that expects an error passes when the normalisation of its text A fails with
+        # the message the case names: a crash, or another error, must not stand in for it.
+        if [ "$EXPECTED" = "error" ]; then
+            MESSAGE="$(sed -n 's/^# message: //p' "$CASE")"
+            if [ -z "$MESSAGE" ]; then
+                echo "check-api: FAIL $NAME: an error case needs a line '# message: <text of the error>'" >&2
+                FAILED=1
+            elif normalize "$WORK/case-a.txt" > /dev/null 2> "$WORK/case-a.error"; then
+                echo "check-api: FAIL $NAME: expected an error, the normalisation of A succeeded" >&2
+                FAILED=1
+            elif ! grep -qF -- "$MESSAGE" "$WORK/case-a.error"; then
+                echo "check-api: FAIL $NAME: expected the error '$MESSAGE', the normalisation said: $(head -c 300 "$WORK/case-a.error")" >&2
+                FAILED=1
+            else
+                echo "check-api: ok   $NAME"
+            fi
+            continue
+        fi
         if ! normalize "$WORK/case-a.txt" > "$WORK/case-a.normalized" || ! normalize "$WORK/case-b.txt" > "$WORK/case-b.normalized"; then
             echo "check-api: FAIL $NAME: the normalisation stopped with an error" >&2
             FAILED=1
