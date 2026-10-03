@@ -120,7 +120,11 @@ final class BlurViewReapplicationTests: XCTestCase {
             (($0 as? NSObject)?.value(forKey: "type") as? String) ?? "unknown"
         }
         XCTAssertEqual(filterTypes, ["variableBlur"], "the backdrop carries the variable blur and nothing else")
-        XCTAssertEqual(sut.subviews.dropFirst().map(\.alpha), [0], "the tint stays hidden")
+        XCTAssertEqual(
+            sut.subviews.dropFirst().filter { $0 !== sut.contentView }.map(\.alpha),
+            [0],
+            "the tint stays hidden"
+        )
     }
 
     /// A UIKit host puts its content into the content view of the effect view, as for any

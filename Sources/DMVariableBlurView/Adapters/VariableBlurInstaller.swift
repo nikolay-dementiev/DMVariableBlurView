@@ -109,8 +109,10 @@ package struct SystemVariableBlurInstaller: VariableBlurInstaller {
             return .unavailable(.notApplied)
         }
 
-        // Without its tint the effect view shows no hard line where the blur ends.
-        for subview in effectView.subviews where subview !== backdrop {
+        // Without its tint the effect view shows no hard line where the blur ends. The content
+        // view holds what a host puts over the blur and stays as the host left it.
+        let contentView = effectView.contentView
+        for subview in effectView.subviews where subview !== backdrop && subview !== contentView {
             subview.alpha = 0
         }
         return .installed
@@ -121,7 +123,8 @@ package struct SystemVariableBlurInstaller: VariableBlurInstaller {
               carriesOneFilter(withRadius: maxBlurRadius, mask: mask, on: backdrop.layer) else {
             return false
         }
-        return effectView.subviews.allSatisfy { $0 === backdrop || $0.alpha == 0 }
+        let contentView = effectView.contentView
+        return effectView.subviews.allSatisfy { $0 === backdrop || $0 === contentView || $0.alpha == 0 }
     }
 
     package func setBackdropScale(_ scale: CGFloat, on effectView: UIVisualEffectView) {

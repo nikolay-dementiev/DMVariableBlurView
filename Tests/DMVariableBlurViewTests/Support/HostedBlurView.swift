@@ -80,9 +80,10 @@ struct HostedBlurView {
         (variableBlurFilter?.value(forKey: "inputRadius") as? NSNumber).map { CGFloat($0.doubleValue) }
     }
 
-    /// The alpha of every other subview of the effect view: its tint and dimming.
+    /// The alpha of every other subview of the effect view but its content view: its tint
+    /// and dimming.
     var tintAlphas: [CGFloat] {
-        blurView.subviews.dropFirst().map(\.alpha)
+        blurView.subviews.dropFirst().filter { $0 !== blurView.contentView }.map(\.alpha)
     }
 
     var backdropScale: CGFloat? {

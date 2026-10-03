@@ -29,7 +29,12 @@ final class SystemVariableBlurInstallerTests: XCTestCase {
             filters.first?.value(forKey: "inputMaskImage") as AnyObject === mask,
             "the filter carries the mask it was given"
         )
-        XCTAssertEqual(effectView.subviews.dropFirst().map(\.alpha), [0], "the tint of the effect view is hidden")
+        XCTAssertEqual(
+            effectView.subviews.dropFirst().filter { $0 !== effectView.contentView }.map(\.alpha),
+            [0],
+            "the tint of the effect view is hidden"
+        )
+        XCTAssertEqual(effectView.contentView.alpha, 1, "the content view stays visible")
     }
 
     /// The system has always put the backdrop first. The installer does not rely on it.
@@ -158,9 +163,22 @@ final class SystemVariableBlurInstallerTests: XCTestCase {
         let sut = makeSUT()
         XCTAssertEqual(sut.install(maxBlurRadius: 7, mask: mask, on: effectView), .installed, "precondition")
 
-        effectView.subviews.last?.alpha = 1
+        effectView.subviews.dropFirst().first { $0 !== effectView.contentView }?.alpha = 1
 
         XCTAssertFalse(sut.isInstalled(maxBlurRadius: 7, mask: mask, on: effectView), "a visible tint means a rebuild")
+    }
+
+    /// The content view holds what a host puts over the blur. Visible content is no rebuild.
+    @MainActor
+    func test_isInstalled_contentViewVisible_isTrue() throws {
+        let effectView = makeEffectView()
+        let mask = try makeMaskImage()
+        let sut = makeSUT()
+        XCTAssertEqual(sut.install(maxBlurRadius: 7, mask: mask, on: effectView), .installed, "precondition")
+
+        effectView.contentView.alpha = 1
+
+        XCTAssertTrue(sut.isInstalled(maxBlurRadius: 7, mask: mask, on: effectView), "visible content is no rebuild")
     }
 
     @MainActor
