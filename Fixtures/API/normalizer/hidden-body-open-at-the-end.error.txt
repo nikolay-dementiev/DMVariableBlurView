@@ -1,4 +1,5 @@
 # expect: error
+# message: a hidden body is still open
 # A hidden body that is still open when the text ends would hide everything after it.
 # The normalisation stops with an error instead of reporting an interface.
 --- A ---
