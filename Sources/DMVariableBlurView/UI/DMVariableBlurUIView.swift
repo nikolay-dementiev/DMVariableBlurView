@@ -19,8 +19,9 @@ import UIKit
 ///   value is not valid, the view shows the plain blur of the system instead, and
 ///   ``failure`` gives the reason.
 /// - Content added to its `contentView` stays visible over the blur.
-/// - A host may set `effect` to `nil` to fade the view out. New values then wait for the
-///   effect, and the blur shows them when the effect returns.
+/// - A host may set `effect` to `nil` to fade the view out. Valid values then wait for the
+///   effect, and the blur shows them when the effect returns; a value that is not valid is
+///   reported at once.
 /// - It cannot be decoded from an archive or a storyboard: decoding returns `nil`.
 public final class DMVariableBlurUIView: UIVisualEffectView {
     private let maskRenderer: any MaskImageRenderer
@@ -196,8 +197,8 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
     /// the clear edge stays sharp.
     public override func didMoveToWindow() {
         super.didMoveToWindow()
-        // Without it the clear edge looks pixelated (https://github.com/nikstar/VariableBlur/issues/1).
-        // The traits carry the scale the view is drawn at, also where a host overrides it.
+        // Without it the clear edge looks pixelated (https://github.com/nikstar/VariableBlur/issues/1):
+        // by default the backdrop renders at a fraction of the display scale.
         guard window != nil else { return }
         installer.setBackdropScale(traitCollection.displayScale, on: self)
     }

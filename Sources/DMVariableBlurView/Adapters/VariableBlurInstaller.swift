@@ -40,7 +40,7 @@ package protocol VariableBlurInstaller {
     /// put on it: the one filter with this radius and mask, and the tint hidden.
     func isInstalled(maxBlurRadius: CGFloat, mask: CGImage, on effectView: UIVisualEffectView) -> Bool
 
-    /// Tells the backdrop of the effect view the scale of the screen it is shown on.
+    /// Tells the backdrop of the effect view the scale it renders at.
     func setBackdropScale(_ scale: CGFloat, on effectView: UIVisualEffectView)
 }
 

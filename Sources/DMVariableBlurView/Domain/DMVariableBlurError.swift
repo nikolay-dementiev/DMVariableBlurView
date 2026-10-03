@@ -5,7 +5,7 @@ import Foundation
 /// When this happens the view shows the plain blur of the system over its whole frame
 /// instead, as release 1.0.0 did, and reports the reason through
 /// ``DMVariableBlurView/onFailure(_:)`` or ``DMVariableBlurUIView/failure``. A
-/// ``DMVariableBlurUIView`` whose `effect` the host has set to `nil` shows nothing until the
+/// ``DMVariableBlurUIView`` whose `effect` the host has set to `nil` shows no blur until the
 /// host gives it an effect again.
 ///
 /// Two reasons are equal when they are the same case and their values compare equal or are

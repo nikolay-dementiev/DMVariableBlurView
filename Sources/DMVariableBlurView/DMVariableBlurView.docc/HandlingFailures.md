@@ -7,7 +7,7 @@ What the view shows when it cannot show the variable blur, and how you learn why
 A value out of range, or a system that does not offer the filter, does not leave the view
 empty: the view shows the plain blur of the system over its whole frame. The one exception
 is a ``DMVariableBlurUIView`` whose `effect` the host has set to `nil`, for example to fade
-it out: it shows nothing until the host gives it an effect again.
+it out: it shows no blur until the host gives it an effect again.
 
 The view records the reason as a ``DMVariableBlurError``:
 

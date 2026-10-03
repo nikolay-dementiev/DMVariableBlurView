@@ -58,7 +58,7 @@ not hide it from a scan.
 | `filterTypes` | the class property that lists the filter types the system offers |
 | `variableBlur` | the type of the filter |
 | `inputRadius`, `inputMaskImage`, `inputNormalizeEdges` | the inputs of the filter |
-| `scale` | a key of the backdrop's layer, set to the scale of the screen |
+| `scale` | a key of the backdrop's layer, set to the display scale of the view's traits |
 
 - App Review Guideline 2.5.1 says: "Apps may only use public APIs".
 - A user of [VariableBlur](https://github.com/nikstar/VariableBlur), the project this package
@@ -208,7 +208,8 @@ struct AdjustableBlur: View {
 ### UIKit
 
 Content you add to the `contentView` of the view stays visible over the blur. To fade the
-view out, a host may set `effect` to `nil`; new values given meanwhile wait for the effect.
+view out, a host may set `effect` to `nil`; valid values given meanwhile wait for the effect, and
+a value that is not valid is reported at once.
 
 ```swift
 import DMVariableBlurView
@@ -243,7 +244,7 @@ final class HeaderViewController: UIViewController {
 
 When a value is not valid, or the system does not offer the filter, the view shows the plain
 blur of the system over its whole frame. The one exception is a `DMVariableBlurUIView` whose
-`effect` the host has set to `nil`, for example to fade it out: it shows nothing until the host
+`effect` the host has set to `nil`, for example to fade it out: it shows no blur until the host
 gives it an effect again. The view records the reason as a `DMVariableBlurError`:
 
 | Case | Reason |

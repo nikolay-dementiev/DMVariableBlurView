@@ -23,8 +23,8 @@ rather than among the strings of the binary; that does not hide it from a scan:
   `filterTypes`;
 - the filter type `variableBlur` and its keys `inputRadius`, `inputMaskImage` and
   `inputNormalizeEdges`;
-- the key `scale` of the backdrop's layer, set to the scale of the screen so that the
-  clear edge stays sharp.
+- the key `scale` of the backdrop's layer, set to the display scale of the view's traits
+  so that the clear edge stays sharp.
 
 App Review Guideline 2.5.1 asks that apps use only public APIs. A user of VariableBlur,
 the project this view derives from, reported an App Store rejection that named two of
