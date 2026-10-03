@@ -13,12 +13,13 @@ import XCTest
 /// - **Names.** `<name>_ios<major>_<minor>`, in `Examples/DMVariableBlurViewExample/Snapshots`.
 ///   Every runtime has its own references: iOS 26.5 draws four of the five scenes with 4
 ///   to 6 % of the pixels over Delta E 2 against 17.5 and 18.6, which agree within 1.1.
-/// - **Recording.** Locally a missing reference is recorded and its test fails once. When
-///   the variable `CI` is set (xcodebuild hands `TEST_RUNNER_CI` to the test process as
-///   `CI`) nothing is recorded. A folder without any reference fails: it moved, or the
-///   tests run away from the checkout. A runtime without references skips every test with
-///   a message that says so, unless `SNAPSHOT_REFERENCES_REQUIRED` is `true`: the CI cell
-///   that compares the snapshots sets it, and there a missing reference fails.
+/// - **Recording.** Locally a new runtime records its references and fails once, and so
+///   does a missing reference of a runtime that has the others. CI never records: when the
+///   variable `CI` is set (xcodebuild hands `TEST_RUNNER_CI` to the test process as `CI`),
+///   a folder without any reference fails, because it moved or the tests run away from the
+///   checkout, and a runtime without references skips every test with a message that says
+///   so, unless `SNAPSHOT_REFERENCES_REQUIRED` is `true`: the CI cell that compares the
+///   snapshots sets it, and there a missing reference fails.
 /// - **Tolerance.** A pixel matches when its colour is within a Delta E of 2 of the
 ///   reference, and 99 % of the pixels must match. The device that recorded a reference
 ///   renders it again byte for byte; another device of the same OS stayed within Delta E 2
