@@ -46,10 +46,10 @@ final class CoreGraphicsMaskImageRendererTests: XCTestCase {
     func test_render_recordedConfigurations_staysWithinOneStepOfTheMasksOfRelease100() throws {
         for recorded in RecordedMask.all {
             let rows = try alphaColumn(of: makeSUT().makeMaskImage(for: recorded.profile()))
-            let largest = zip(rows, recorded.rows).map { abs(Int($0) - Int($1)) }.max() ?? .max
-
             // zip stops at the shorter list: a row more or less would not be compared.
             XCTAssertEqual(rows.count, recorded.rows.count, "\(recorded.name): the masks have the same number of rows")
+            let largest = zip(rows, recorded.rows).map { abs(Int($0) - Int($1)) }.max() ?? .max
+
             XCTAssertLessThanOrEqual(largest, 1, "\(recorded.name): the largest difference is \(largest)")
         }
     }
