@@ -47,6 +47,50 @@ final class BlurViewReapplicationTests: XCTestCase {
         XCTAssertNil(sut.blurView.failure, "nothing failed")
     }
 
+    /// A host that faded the view out may give it new values before it shows it again. The
+    /// new values wait for the effect: the view leaves the effect to the host, and nothing
+    /// failed.
+    @MainActor
+    func test_blurView_updatedWhileTheHostRemovedTheEffect_showsTheNewValuesWhenTheEffectReturns() throws {
+        let sut = try makeSUT()
+        defer { sut.hide() }
+
+        sut.blurView.effect = nil
+        sut.blurView.layoutIfNeeded()
+        sut.blurView.update(maxBlurRadius: 9, direction: .blurredBottomClearTop, startOffset: 0)
+        let failureWithoutEffect = sut.blurView.failure
+        let effectAfterTheUpdate = sut.blurView.effect
+        sut.blurView.effect = UIBlurEffect(style: .dark)
+        sut.blurView.layoutIfNeeded()
+
+        XCTAssertNil(failureWithoutEffect, "new values without an effect are not a failure")
+        XCTAssertNil(effectAfterTheUpdate, "the view leaves the effect to the host")
+        XCTAssertEqual(sut.filterTypes, ["variableBlur"], "the effect came back with the variable blur")
+        XCTAssertEqual(sut.radius, 9, "the blur has the new radius")
+        XCTAssertEqual(sut.tintAlphas, [0], "the tint is hidden")
+        assertMaskProfile(of: sut, matches: MaskProfileFixtures.bottomZeroOffset)
+        XCTAssertNil(sut.blurView.failure, "nothing failed")
+    }
+
+    /// A rejected value while the host faded the view out is reported at once, and the view
+    /// still leaves the effect to the host: the plain blur appears when the effect returns.
+    @MainActor
+    func test_blurView_rejectedValueWhileTheHostRemovedTheEffect_reportsItAndLeavesTheEffectToTheHost() throws {
+        let sut = try makeSUT()
+        defer { sut.hide() }
+
+        sut.blurView.effect = nil
+        sut.blurView.layoutIfNeeded()
+        sut.blurView.update(maxBlurRadius: -1, direction: .blurredBottomClearTop, startOffset: 0)
+        let effectAfterTheUpdate = sut.blurView.effect
+        sut.blurView.effect = UIBlurEffect(style: .dark)
+        sut.blurView.layoutIfNeeded()
+
+        XCTAssertEqual(sut.blurView.failure, .invalidMaxBlurRadius(-1), "the rejected value is reported")
+        XCTAssertNil(effectAfterTheUpdate, "the view leaves the effect to the host")
+        XCTAssertFalse(sut.filterTypes.contains("variableBlur"), "the effect came back as the plain blur")
+    }
+
     /// The same without SwiftUI: the view in a plain UIKit hierarchy, with the collaborators
     /// the library uses.
     @MainActor
