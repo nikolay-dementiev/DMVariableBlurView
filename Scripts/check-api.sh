@@ -69,6 +69,7 @@ normalize() {
     # grep exits 1 when it selects no line, as for an interface without declarations; any
     # other failure, such as a file it cannot read, stops the normalisation.
     { grep -n -v -E '^(//|import |$)' "$1" || [ $? -eq 1 ]; } | python3 -c '
+import re
 import sys
 
 def balance(text, opening, closing):
@@ -124,23 +125,157 @@ def hidden_declaration(line):
     return False
 
 # Every line read must sit where the interface printer puts it, and a declaration that is not
-# API is dropped by its indentation, never by reading its text. The printer puts the members
+# API is dropped by its indentation, never by counting its braces. The printer puts the members
 # of a block two spaces deeper than the line that opens it and the closing brace at the
 # indentation of that line; the body of an inlinable declaration it prints as written in the
-# source, so that body, its closing brace included, may sit deeper. A hidden declaration at
-# indentation N goes with every following line indented deeper than N and, when its line ends
-# with {, with the next line at indentation N that is exactly }. Any other line must be at the
-# member level of the innermost open block, or be its closing brace; a compiler directive may
-# sit anywhere. A line out of place stops the check with exit 2 and names its number, and so
-# does a directive still open at the end. This cannot pass silently: a public member sits at
-# the member level of its type, which the drop of a hidden body never reaches, and text that
-# leaks from a body, such as a multiline string or regex laid out flat, either stops the check
-# at its first line out of place or adds text at the member level, which turns the comparison
-# red.
+# source, so a line of that body, its closing brace included, may sit at any indentation. A
+# hidden declaration at indentation N goes with every following line indented deeper than N
+# and, when its line ends with {, with the next line at indentation N that is exactly }. Any
+# other line must be at the member level of the innermost open block, or be its closing brace;
+# a compiler directive may sit anywhere. A line out of place stops the check with exit 2 and
+# names its number, and so does a directive still open at the end.
+#
+# Each line from a hidden declaration to the end of its drop is checked for shape, and the
+# shape is used only to refuse. The first line is a declaration; each line after it is a
+# declaration, an accessor, a case, a line of attributes, a compiler directive or a lone { or }.
+# A declaration has a declaration keyword after its attributes and modifiers, access levels
+# among them, no = outside parentheses but the one of a typealias or an associatedtype, which
+# names a type, and only plain single-line strings, numbers, nil, true, false or dotted members
+# with balanced parentheses as default arguments. No checked line holds """, #, /* or */, the
+# delimiters of text that spans lines. Any other line is a statement of a serialised body: the
+# check stops with exit 2 and names its number. The shape decides nothing else: no brace is
+# counted, and the drop still goes by indentation alone.
+#
+# Why this closes the family. A public member is lost only inside the drop of a hidden line
+# that sits shallower, every line between them deeper than that line. Were the hidden line
+# text of a multiline literal, the literal would close after it and before the member, which
+# stands outside every body: on a line inside the drop, whose delimiter stops the check, or on
+# a line no deeper than the hidden one, which ends the drop first. So the hidden line is code,
+# and code of a body never passes as a hidden declaration: a local declaration takes no access
+# level, the compiler nests no type in a body, a default argument or an initial value that the
+# interface prints, and a statement, even one that starts with a variable named package, has no
+# declaration keyword where a declaration has one. A hidden declaration of the printer drops
+# nothing past its own block, because the printer puts the line after that block at its
+# indentation or shallower. A crafted line that the shape accepts changes nothing, because
+# nothing on it is counted.
 DIRECTIVES = ("#if", "#elseif", "#else", "#endif")
+DECLARATIONS = {"var", "let", "func", "init", "deinit", "subscript", "struct", "class", "enum",
+                "protocol", "extension", "typealias", "associatedtype", "actor"}
+ACCESS_LEVELS = {"open", "public", "package", "internal", "fileprivate", "private"}
+MODIFIERS = {"static", "final", "override", "required", "convenience", "dynamic", "lazy",
+             "optional", "mutating", "nonmutating", "indirect", "weak", "unowned", "nonisolated",
+             "isolated", "consuming", "borrowing", "__consuming", "distributed", "prefix",
+             "postfix", "infix"}
+ACCESSORS = {"get", "set", "_read", "_modify", "unsafeAddress", "unsafeMutableAddress"}
+SPANNING = ("\"\"\"", "/*", "*/", "#")
+WORD = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+RAW_IDENTIFIER = re.compile(r"`[^`]*`")
+OPERATOR_CHARACTERS = set("/=-+!*%<>&|^~?.")
+NUMBER = re.compile(r"-?(0[xX][0-9A-Fa-f_]+|0[bB][01_]+|0[oO][0-7_]+|[0-9][0-9_]*(\.[0-9][0-9_]*)?([eE][+-]?[0-9]+)?)$")
+PLAIN_STRING = re.compile(r"\"([^\"\\]|\\[^(])*\"$")
+STRING = re.compile(r"\"([^\"\\]|\\.)*\"")
+MEMBER = re.compile(r"\.?[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*(\(.*\))?$")
 
 def indentation(line):
     return len(line) - len(line.lstrip())
+
+def leading_keyword(line):
+    """The first word after the attributes and the modifiers of a line, access levels included."""
+    text = skip_attributes(line).lstrip()
+    while True:
+        word = WORD.match(text)
+        if not word:
+            return ""
+        text = text[word.end():]
+        if word.group() not in ACCESS_LEVELS and word.group() not in MODIFIERS:
+            return word.group()
+        if text.startswith("("):
+            text = text[text.find(")") + 1:] if ")" in text else ""
+        text = text.lstrip()
+
+def assignments(text):
+    """Each = that assigns a value, with the depth of the brackets around it."""
+    found, depth, in_string, position = [], 0, False, 0
+    while position < len(text):
+        character = text[position]
+        if in_string:
+            if character == "\\":
+                position += 1
+            elif character == "\"":
+                in_string = False
+        elif text.startswith("//", position):
+            break
+        elif character == "\"":
+            in_string = True
+        elif character in "([":
+            depth += 1
+        elif character in ")]":
+            depth -= 1
+        elif character == "=":
+            before = text[position - 1] if position > 0 else " "
+            after = text[position + 1] if position + 1 < len(text) else " "
+            if before not in OPERATOR_CHARACTERS and after not in OPERATOR_CHARACTERS:
+                found.append((position, depth))
+        position += 1
+    return found
+
+def default_value(text, start):
+    """The default argument that starts at `start`: up to the next comma or closing bracket."""
+    depth, in_string, position = 0, False, start
+    while position < len(text):
+        character = text[position]
+        if in_string:
+            if character == "\\":
+                position += 1
+            elif character == "\"":
+                in_string = False
+        elif character == "\"":
+            in_string = True
+        elif character in "([":
+            depth += 1
+        elif character in ")]":
+            if depth == 0:
+                break
+            depth -= 1
+        elif character == "," and depth == 0:
+            break
+        position += 1
+    return text[start:position].strip()
+
+def modelled_default(value):
+    if value in ("nil", "true", "false") or NUMBER.match(value) or PLAIN_STRING.match(value):
+        return True
+    outside = STRING.sub("\"\"", value)
+    if not MEMBER.match(outside) or "\\(" in value:
+        return False
+    if any(character in outside for character in "`/#{}\\"):
+        return False
+    return balance(outside, "(", ")") == 0
+
+def readable_in_a_hidden_block(line):
+    text = line.strip()
+    directive = text.startswith(DIRECTIVES)
+    if any(delimiter in (text[1:] if directive else text) for delimiter in SPANNING):
+        return False
+    if directive or text in ("{", "}") or attributes_only(line):
+        return True
+    keyword = leading_keyword(line)
+    if keyword in ACCESSORS or keyword == "case":
+        return True
+    if keyword not in DECLARATIONS:
+        return False
+    # A raw identifier may hold a bracket or an =, and it never holds a backquote.
+    code = RAW_IDENTIFIER.sub("x", skip_attributes(line))
+    for position, depth in assignments(code):
+        if depth > 0:
+            if not modelled_default(default_value(code, position + 1)):
+                return False
+        elif keyword not in ("typealias", "associatedtype"):
+            return False
+    return True
+
+def refuse(number, line):
+    sys.exit("check-api: line " + str(number) + " is a statement of a serialised body: " + line.strip())
 
 def public_lines(lines):
     kept, held, blocks, conditions, position = [], [], [], 0, 0
@@ -170,8 +305,12 @@ def public_lines(lines):
             held.append(line)
             continue
         if hidden_declaration(line):
+            if leading_keyword(line) not in DECLARATIONS or not readable_in_a_hidden_block(line):
+                refuse(number, line)
             held = []
             while position < len(lines) and indentation(lines[position][1]) > level:
+                if not readable_in_a_hidden_block(lines[position][1]):
+                    refuse(*lines[position])
                 position += 1
             if (line.rstrip().endswith("{") and position < len(lines)
                     and indentation(lines[position][1]) == level and lines[position][1].strip() == "}"):
