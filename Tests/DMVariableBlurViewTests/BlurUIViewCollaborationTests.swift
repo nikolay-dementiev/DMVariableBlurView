@@ -106,6 +106,19 @@ final class BlurUIViewCollaborationTests: XCTestCase {
         XCTAssertEqual(collaborators.installer.installations.count, 1, "the blur is installed once")
     }
 
+    /// The public `update` with the values the view already has does nothing: no mask is
+    /// drawn and nothing is installed again.
+    @MainActor
+    func test_blurUIView_update_sameValues_doesNotRenderAgain() throws {
+        let (sut, collaborators) = try makeSUT()
+        sut.update(maxBlurRadius: 7, direction: .blurredTopClearBottom, startOffset: 0)
+
+        sut.update(maxBlurRadius: 7, direction: .blurredTopClearBottom, startOffset: 0)
+
+        XCTAssertEqual(collaborators.renderer.profiles.count, 1, "the mask is drawn once")
+        XCTAssertEqual(collaborators.installer.installations.count, 1, "the blur is installed once")
+    }
+
     @MainActor
     func test_apply_newValidConfiguration_installsItsMaskWithItsRadius() throws {
         let (sut, collaborators) = try makeSUT()
