@@ -72,6 +72,40 @@ final class BlurViewReapplicationTests: XCTestCase {
         XCTAssertNil(sut.blurView.failure, "nothing failed")
     }
 
+    /// A host that fades the view in: no effect when the view enters the window, the effect
+    /// set afterwards. The backdrop renders at the display scale, so the clear edge stays
+    /// sharp. By default it renders at a fraction of it.
+    @MainActor
+    func test_blurUIView_effectSetAfterEnteringTheWindow_rendersTheBackdropAtTheDisplayScale() {
+        let view = DMVariableBlurUIView(maxBlurRadius: 7, direction: .blurredTopClearBottom)
+        view.effect = nil
+        let sut = HostedBlurView(placing: view)
+        defer { sut.hide() }
+
+        view.effect = UIBlurEffect(style: .regular)
+        sut.window.layoutIfNeeded()
+
+        expectTheVariableBlur(on: sut, after: "the effect was set after the view entered the window")
+        XCTAssertNil(view.failure, "nothing failed")
+    }
+
+    /// A host may change the display scale of a part of its hierarchy after the view entered
+    /// it. The backdrop follows the traits.
+    @MainActor
+    func test_blurUIView_displayScaleChangedAfterEnteringTheWindow_rendersTheBackdropAtTheNewScale() throws {
+        let view = DMVariableBlurUIView(maxBlurRadius: 7, direction: .blurredTopClearBottom)
+        let sut = HostedBlurView(placing: view)
+        defer { sut.hide() }
+        let container = try XCTUnwrap(view.superview)
+        let newScale: CGFloat = view.traitCollection.displayScale == 2 ? 3 : 2
+
+        container.traitOverrides.displayScale = newScale
+        sut.window.layoutIfNeeded()
+
+        XCTAssertEqual(view.traitCollection.displayScale, newScale, "precondition: the traits carry the new scale")
+        XCTAssertEqual(sut.backdropScale, newScale, "the backdrop renders at the new display scale")
+    }
+
     /// A rejected value while the host faded the view out is reported at once, and the view
     /// still leaves the effect to the host: the plain blur appears when the effect returns.
     @MainActor
