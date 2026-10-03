@@ -14,7 +14,8 @@ import UIKit
 /// - Like every view, it is used on the main thread.
 /// - It receives the touches in its frame. Set `isUserInteractionEnabled` to `false` to
 ///   let them reach the views underneath.
-/// - No view of it is an accessibility element.
+/// - The views of the blur itself are no accessibility elements. Content added to its
+///   `contentView` keeps its own accessibility.
 /// - The blur uses a private filter of the system. When the filter is not available, or a
 ///   value is not valid, the view shows the plain blur of the system instead, and
 ///   ``failure`` gives the reason.
@@ -44,12 +45,13 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
 
     /// Whether the view follows the Reduce Transparency setting of the device.
     ///
-    /// `false` by default: the view ignores the setting and always shows the variable blur,
-    /// as release 1.0.0 does. Set it to `true` and the view shows the standard effect of the
-    /// system while the setting is on; the system then draws that effect without
-    /// transparency. The view changes back when the setting is turned off. A change of this
-    /// property is applied at once. Following the setting is not a failure: ``failure``
-    /// stays `nil`.
+    /// `false` by default, as in release 1.0.0: the view ignores the setting and shows the
+    /// variable blur whenever its values are valid and the system offers the effect. Set it to
+    /// `true` and the view shows the standard effect of the system while the setting is on;
+    /// the system then draws that effect without transparency. The view changes back when the
+    /// setting is turned off. A change of this property is applied at once. Following the
+    /// setting is not a failure: ``failure`` stays `nil`. A failure that is already recorded
+    /// stays recorded when the option or the setting changes.
     public var respectsReduceTransparency = false {
         didSet {
             guard respectsReduceTransparency != oldValue else { return }
