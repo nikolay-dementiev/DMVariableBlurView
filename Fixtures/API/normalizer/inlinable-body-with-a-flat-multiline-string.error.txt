@@ -1,5 +1,5 @@
 # expect: error
-# message: is not where the interface printer puts it
+# message: line 3 is a statement of a serialised body: return """
 # A multiline string laid out flat puts a line of a hidden body at column 0, where the type
 # holds no line: the check stops there instead of comparing leaked text.
 --- A ---
