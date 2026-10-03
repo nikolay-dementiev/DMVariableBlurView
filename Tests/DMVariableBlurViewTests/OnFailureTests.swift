@@ -40,6 +40,23 @@ final class OnFailureTests: XCTestCase {
         XCTAssertEqual(recorder.reports, [.invalidCenterBandProportion(1.5)], "the report follows in a later turn")
     }
 
+    /// A failure that an update brings is not reported inside `updateUIView` either, so a
+    /// host may change state in the handler.
+    @MainActor
+    func test_onFailure_duringAnUpdate_isNotCalledBeforeTheUpdateReturns() async throws {
+        let recorder = FailureRecorder()
+        let sut = try makeSUT(DMVariableBlurView(direction: .blurredTopClearBottom).onFailure(recorder.record))
+        defer { sut.hide() }
+        try await deliverPendingReports()
+
+        _ = try sut.update(rejectedView(1.5).onFailure(recorder.record))
+        let reportsRightAfterTheUpdate = recorder.reports
+        try await deliverPendingReports()
+
+        XCTAssertEqual(reportsRightAfterTheUpdate, [], "nothing is reported while the view is updated")
+        XCTAssertEqual(recorder.reports, [.invalidCenterBandProportion(1.5)], "the report follows in a later turn")
+    }
+
     @MainActor
     func test_onFailure_sameFailingConfigurationUpdatedAgain_reportsNothingNew() async throws {
         let recorder = FailureRecorder()
