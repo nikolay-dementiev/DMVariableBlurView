@@ -1,6 +1,5 @@
 import DMVariableBlurView
 import SnapshotTesting
-import SwiftUI
 import XCTest
 
 /// Pictures of the blur over the striped scene of `RenderingHarness`, compared with
