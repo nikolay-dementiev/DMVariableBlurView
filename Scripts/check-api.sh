@@ -239,7 +239,11 @@ swift_sources() {
 # The compiler is called for the iOS simulator, a platform the packages are released
 # for. It is called directly, because a module that shares its name with one of its
 # types cannot pass the interface verifier that a build through xcodebuild always runs.
-SDK_PATH="$(xcrun --sdk iphonesimulator --show-sdk-path)"
+# Exit 1 says that the interface differs. An SDK that cannot be located is not that.
+if ! SDK_PATH="$(xcrun --sdk iphonesimulator --show-sdk-path)" || [ ! -d "$SDK_PATH" ]; then
+    echo "check-api: the iOS simulator SDK cannot be located." >&2
+    exit 2
+fi
 TARGET="arm64-apple-ios17.0-simulator"
 
 # Bash 3.2, the version macOS ships, treats an empty array as unbound under set -u, hence
