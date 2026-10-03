@@ -17,13 +17,13 @@ final class ReduceTransparencyTests: XCTestCase {
         XCTAssertNil(sut.blurView.failure, "nothing failed")
     }
 
-    /// The SwiftUI method sets the option of the UIKit view, when it is made and when it is
-    /// updated.
     /// What a view that follows the setting draws, with the installer of the library: the
     /// standard effect of the system while the setting is on, which is no failure, and the
     /// variable blur again when the setting is turned off.
     @MainActor
     func test_blurUIView_optionOnAndSettingOn_showsTheStandardEffectAndReportsNothing() throws {
+        // The spy stands in for the setting; the system still draws the effect by the real one.
+        try XCTSkipIf(UIAccessibility.isReduceTransparencyEnabled, "the device has Reduce Transparency on")
         let setting = ReduceTransparencySettingSpy(isEnabled: false)
         let view = DMVariableBlurUIView(
             maskRenderer: CoreGraphicsMaskImageRenderer(),
@@ -56,6 +56,8 @@ final class ReduceTransparencyTests: XCTestCase {
         XCTAssertNil(view.failure, "nothing failed")
     }
 
+    /// The SwiftUI method sets the option of the UIKit view, when it is made and when it is
+    /// updated.
     @MainActor
     func test_blurView_respectsReduceTransparency_setsTheOptionOfTheUIKitView() throws {
         let sut = try makeSUT(DMVariableBlurView().respectsReduceTransparency())
