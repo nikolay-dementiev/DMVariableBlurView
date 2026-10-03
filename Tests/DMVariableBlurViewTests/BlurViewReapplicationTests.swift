@@ -116,11 +116,17 @@ final class BlurViewReapplicationTests: XCTestCase {
         sut.blurView.effect = nil
         sut.blurView.layoutIfNeeded()
         sut.blurView.update(maxBlurRadius: -1, direction: .blurredBottomClearTop, startOffset: 0)
+        let failureRightAfterTheUpdate = sut.blurView.failure
         let effectAfterTheUpdate = sut.blurView.effect
         sut.blurView.effect = UIBlurEffect(style: .dark)
         sut.blurView.layoutIfNeeded()
 
-        XCTAssertEqual(sut.blurView.failure, .invalidMaxBlurRadius(-1), "the rejected value is reported")
+        XCTAssertEqual(
+            failureRightAfterTheUpdate,
+            .invalidMaxBlurRadius(-1),
+            "the rejected value is reported at once, before the effect returns"
+        )
+        XCTAssertEqual(sut.blurView.failure, .invalidMaxBlurRadius(-1), "the rejected value stays reported")
         XCTAssertNil(effectAfterTheUpdate, "the view leaves the effect to the host")
         XCTAssertFalse(sut.filterTypes.contains("variableBlur"), "the effect came back as the plain blur")
     }
