@@ -9,7 +9,7 @@ import SwiftUI
 
 struct ContentView: View {
     @State var direction: DMVariableBlurDirection
-    @State var textDescription: String = "someTextHere"
+    @State var textDescription: String
 
     var body: some View {
         ZStack {
