@@ -46,8 +46,8 @@ public struct DMVariableBlurView: UIViewRepresentable {
     ///
     /// The handler runs on the main actor. It is called once for each configuration that
     /// was applied and failed. It is not called again while the configuration stays the
-    /// same, however often SwiftUI updates the view; a configuration rejected for the same
-    /// reason as the one before counts as the same. It is called again when a failing
+    /// same, however often SwiftUI updates the view; a configuration rejected with an equal
+    /// error, the same case and value, counts as the same. It is called again when a failing
     /// configuration returns after a valid one, and when a configuration that was shown
     /// fails later, for example when the view applies it again after the system rebuilt
     /// the effect.

@@ -18,6 +18,9 @@ import UIKit
 /// - The blur uses a private filter of the system. When the filter is not available, or a
 ///   value is not valid, the view shows the plain blur of the system instead, and
 ///   ``failure`` gives the reason.
+/// - Content added to its `contentView` stays visible over the blur.
+/// - A host may set `effect` to `nil` to fade the view out. New values then wait for the
+///   effect, and the blur shows them when the effect returns.
 /// - It cannot be decoded from an archive or a storyboard: decoding returns `nil`.
 public final class DMVariableBlurUIView: UIVisualEffectView {
     private let maskRenderer: any MaskImageRenderer
@@ -141,7 +144,7 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
     /// The values are checked before anything is drawn or installed. When the variable blur
     /// cannot be shown, the view shows the plain blur of the system, records the reason in
     /// ``failure`` and writes it to the log once. A configuration equal to the last one, or
-    /// rejected for the same reason, changes nothing.
+    /// rejected with an equal error, the same case and value, changes nothing.
     package func apply(_ configuration: VariableBlurConfiguration) {
         let request: Request
         do throws(DMVariableBlurError) {
@@ -169,6 +172,8 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
         apply(VariableBlurConfiguration(maxBlurRadius: maxBlurRadius, direction: direction, startOffset: startOffset))
     }
 
+    /// Lays out the effect view, then puts the variable blur back when UIKit has replaced it
+    /// with the standard filters, as after a change of appearance or of `effect`.
     public override func layoutSubviews() {
         super.layoutSubviews()
         // After a change of appearance or of `effect`, UIKit puts the standard filters of
@@ -187,6 +192,8 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
         }
     }
 
+    /// Sets the backdrop to the scale of the screen of the new window, so that the clear
+    /// edge stays sharp.
     public override func didMoveToWindow() {
         // fixes visible pixelization at unblurred edge (https://github.com/nikstar/VariableBlur/issues/1)
         guard let window else { return }
