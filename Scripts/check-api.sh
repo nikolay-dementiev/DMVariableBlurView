@@ -63,68 +63,24 @@ mkdir -p "$WORK"
 # compiler condition (#if ... #endif) stays one block with what it guards: moving either
 # to another declaration is an API change. A declaration whose own access level is
 # private, fileprivate, internal or package is not API: it is dropped with its attribute
-# lines and its block, which must follow the grammar of a hidden block stated below. A build
-# without library evolution prints such stored properties.
+# lines and its block, by indentation, as stated below. A build without library evolution
+# prints such stored properties.
 normalize() {
     # grep exits 1 when it selects no line, as for an interface without declarations; any
     # other failure, such as a file it cannot read, stops the normalisation.
     { grep -v -E '^(//|import |$)' "$1" || [ $? -eq 1 ]; } | python3 -c '
-import re
 import sys
 
-def balance(text, opening, closing, state=None):
-    # Counts the brackets of one line outside comments and plain string literals, the lexing
-    # the grammar of a hidden block below relies on; `state` carries a comment or a multiline
-    # string to the next line and names a literal this count does not model.
+def balance(text, opening, closing):
+    # Counts the brackets of the arguments of an attribute, outside string literals.
     total, in_string, position = 0, False, 0
-    comments = state.get("comment", 0) if state else 0
-    multiline = bool(state.get("multiline")) if state else False
     while position < len(text):
-        if comments:
-            if text.startswith("/*", position):
-                comments += 1
-                position += 2
-            elif text.startswith("*/", position):
-                comments -= 1
-                position += 2
-            else:
-                position += 1
-            continue
-        if multiline:
-            if state is not None and text.startswith("\\(", position):
-                state["unmodelled"] = "a string interpolation"
-                break
-            if text[position] == "\\":
-                position += 2
-            elif text.startswith("\"\"\"", position):
-                multiline = False
-                position += 3
-            else:
-                position += 1
-            continue
         character = text[position]
         if in_string:
-            if state is not None and text.startswith("\\(", position):
-                state["unmodelled"] = "a string interpolation"
-                break
             if character == "\\":
                 position += 1
             elif character == "\"":
                 in_string = False
-        elif text.startswith("//", position):
-            break
-        elif text.startswith("/*", position):
-            comments = 1
-            position += 2
-            continue
-        elif state is not None and character == "#" and text[position:].lstrip("#")[:1] in ("\"", "/"):
-            delimited = text[position:].lstrip("#")
-            state["unmodelled"] = "a raw string literal" if delimited.startswith("\"") else "a regex literal"
-            break
-        elif text.startswith("\"\"\"", position):
-            multiline = True
-            position += 3
-            continue
         elif character == "\"":
             in_string = True
         elif character == opening:
@@ -132,9 +88,6 @@ def balance(text, opening, closing, state=None):
         elif character == closing:
             total -= 1
         position += 1
-    if state is not None:
-        state["comment"] = comments
-        state["multiline"] = multiline
     return total
 
 def skip_attributes(line):
@@ -170,156 +123,39 @@ def hidden_declaration(line):
             return False
     return False
 
-# The grammar of a hidden block. Inside the block of a declaration that is not API the
-# normaliser accepts only: a declaration, which after attributes and modifiers starts with
-# case, var, let, func, init, deinit, subscript, struct, class, enum, protocol, extension,
-# typealias, associatedtype, actor or an access level; a line of attributes, which belongs to
-# the declaration below it; an accessor (get, set, _read, _modify, unsafeAddress,
-# unsafeMutableAddress) with its attributes, mutating or nonmutating in front; a compiler
-# directive (#if, #else, #elseif, #endif); a lone { or }. Braces are counted on those lines
-# only, and a raw string, an interpolation or a regex literal on them stops the check. A
-# declaration line carries no expression the normaliser does not model: a value assigned
-# outside parentheses on a let or var line is code of a serialised body, and a default
-# argument may hold only a plain string, a number, nil, true, false or a dotted member with
-# balanced parentheses. Any other line is a statement of a serialised body and stops the check
-# with exit 2: a construct the normaliser does not model inside a hidden block is never
-# assumed balanced.
-DECLARATIONS = {"case", "var", "let", "func", "init", "deinit", "subscript", "struct", "class",
-                "enum", "protocol", "extension", "typealias", "associatedtype", "actor"}
-ACCESS_LEVELS = {"open", "public", "package", "internal", "fileprivate", "private"}
-MODIFIERS = {"static", "final", "override", "required", "convenience", "dynamic", "lazy",
-             "optional", "mutating", "nonmutating", "indirect", "weak", "unowned", "nonisolated",
-             "isolated", "consuming", "borrowing", "__consuming", "distributed", "prefix",
-             "postfix", "infix"}
-ACCESSORS = {"get", "set", "_read", "_modify", "unsafeAddress", "unsafeMutableAddress"}
-DIRECTIVES = ("#if", "#else", "#elseif", "#endif")
-
-def belongs_to_a_hidden_block(line):
-    text = line.strip()
-    if text in ("{", "}") or text.startswith(DIRECTIVES):
-        return True
-    words = skip_attributes(line).split()
-    if not words:
-        return True
-    position = 0
-    while position < len(words) and words[position].split("(")[0] in MODIFIERS:
-        position += 1
-    keyword = words[position].split("(")[0] if position < len(words) else ""
-    return keyword in DECLARATIONS or keyword in ACCESS_LEVELS or keyword in ACCESSORS
-
-def refuse_unmodelled(state, line):
-    construct = state.get("unmodelled")
-    if construct:
-        sys.exit("check-api: " + construct + " in a hidden body is not supported: " + line.strip())
-
-OPERATOR_CHARACTERS = set("/=-+!*%<>&|^~?.")
-NUMBER = re.compile(r"-?(0[xX][0-9A-Fa-f_]+|0[bB][01_]+|0[oO][0-7_]+|[0-9][0-9_]*(\.[0-9][0-9_]*)?([eE][+-]?[0-9]+)?)$")
-PLAIN_STRING = re.compile(r"\"([^\"\\]|\\[^(])*\"$")
-STRING = re.compile(r"\"([^\"\\]|\\.)*\"")
-MEMBER = re.compile(r"\.?[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*(\(.*\))?$")
-
-def declaration_keyword(line):
-    for word in skip_attributes(line).split():
-        word = word.split("(")[0]
-        if word not in MODIFIERS and word not in ACCESS_LEVELS:
-            return word
-    return ""
-
-def assignments(text):
-    """Each = that assigns a value, with the depth of the brackets around it."""
-    found, depth, in_string, position = [], 0, False, 0
-    while position < len(text):
-        character = text[position]
-        if in_string:
-            if character == "\\":
-                position += 1
-            elif character == "\"":
-                in_string = False
-        elif text.startswith("//", position):
-            break
-        elif character == "\"":
-            in_string = True
-        elif character in "([":
-            depth += 1
-        elif character in ")]":
-            depth -= 1
-        elif character == "=":
-            before = text[position - 1] if position > 0 else " "
-            after = text[position + 1] if position + 1 < len(text) else " "
-            if before not in OPERATOR_CHARACTERS and after not in OPERATOR_CHARACTERS:
-                found.append((position, depth))
-        position += 1
-    return found
-
-def default_value(text, start):
-    """The default argument that starts at `start`: up to the next comma or closing bracket."""
-    depth, in_string, position = 0, False, start
-    while position < len(text):
-        character = text[position]
-        if in_string:
-            if character == "\\":
-                position += 1
-            elif character == "\"":
-                in_string = False
-        elif character == "\"":
-            in_string = True
-        elif character in "([":
-            depth += 1
-        elif character in ")]":
-            if depth == 0:
-                break
-            depth -= 1
-        elif character == "," and depth == 0:
-            break
-        position += 1
-    return text[start:position].strip()
-
-def modelled_default(value):
-    if value in ("nil", "true", "false") or NUMBER.match(value) or PLAIN_STRING.match(value):
-        return True
-    outside = STRING.sub("\"\"", value)
-    if not MEMBER.match(outside) or "\\(" in value:
-        return False
-    if any(character in outside for character in "`/#{}\\"):
-        return False
-    return balance(outside, "(", ")") == 0
-
-def refuse_expressions(line):
-    text = skip_attributes(line)
-    keyword = declaration_keyword(line)
-    for position, depth in assignments(text):
-        if depth == 0 and keyword in ("let", "var"):
-            sys.exit("check-api: an initial value on a let or var line of a hidden declaration is not normalised: " + line.strip())
-        if depth > 0 and not modelled_default(default_value(text, position + 1)):
-            sys.exit("check-api: a default argument in a hidden declaration is not normalised: " + line.strip())
+# A declaration that is not API is dropped by its indentation, never by reading its text:
+# the interface printer indents every member one level deeper than its type and puts the
+# closing brace of a block at the indentation of its declaration. A hidden declaration at
+# indentation N goes with every following line indented deeper than N and, when its line ends
+# with {, with the next line at indentation N that is exactly }. Nothing on those lines is
+# read. This cannot pass silently: a public member of the same type sits at indentation N, so
+# nothing in a hidden body can swallow it. The only misjudgement is a serialised body with a
+# line at indentation N or less that is not its closing brace, such as a multiline string laid
+# out flat: the drop then ends early, the rest of the body leaks into the normalised text, and
+# the comparison turns red or stops with exit 2, never green.
+def indentation(line):
+    return len(line) - len(line.lstrip())
 
 def public_lines(lines):
-    kept, held, depth, state = [], [], 0, {"comment": 0, "multiline": False}
-    for line in lines:
-        if depth > 0:
-            if not belongs_to_a_hidden_block(line):
-                sys.exit("check-api: a serialised body in a hidden declaration is not normalised: " + line.strip())
-            depth += balance(line, "{", "}", state)
-            refuse_unmodelled(state, line)
-            refuse_expressions(line)
-            continue
+    kept, held, position = [], [], 0
+    while position < len(lines):
+        line = lines[position]
+        position += 1
         if line.strip() and attributes_only(line):
             held.append(line)
             continue
         if hidden_declaration(line):
             held = []
-            state["comment"] = 0
-            state["multiline"] = False
-            depth = balance(line, "{", "}", state)
-            refuse_unmodelled(state, line)
-            refuse_expressions(line)
+            level = indentation(line)
+            while position < len(lines) and indentation(lines[position]) > level:
+                position += 1
+            if (line.rstrip().endswith("{") and position < len(lines)
+                    and indentation(lines[position]) == level and lines[position].strip() == "}"):
+                position += 1
             continue
         kept.extend(held)
         held = []
         kept.append(line)
-    # A body still open here would have hidden everything after it.
-    if depth > 0:
-        sys.exit("check-api: a hidden body is still open where the interface ends")
     return kept + held
 
 blocks, current, conditions = [], [], 0
@@ -356,24 +192,6 @@ if [ "${1:-}" = "--self-test" ]; then
         EXPECTED="$(sed -n 's/^# expect: //p' "$CASE")"
         awk '/^--- A ---$/ { part = "A"; next } /^--- B ---$/ { part = "B"; next } part == "A"' "$CASE" > "$WORK/case-a.txt"
         awk '/^--- B ---$/ { part = "B"; next } part == "B"' "$CASE" > "$WORK/case-b.txt"
-        # A case that expects an error passes when the normalisation of its text A fails with
-        # the message the case names: a crash, or another error, must not stand in for it.
-        if [ "$EXPECTED" = "error" ]; then
-            MESSAGE="$(sed -n 's/^# message: //p' "$CASE")"
-            if [ -z "$MESSAGE" ]; then
-                echo "check-api: FAIL $NAME: an error case needs a line '# message: <text of the error>'" >&2
-                FAILED=1
-            elif normalize "$WORK/case-a.txt" > /dev/null 2> "$WORK/case-a.error"; then
-                echo "check-api: FAIL $NAME: expected an error, the normalisation of A succeeded" >&2
-                FAILED=1
-            elif ! grep -qF -- "$MESSAGE" "$WORK/case-a.error"; then
-                echo "check-api: FAIL $NAME: expected the error '$MESSAGE', the normalisation said: $(head -c 300 "$WORK/case-a.error")" >&2
-                FAILED=1
-            else
-                echo "check-api: ok   $NAME"
-            fi
-            continue
-        fi
         if ! normalize "$WORK/case-a.txt" > "$WORK/case-a.normalized" || ! normalize "$WORK/case-b.txt" > "$WORK/case-b.normalized"; then
             echo "check-api: FAIL $NAME: the normalisation stopped with an error" >&2
             FAILED=1
