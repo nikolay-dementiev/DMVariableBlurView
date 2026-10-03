@@ -70,16 +70,32 @@ normalize() {
     { grep -v -E '^(//|import |$)' "$1" || [ $? -eq 1 ]; } | python3 -c '
 import sys
 
-def balance(text, opening, closing):
-    # Characters inside a string literal, such as a message or a return value, do not count.
+def balance(text, opening, closing, state=None):
+    # Characters inside a string literal, such as a message or a return value, or inside a
+    # comment do not count. A /* comment can go on over the next lines: the caller passes
+    # `state` to carry it from one line to the next.
     total, in_string, position = 0, False, 0
+    in_comment = bool(state and state.get("comment"))
     while position < len(text):
+        if in_comment:
+            end = text.find("*/", position)
+            if end < 0:
+                break
+            in_comment = False
+            position = end + 2
+            continue
         character = text[position]
         if in_string:
             if character == "\\":
                 position += 1
             elif character == "\"":
                 in_string = False
+        elif text.startswith("//", position):
+            break
+        elif text.startswith("/*", position):
+            in_comment = True
+            position += 2
+            continue
         elif character == "\"":
             in_string = True
         elif character == opening:
@@ -87,6 +103,8 @@ def balance(text, opening, closing):
         elif character == closing:
             total -= 1
         position += 1
+    if state is not None:
+        state["comment"] = in_comment
     return total
 
 def skip_attributes(line):
@@ -123,21 +141,25 @@ def hidden_declaration(line):
     return False
 
 def public_lines(lines):
-    kept, held, depth = [], [], 0
+    kept, held, depth, state = [], [], 0, {"comment": False}
     for line in lines:
         if depth > 0:
-            depth += balance(line, "{", "}")
+            depth += balance(line, "{", "}", state)
             continue
         if line.strip() and attributes_only(line):
             held.append(line)
             continue
         if hidden_declaration(line):
             held = []
-            depth = balance(line, "{", "}")
+            state["comment"] = False
+            depth = balance(line, "{", "}", state)
             continue
         kept.extend(held)
         held = []
         kept.append(line)
+    # A body still open here would have hidden everything after it.
+    if depth > 0:
+        sys.exit("check-api: a hidden body is still open where the interface ends")
     return kept + held
 
 blocks, current, conditions = [], [], 0
