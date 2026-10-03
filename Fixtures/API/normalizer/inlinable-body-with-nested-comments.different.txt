@@ -1,7 +1,7 @@
-# expect: error
-# message: a serialised body in a hidden declaration is not normalised
-# The body of an inlinable function is code, and the normaliser does not model code:
-# whatever its strings and comments hold, a body in a hidden declaration stops the check.
+# expect: different
+# A hidden declaration is dropped by its indentation together with its body, whatever the
+# body holds. The public member after it stays at the indentation of its type, so
+# its removal is an API change. Its body holds a brace inside nested block comments.
 --- A ---
 public struct First {
   @inlinable internal func helper() -> Swift.Int {

@@ -1,7 +1,7 @@
-# expect: error
-# message: a default argument in a hidden declaration is not normalised
-# A default argument may hold only a plain string, a number, nil, true, false or a dotted
-# member. A bare regex literal holding a brace is none of them, and it fooled the brace count.
+# expect: different
+# A hidden declaration is dropped by its indentation together with its body, whatever the
+# body holds. The public member after it stays at the indentation of its type, so
+# its removal is an API change. Its default argument holds a bare regex literal with a brace.
 --- A ---
 public struct First {
   package enum Hidden {

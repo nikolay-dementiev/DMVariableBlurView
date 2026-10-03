@@ -1,0 +1,17 @@
+# expect: different
+# A multiline string laid out flat puts lines of a hidden body at the indentation of its type.
+# The drop ends there and the rest of the body leaks into the normalised text: the texts
+# differ although nothing public changed, so the check turns red, never green.
+--- A ---
+public struct First {
+  @inlinable internal func helper() -> Swift.String {
+    return """
+{
+"""
+  }
+  public func keep()
+}
+--- B ---
+public struct First {
+  public func keep()
+}
