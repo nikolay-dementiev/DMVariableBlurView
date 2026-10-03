@@ -1,0 +1,20 @@
+# expect: error
+# message: an initial value on a let or var line of a hidden declaration is not normalised
+# A local declaration in a serialised body starts with let, as a stored property does, but its
+# value is code: a bare regex literal holding a brace fooled the brace count, and the public
+# member after the body disappeared from both texts.
+--- A ---
+public struct First {
+  @inlinable internal func helper() {
+    let _ = /\{/
+  }
+  public func removedLater()
+  public func keep()
+}
+--- B ---
+public struct First {
+  @inlinable internal func helper() {
+    let _ = /\{/
+  }
+  public func keep()
+}

@@ -1,0 +1,19 @@
+# expect: error
+# message: a default argument in a hidden declaration is not normalised
+# A default argument may hold only a plain string, a number, nil, true, false or a dotted
+# member. A bare regex literal holding a brace is none of them, and it fooled the brace count.
+--- A ---
+public struct First {
+  package enum Hidden {
+    package static func matches(_ pattern: Regex<Substring> = /\{/) -> Swift.Bool
+  }
+  public func removedLater()
+  public func keep()
+}
+--- B ---
+public struct First {
+  package enum Hidden {
+    package static func matches(_ pattern: Regex<Substring> = /\{/) -> Swift.Bool
+  }
+  public func keep()
+}

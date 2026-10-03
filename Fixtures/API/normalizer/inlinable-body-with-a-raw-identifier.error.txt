@@ -1,0 +1,19 @@
+# expect: error
+# message: an initial value on a let or var line of a hidden declaration is not normalised
+# A raw identifier may hold a brace. On a local declaration in a serialised body it fooled the
+# brace count, and the public member after the body disappeared from both texts.
+--- A ---
+public struct First {
+  @inlinable internal func helper() {
+    let `brace{` = 1
+  }
+  public func removedLater()
+  public func keep()
+}
+--- B ---
+public struct First {
+  @inlinable internal func helper() {
+    let `brace{` = 1
+  }
+  public func keep()
+}
