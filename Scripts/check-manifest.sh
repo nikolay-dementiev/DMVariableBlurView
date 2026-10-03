@@ -98,6 +98,7 @@ fi
 # 3. The consumer fixture. xcodebuild finds a package only in the current directory.
 #    A fresh build folder every run: step 4 must not see the products of an older build.
 DERIVED="$(mktemp -d "$WORK/DerivedData.XXXXXX")"
+CONSUMER_BUILT=0
 cd "$ROOT/Fixtures/Consumer"
 if xcodebuild build \
     -scheme Consumer \
@@ -106,6 +107,7 @@ if xcodebuild build \
     -derivedDataPath "$DERIVED" \
     ARCHS=arm64 ONLY_ACTIVE_ARCH=NO \
     > "$WORK/consumer-build.log" 2>&1; then
+    CONSUMER_BUILT=1
     # A warning in the fixture is what a consumer of the released API would see, for
     # example a deprecation. The build cannot turn warnings into errors as a whole:
     # Xcode compiles a package dependency with its warnings suppressed.
@@ -124,9 +126,14 @@ else
 fi
 
 # 4. The library gives a consumer code only. A resource bundle means that an asset under
-#    the target path is shipped inside every app that uses the package.
-BUNDLES="$(find "$DERIVED/Build/Products" -maxdepth 2 -name 'DMVariableBlurView_*.bundle' 2>/dev/null || true)"
-if [ -n "$BUNDLES" ]; then
+#    the target path is shipped inside every app that uses the package. Only the products
+#    of a finished build say so, and a search that fails is not a search that found nothing.
+if [ "$CONSUMER_BUILT" -eq 0 ]; then
+    echo "check-manifest: resource bundles not checked: Fixtures/Consumer did not build." >&2
+elif ! BUNDLES="$(find "$DERIVED/Build/Products" -maxdepth 2 -name 'DMVariableBlurView_*.bundle')"; then
+    echo "check-manifest: cannot search the products of the consumer build for a resource bundle." >&2
+    exit 2
+elif [ -n "$BUNDLES" ]; then
     echo "check-manifest: the library ships a resource bundle to its consumers:" >&2
     echo "$BUNDLES" | while IFS= read -r bundle; do
         echo "  ${bundle#"$DERIVED"/} ($(du -sh "$bundle" | cut -f1))" >&2
