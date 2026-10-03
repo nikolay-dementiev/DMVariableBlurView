@@ -69,6 +69,7 @@ normalize() {
     # grep exits 1 when it selects no line, as for an interface without declarations; any
     # other failure, such as a file it cannot read, stops the normalisation.
     { grep -v -E '^(//|import |$)' "$1" || [ $? -eq 1 ]; } | python3 -c '
+import re
 import sys
 
 def balance(text, opening, closing, state=None):
@@ -176,9 +177,13 @@ def hidden_declaration(line):
 # the declaration below it; an accessor (get, set, _read, _modify, unsafeAddress,
 # unsafeMutableAddress) with its attributes, mutating or nonmutating in front; a compiler
 # directive (#if, #else, #elseif, #endif); a lone { or }. Braces are counted on those lines
-# only, and a raw string, an interpolation or a regex literal on them stops the check. Any
-# other line is a statement of a serialised body and stops the check with exit 2: a construct
-# the normaliser does not model inside a hidden block is never assumed balanced.
+# only, and a raw string, an interpolation or a regex literal on them stops the check. A
+# declaration line carries no expression the normaliser does not model: a value assigned
+# outside parentheses on a let or var line is code of a serialised body, and a default
+# argument may hold only a plain string, a number, nil, true, false or a dotted member with
+# balanced parentheses. Any other line is a statement of a serialised body and stops the check
+# with exit 2: a construct the normaliser does not model inside a hidden block is never
+# assumed balanced.
 DECLARATIONS = {"case", "var", "let", "func", "init", "deinit", "subscript", "struct", "class",
                 "enum", "protocol", "extension", "typealias", "associatedtype", "actor"}
 ACCESS_LEVELS = {"open", "public", "package", "internal", "fileprivate", "private"}
@@ -207,6 +212,87 @@ def refuse_unmodelled(state, line):
     if construct:
         sys.exit("check-api: " + construct + " in a hidden body is not supported: " + line.strip())
 
+OPERATOR_CHARACTERS = set("/=-+!*%<>&|^~?.")
+NUMBER = re.compile(r"-?(0[xX][0-9A-Fa-f_]+|0[bB][01_]+|0[oO][0-7_]+|[0-9][0-9_]*(\.[0-9][0-9_]*)?([eE][+-]?[0-9]+)?)$")
+PLAIN_STRING = re.compile(r"\"([^\"\\]|\\[^(])*\"$")
+STRING = re.compile(r"\"([^\"\\]|\\.)*\"")
+MEMBER = re.compile(r"\.?[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*(\(.*\))?$")
+
+def declaration_keyword(line):
+    for word in skip_attributes(line).split():
+        word = word.split("(")[0]
+        if word not in MODIFIERS and word not in ACCESS_LEVELS:
+            return word
+    return ""
+
+def assignments(text):
+    """Each = that assigns a value, with the depth of the brackets around it."""
+    found, depth, in_string, position = [], 0, False, 0
+    while position < len(text):
+        character = text[position]
+        if in_string:
+            if character == "\\":
+                position += 1
+            elif character == "\"":
+                in_string = False
+        elif text.startswith("//", position):
+            break
+        elif character == "\"":
+            in_string = True
+        elif character in "([":
+            depth += 1
+        elif character in ")]":
+            depth -= 1
+        elif character == "=":
+            before = text[position - 1] if position > 0 else " "
+            after = text[position + 1] if position + 1 < len(text) else " "
+            if before not in OPERATOR_CHARACTERS and after not in OPERATOR_CHARACTERS:
+                found.append((position, depth))
+        position += 1
+    return found
+
+def default_value(text, start):
+    """The default argument that starts at `start`: up to the next comma or closing bracket."""
+    depth, in_string, position = 0, False, start
+    while position < len(text):
+        character = text[position]
+        if in_string:
+            if character == "\\":
+                position += 1
+            elif character == "\"":
+                in_string = False
+        elif character == "\"":
+            in_string = True
+        elif character in "([":
+            depth += 1
+        elif character in ")]":
+            if depth == 0:
+                break
+            depth -= 1
+        elif character == "," and depth == 0:
+            break
+        position += 1
+    return text[start:position].strip()
+
+def modelled_default(value):
+    if value in ("nil", "true", "false") or NUMBER.match(value) or PLAIN_STRING.match(value):
+        return True
+    outside = STRING.sub("\"\"", value)
+    if not MEMBER.match(outside) or "\\(" in value:
+        return False
+    if any(character in outside for character in "`/#{}\\"):
+        return False
+    return balance(outside, "(", ")") == 0
+
+def refuse_expressions(line):
+    text = skip_attributes(line)
+    keyword = declaration_keyword(line)
+    for position, depth in assignments(text):
+        if depth == 0 and keyword in ("let", "var"):
+            sys.exit("check-api: an initial value on a let or var line of a hidden declaration is not normalised: " + line.strip())
+        if depth > 0 and not modelled_default(default_value(text, position + 1)):
+            sys.exit("check-api: a default argument in a hidden declaration is not normalised: " + line.strip())
+
 def public_lines(lines):
     kept, held, depth, state = [], [], 0, {"comment": 0, "multiline": False}
     for line in lines:
@@ -215,6 +301,7 @@ def public_lines(lines):
                 sys.exit("check-api: a serialised body in a hidden declaration is not normalised: " + line.strip())
             depth += balance(line, "{", "}", state)
             refuse_unmodelled(state, line)
+            refuse_expressions(line)
             continue
         if line.strip() and attributes_only(line):
             held.append(line)
@@ -225,6 +312,7 @@ def public_lines(lines):
             state["multiline"] = False
             depth = balance(line, "{", "}", state)
             refuse_unmodelled(state, line)
+            refuse_expressions(line)
             continue
         kept.extend(held)
         held = []
