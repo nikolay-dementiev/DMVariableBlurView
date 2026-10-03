@@ -98,6 +98,8 @@ final class BlurViewReapplicationTests: XCTestCase {
         let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 200, height: 400))
         let controller = UIViewController()
         window.rootViewController = controller
+        // Light first, whatever the simulator is set to, so that dark is a change.
+        window.overrideUserInterfaceStyle = .light
         window.isHidden = false
         defer { window.isHidden = true }
         let sut = DMVariableBlurUIView(
