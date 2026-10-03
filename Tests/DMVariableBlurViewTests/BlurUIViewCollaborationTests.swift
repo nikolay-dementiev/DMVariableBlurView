@@ -135,14 +135,27 @@ final class BlurUIViewCollaborationTests: XCTestCase {
         XCTAssertEqual(collaborators.installer.installations.last?.maxBlurRadius, 9, "with the new radius")
     }
 
+    /// An unchanged configuration is decided on the outcome of the validation: the same
+    /// rejected configuration again, or another one rejected with an equal error, changes
+    /// nothing.
     @MainActor
     func test_apply_sameRejectedConfigurationAgain_logsNothingNew() throws {
         let (sut, collaborators) = try makeSUT()
+        let (otherSUT, otherCollaborators) = try makeSUT()
 
         sut.apply(rejectedConfiguration(centerBandProportion: 1.25))
         sut.apply(rejectedConfiguration(centerBandProportion: 1.25))
+        otherSUT.apply(VariableBlurConfiguration(maxBlurRadius: -1, direction: .blurredTopClearBottom, startOffset: 0))
+        otherSUT.apply(VariableBlurConfiguration(maxBlurRadius: -1, direction: .blurredBottomClearTop, startOffset: 0))
 
-        XCTAssertEqual(collaborators.log.entries.count, 1)
+        XCTAssertEqual(collaborators.log.entries.count, 1, "the same rejected configuration is logged once")
+        XCTAssertEqual(
+            otherCollaborators.log.entries.count,
+            1,
+            "another direction with the same rejected radius is logged once"
+        )
+        XCTAssertEqual(otherCollaborators.renderer.profiles.count, 0, "no mask is drawn for a rejected radius")
+        XCTAssertEqual(otherCollaborators.installer.installations.count, 0, "nothing is installed for a rejected radius")
     }
 
     /// An unchanged configuration is decided on the reason it was rejected for, and that
