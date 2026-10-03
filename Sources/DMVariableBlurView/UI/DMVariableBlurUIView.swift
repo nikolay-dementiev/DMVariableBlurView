@@ -192,12 +192,14 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
         }
     }
 
-    /// Sets the backdrop to the scale of the screen of the new window, so that the clear
-    /// edge stays sharp.
+    /// Sets the backdrop to the display scale of the view's traits in the new window, so that
+    /// the clear edge stays sharp.
     public override func didMoveToWindow() {
-        // fixes visible pixelization at unblurred edge (https://github.com/nikstar/VariableBlur/issues/1)
-        guard let window else { return }
-        installer.setBackdropScale(window.screen.scale, on: self)
+        super.didMoveToWindow()
+        // Without it the clear edge looks pixelated (https://github.com/nikstar/VariableBlur/issues/1).
+        // The traits carry the scale the view is drawn at, also where a host overrides it.
+        guard window != nil else { return }
+        installer.setBackdropScale(traitCollection.displayScale, on: self)
     }
 
     /// Shows the last valid configuration as the option allows: the standard effect while
