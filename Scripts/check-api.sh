@@ -428,12 +428,12 @@ if [ "${1:-}" = "--self-test" ]; then
     else
         echo "check-api: ok   unreadable-input"
     fi
-    # A file the check cannot read exactly stops the normalisation with a message of its own, in
-    # every locale. grep prints a notice in place of the lines of a file with a NUL byte, and the
-    # notice holds no line number; the path of the second file holds a colon, so its notice has a
-    # part before the colon that is no number either.
+    # A file the check cannot read exactly stops the normalisation with a message of its own,
+    # whatever the locale of the caller. grep prints a notice in place of the lines of a file with
+    # a NUL byte, and the notice holds no line number; the path of the second file holds a colon,
+    # so its notice has a part before the colon that is no number either.
     expect_refused() {
-        if (export LC_ALL=C; normalize "$1") > /dev/null 2> "$WORK/$2.error"; then
+        if (export LC_ALL="${4:-C}"; normalize "$1") > /dev/null 2> "$WORK/$2.error"; then
             echo "check-api: FAIL $2: the normalisation succeeded" >&2
             FAILED=1
         elif ! grep -qF -- "$3" "$WORK/$2.error"; then
@@ -451,6 +451,20 @@ if [ "${1:-}" = "--self-test" ]; then
     # The byte 0377 starts no UTF-8 sequence, whatever the locale of the caller.
     printf 'public struct First {\n  public func keep(s: Swift.String = "\377")\n}\n' > "$WORK/invalid-utf8.txt"
     expect_refused "$WORK/invalid-utf8.txt" invalid-utf8 "the interface is not valid UTF-8"
+    # In a UTF-8 locale grep leaves out a line that starts with a byte that is no UTF-8 sequence, so
+    # the normalisation must number the lines in the C locale to see that line at all.
+    printf 'public struct First {\n\377  public func keep()\n}\n' > "$WORK/invalid-utf8-first.txt"
+    expect_refused "$WORK/invalid-utf8-first.txt" invalid-utf8-at-a-line-start "the interface is not valid UTF-8" en_US.UTF-8
+    # The text is written as UTF-8 whatever the output stream encodes. PYTHONIOENCODING sets that
+    # stream, and no locale changes it: a character that Latin-1 cannot hold comes out as the same
+    # UTF-8 bytes in both runs.
+    printf 'public struct Price {\n  public func show(symbol: Swift.String = "\342\202\254")\n}\n' > "$WORK/euro-sign.txt"
+    if normalize "$WORK/euro-sign.txt" > "$WORK/euro-sign.expected" && (export PYTHONIOENCODING=latin-1; normalize "$WORK/euro-sign.txt") > "$WORK/euro-sign.latin1" 2> "$WORK/euro-sign.error" && cmp -s "$WORK/euro-sign.expected" "$WORK/euro-sign.latin1"; then
+        echo "check-api: ok   output-encoding"
+    else
+        echo "check-api: FAIL output-encoding: the Latin-1 stream differs or stopped: $(head -c 300 "$WORK/euro-sign.error")" >&2
+        FAILED=1
+    fi
     exit "$FAILED"
 fi
 
