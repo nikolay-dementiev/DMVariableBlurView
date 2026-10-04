@@ -325,22 +325,29 @@ def public_lines(lines):
         sys.exit("check-api: a compiler directive is still open at the end of the interface")
     return kept + held
 
-# grep numbers the lines of the interface, each ended by a line feed, and the text is cut at
-# the line feed alone, so that every piece but the empty one after the last line feed is one
-# numbered line. str.splitlines would also cut at the line breaks below, which grep leaves
-# inside a line: text after one of them, in a string of a body, would read as a line of its
-# own, under a number the text wrote itself. Each of them stops the check with exit 2 and
-# names its line, on any line, the comments and imports dropped here included, so that no
-# tool shows the interface in other lines than the check reads. The interface is read and
-# written as UTF-8 whatever the locale says: a locale that took its bytes for other characters
-# would let a line separator pass.
+# grep numbers every line of the interface, and the text is cut at the line feed alone, so that
+# each piece but the empty one after the last line feed is one numbered line. str.splitlines
+# would cut at more characters, among them the line breaks below, which grep leaves inside a
+# line: text after one of them, in a string of a body, would read as a line of its own under a
+# number the text wrote itself. The check refuses each of them on any line, comments and imports
+# included, and it never uses str.splitlines. The interface is read as bytes and decoded as
+# UTF-8, and written as UTF-8, whatever the locale says: a locale that took its bytes for other
+# characters would let a line separator pass.
 LINE_BREAK = re.compile("[\r\x0b\x0c\x85\N{LINE SEPARATOR}\N{PARAGRAPH SEPARATOR}]")
-sys.stdin.reconfigure(encoding="utf-8")
+try:
+    text = sys.stdin.buffer.read().decode("utf-8")
+except UnicodeDecodeError as error:
+    sys.exit("check-api: the interface is not valid UTF-8: " + str(error))
 sys.stdout.reconfigure(encoding="utf-8")
 
 numbered = []
-for record in sys.stdin.read().split("\n"):
-    number, _, line = record.partition(":")
+records = text.split("\n")
+if records.pop() != "":
+    sys.exit("check-api: the numbered text is not ended by a line feed")
+for record in records:
+    number, colon, line = record.partition(":")
+    if not colon or not (number.isascii() and number.isdigit()):
+        sys.exit("check-api: not a line numbered by grep: " + record[:60])
     found = LINE_BREAK.search(line)
     if found:
         sys.exit("check-api: line " + number + " holds a line break other than a line feed: U+"
