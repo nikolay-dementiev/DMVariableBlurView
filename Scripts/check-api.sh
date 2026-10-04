@@ -66,9 +66,10 @@ mkdir -p "$WORK"
 # lines and its block, by indentation, as stated below. A build without library evolution
 # prints such stored properties.
 normalize() {
-    # grep numbers every line and exits 1 only for a file without lines; any other failure,
-    # such as a file it cannot read, stops the normalisation.
-    { grep -n '^' "$1" || [ $? -eq 1 ]; } | python3 -c '
+    # grep numbers every line in the C locale: in a UTF-8 locale it leaves out a line that starts
+    # with a byte that is no UTF-8 sequence, and the reader would never see that line. Exit 1 is a
+    # file without lines; any other failure, such as a file it cannot read, stops the normalisation.
+    { LC_ALL=C grep -n '^' "$1" || [ $? -eq 1 ]; } | python3 -c '
 import re
 import sys
 
