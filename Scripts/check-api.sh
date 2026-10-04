@@ -66,9 +66,9 @@ mkdir -p "$WORK"
 # lines and its block, by indentation, as stated below. A build without library evolution
 # prints such stored properties.
 normalize() {
-    # grep exits 1 when it selects no line, as for an interface without declarations; any
-    # other failure, such as a file it cannot read, stops the normalisation.
-    { grep -n -v -E '^(//|import |$)' "$1" || [ $? -eq 1 ]; } | python3 -c '
+    # grep numbers every line and exits 1 only for a file without lines; any other failure,
+    # such as a file it cannot read, stops the normalisation.
+    { grep -n '^' "$1" || [ $? -eq 1 ]; } | python3 -c '
 import re
 import sys
 
@@ -325,10 +325,28 @@ def public_lines(lines):
         sys.exit("check-api: a compiler directive is still open at the end of the interface")
     return kept + held
 
+# grep numbers the lines of the interface, each ended by a line feed, and the text is cut at
+# the line feed alone, so that every piece but the empty one after the last line feed is one
+# numbered line. str.splitlines would also cut at the line breaks below, which grep leaves
+# inside a line: text after one of them, in a string of a body, would read as a line of its
+# own, under a number the text wrote itself. Each of them stops the check with exit 2 and
+# names its line, on any line, the comments and imports dropped here included, so that no
+# tool shows the interface in other lines than the check reads. The interface is read and
+# written as UTF-8 whatever the locale says: a locale that took its bytes for other characters
+# would let a line separator pass.
+LINE_BREAK = re.compile("[\r\x0b\x0c\x85\N{LINE SEPARATOR}\N{PARAGRAPH SEPARATOR}]")
+sys.stdin.reconfigure(encoding="utf-8")
+sys.stdout.reconfigure(encoding="utf-8")
+
 numbered = []
-for raw in sys.stdin.read().splitlines():
-    number, _, line = raw.partition(":")
-    numbered.append((int(number), line))
+for record in sys.stdin.read().split("\n"):
+    number, _, line = record.partition(":")
+    found = LINE_BREAK.search(line)
+    if found:
+        sys.exit("check-api: line " + number + " holds a line break other than a line feed: U+"
+                 + format(ord(found.group()), "04X"))
+    if line and not line.startswith(("//", "import ")):
+        numbered.append((int(number), line))
 
 blocks, current, conditions = [], [], 0
 for line in public_lines(numbered):
