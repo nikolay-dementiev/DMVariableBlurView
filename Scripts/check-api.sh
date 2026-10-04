@@ -66,9 +66,10 @@ mkdir -p "$WORK"
 # lines and its block, by indentation, as stated below. A build without library evolution
 # prints such stored properties.
 normalize() {
-    # grep exits 1 when it selects no line, as for an interface without declarations; any
-    # other failure, such as a file it cannot read, stops the normalisation.
-    { grep -n -v -E '^(//|import |$)' "$1" || [ $? -eq 1 ]; } | python3 -c '
+    # grep numbers every line in the C locale: in a UTF-8 locale it leaves out a line that holds a
+    # byte that is no UTF-8 sequence, and the reader would never see that line. Exit 1 is a file
+    # without lines; any other failure, such as a file it cannot read, stops the normalisation.
+    { LC_ALL=C grep -n '^' "$1" || [ $? -eq 1 ]; } | python3 -c '
 import re
 import sys
 
@@ -325,10 +326,35 @@ def public_lines(lines):
         sys.exit("check-api: a compiler directive is still open at the end of the interface")
     return kept + held
 
+# grep numbers every line of the interface, and the text is cut at the line feed alone, so that
+# each piece but the empty one after the last line feed is one numbered line. str.splitlines
+# would cut at more characters, among them the line breaks below, which grep leaves inside a
+# line: text after one of them, in a string of a body, would read as a line of its own under a
+# number the text wrote itself. The check refuses each of them on any line, comments and imports
+# included, and it never uses str.splitlines. The interface is read as bytes and decoded as
+# UTF-8, and written as UTF-8, whatever the locale says: a locale that took its bytes for other
+# characters would let a line separator pass.
+LINE_BREAK = re.compile("[\r\x0b\x0c\x85\N{LINE SEPARATOR}\N{PARAGRAPH SEPARATOR}]")
+try:
+    text = sys.stdin.buffer.read().decode("utf-8")
+except UnicodeDecodeError as error:
+    sys.exit("check-api: the interface is not valid UTF-8: " + str(error))
+sys.stdout.reconfigure(encoding="utf-8")
+
 numbered = []
-for raw in sys.stdin.read().splitlines():
-    number, _, line = raw.partition(":")
-    numbered.append((int(number), line))
+records = text.split("\n")
+if records.pop() != "":
+    sys.exit("check-api: the numbered text is not ended by a line feed")
+for record in records:
+    number, colon, line = record.partition(":")
+    if not colon or not (number.isascii() and number.isdigit()):
+        sys.exit("check-api: not a line numbered by grep: " + record[:60])
+    found = LINE_BREAK.search(line)
+    if found:
+        sys.exit("check-api: line " + number + " holds a line break other than a line feed: U+"
+                 + format(ord(found.group()), "04X"))
+    if line and not line.startswith(("//", "import ")):
+        numbered.append((int(number), line))
 
 blocks, current, conditions = [], [], 0
 for line in public_lines(numbered):
@@ -362,8 +388,9 @@ if [ "${1:-}" = "--self-test" ]; then
             continue
         fi
         EXPECTED="$(sed -n 's/^# expect: //p' "$CASE")"
-        awk '/^--- A ---$/ { part = "A"; next } /^--- B ---$/ { part = "B"; next } part == "A"' "$CASE" > "$WORK/case-a.txt"
-        awk '/^--- B ---$/ { part = "B"; next } part == "B"' "$CASE" > "$WORK/case-b.txt"
+        # awk reads the cases as bytes, so that no locale stops it on a character of a case.
+        LC_ALL=C awk '/^--- A ---$/ { part = "A"; next } /^--- B ---$/ { part = "B"; next } part == "A"' "$CASE" > "$WORK/case-a.txt"
+        LC_ALL=C awk '/^--- B ---$/ { part = "B"; next } part == "B"' "$CASE" > "$WORK/case-b.txt"
         # A case that expects an error passes when the normalisation of its text A fails with
         # the message the case names: a crash, or another error, must not stand in for it.
         if [ "$EXPECTED" = "error" ]; then
@@ -401,6 +428,43 @@ if [ "${1:-}" = "--self-test" ]; then
         FAILED=1
     else
         echo "check-api: ok   unreadable-input"
+    fi
+    # A file the check cannot read exactly stops the normalisation with a message of its own,
+    # whatever the locale of the caller. grep prints a notice in place of the lines of a file with
+    # a NUL byte, and the notice holds no line number; the path of the second file holds a colon,
+    # so its notice has a part before the colon that is no number either.
+    expect_refused() {
+        if (export LC_ALL="${4:-C}"; normalize "$1") > /dev/null 2> "$WORK/$2.error"; then
+            echo "check-api: FAIL $2: the normalisation succeeded" >&2
+            FAILED=1
+        elif ! grep -qF -- "$3" "$WORK/$2.error"; then
+            echo "check-api: FAIL $2: expected '$3', the normalisation said: $(head -c 300 "$WORK/$2.error")" >&2
+            FAILED=1
+        else
+            echo "check-api: ok   $2"
+        fi
+    }
+    printf 'public struct First {\n  public func keep()\n}\n\000' > "$WORK/binary-input.txt"
+    expect_refused "$WORK/binary-input.txt" binary-input "not a line numbered by grep"
+    mkdir -p "$WORK/colon:dir"
+    printf 'public struct First {\n  public func keep()\n}\n\000' > "$WORK/colon:dir/binary-input.txt"
+    expect_refused "$WORK/colon:dir/binary-input.txt" binary-input-with-a-colon "not a line numbered by grep"
+    # The byte 0377 starts no UTF-8 sequence, whatever the locale of the caller.
+    printf 'public struct First {\n  public func keep(s: Swift.String = "\377")\n}\n' > "$WORK/invalid-utf8.txt"
+    expect_refused "$WORK/invalid-utf8.txt" invalid-utf8 "the interface is not valid UTF-8"
+    # In a UTF-8 locale grep leaves out a line that starts with a byte that is no UTF-8 sequence, so
+    # the normalisation must number the lines in the C locale to see that line at all.
+    printf 'public struct First {\n\377  public func keep()\n}\n' > "$WORK/invalid-utf8-first.txt"
+    expect_refused "$WORK/invalid-utf8-first.txt" invalid-utf8-at-a-line-start "the interface is not valid UTF-8" en_US.UTF-8
+    # The text is written as UTF-8 whatever the output stream encodes. PYTHONIOENCODING sets that
+    # stream, and no locale changes it: a character that Latin-1 cannot hold comes out as the same
+    # UTF-8 bytes in both runs.
+    printf 'public struct Price {\n  public func show(symbol: Swift.String = "\342\202\254")\n}\n' > "$WORK/euro-sign.txt"
+    if normalize "$WORK/euro-sign.txt" > "$WORK/euro-sign.expected" && (export PYTHONIOENCODING=latin-1; normalize "$WORK/euro-sign.txt") > "$WORK/euro-sign.latin1" 2> "$WORK/euro-sign.error" && cmp -s "$WORK/euro-sign.expected" "$WORK/euro-sign.latin1"; then
+        echo "check-api: ok   output-encoding"
+    else
+        echo "check-api: FAIL output-encoding: the Latin-1 stream differs or stopped: $(head -c 300 "$WORK/euro-sign.error")" >&2
+        FAILED=1
     fi
     exit "$FAILED"
 fi
