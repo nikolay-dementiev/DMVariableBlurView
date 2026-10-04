@@ -387,8 +387,9 @@ if [ "${1:-}" = "--self-test" ]; then
             continue
         fi
         EXPECTED="$(sed -n 's/^# expect: //p' "$CASE")"
-        awk '/^--- A ---$/ { part = "A"; next } /^--- B ---$/ { part = "B"; next } part == "A"' "$CASE" > "$WORK/case-a.txt"
-        awk '/^--- B ---$/ { part = "B"; next } part == "B"' "$CASE" > "$WORK/case-b.txt"
+        # awk reads the cases as bytes, so that no locale stops it on a character of a case.
+        LC_ALL=C awk '/^--- A ---$/ { part = "A"; next } /^--- B ---$/ { part = "B"; next } part == "A"' "$CASE" > "$WORK/case-a.txt"
+        LC_ALL=C awk '/^--- B ---$/ { part = "B"; next } part == "B"' "$CASE" > "$WORK/case-b.txt"
         # A case that expects an error passes when the normalisation of its text A fails with
         # the message the case names: a crash, or another error, must not stand in for it.
         if [ "$EXPECTED" = "error" ]; then
