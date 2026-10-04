@@ -420,6 +420,29 @@ if [ "${1:-}" = "--self-test" ]; then
     else
         echo "check-api: ok   unreadable-input"
     fi
+    # A file the check cannot read exactly stops the normalisation with a message of its own, in
+    # every locale. grep prints a notice in place of the lines of a file with a NUL byte, and the
+    # notice holds no line number; the path of the second file holds a colon, so its notice has a
+    # part before the colon that is no number either.
+    expect_refused() {
+        if (export LC_ALL=C; normalize "$1") > /dev/null 2> "$WORK/$2.error"; then
+            echo "check-api: FAIL $2: the normalisation succeeded" >&2
+            FAILED=1
+        elif ! grep -qF -- "$3" "$WORK/$2.error"; then
+            echo "check-api: FAIL $2: expected '$3', the normalisation said: $(head -c 300 "$WORK/$2.error")" >&2
+            FAILED=1
+        else
+            echo "check-api: ok   $2"
+        fi
+    }
+    printf 'public struct First {\n  public func keep()\n}\n\000' > "$WORK/binary-input.txt"
+    expect_refused "$WORK/binary-input.txt" binary-input "not a line numbered by grep"
+    mkdir -p "$WORK/colon:dir"
+    printf 'public struct First {\n  public func keep()\n}\n\000' > "$WORK/colon:dir/binary-input.txt"
+    expect_refused "$WORK/colon:dir/binary-input.txt" binary-input-with-a-colon "not a line numbered by grep"
+    # The byte 0377 starts no UTF-8 sequence, whatever the locale of the caller.
+    printf 'public struct First {\n  public func keep(s: Swift.String = "\377")\n}\n' > "$WORK/invalid-utf8.txt"
+    expect_refused "$WORK/invalid-utf8.txt" invalid-utf8 "the interface is not valid UTF-8"
     exit "$FAILED"
 fi
 
