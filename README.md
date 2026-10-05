@@ -7,6 +7,9 @@ A blur whose radius changes from row to row, for SwiftUI and UIKit.
 [![Platforms](https://img.shields.io/badge/Platforms-iOS_17%2B-yellowgreen?style=flat-square)](#requirements)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fnikolay-dementiev%2FDMVariableBlurView.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fnikolay-dementiev%2FDMVariableBlurView?ref=badge_shield)
+[![Commit activity](https://img.shields.io/github/commit-activity/y/nikolay-dementiev/DMVariableBlurView)](https://github.com/nikolay-dementiev/DMVariableBlurView/graphs/commit-activity)
+[![Last commit](https://img.shields.io/github/last-commit/nikolay-dementiev/DMVariableBlurView)](https://github.com/nikolay-dementiev/DMVariableBlurView/commits/main/)
+[![DeepSource](https://app.deepsource.com/gh/nikolay-dementiev/DMVariableBlurView.svg/?label=active+issues&show_trend=true)](https://app.deepsource.com/gh/nikolay-dementiev/DMVariableBlurView/)
 
 ![The same photo of a parrot on four phone screens, one for each direction of the blur: a blurred band across the middle, a blur at the top, a blur at the bottom, and a blur over the whole screen.](Documentation/Images/blur-modes.jpeg)
 
@@ -400,3 +403,5 @@ DMVariableBlurView is one of three packages that share their conventions:
 - The demo photo is a stock photo under a free licence.
 
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fnikolay-dementiev%2FDMVariableBlurView.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Fnikolay-dementiev%2FDMVariableBlurView?ref=badge_large)
+
+![Visitors](https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Fgithub.com%2Fnikolay-dementiev%2FDMVariableBlurView)
