@@ -47,20 +47,30 @@ jobs:
           - name: iOS 26.5
             runner: macos-26
             xcode: /Applications/Xcode_26.6.app
-            destination: platform=iOS Simulator,name=iPhone 17,OS=26.5
+            device: iPhone 17
+            os: "26.5"
             newest: true
           - name: iOS 18.5
             runner: macos-15
             xcode: /Applications/Xcode_16.4.app
-            destination: platform=iOS Simulator,name=iPhone 16,OS=18.5
+            device: iPhone 16
+            os: "18.5"
             newest: false
     env:
       DEVELOPER_DIR: ${{ matrix.xcode }}/Contents/Developer
-      DESTINATION: ${{ matrix.destination }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # The udid names the device, not a name and an OS: a hosted image can list a runtime with
+      # no device in it, and the script creates the device then.
+      - name: Prepare the simulator
+        env:
+          DEVICE: ${{ matrix.device }}
+          OS: ${{ matrix.os }}
+        run: |
+          udid="$(Scripts/prepare-simulator.sh "$DEVICE" "$OS")"
+          echo "SIMULATOR=$udid" >> "$GITHUB_ENV"
       - name: Build and test
         run: |
           set -o pipefail
@@ -68,7 +78,7 @@ jobs:
           xcodebuild clean build test \
             -scheme DMVariableBlurView \
             -sdk iphonesimulator \
-            -destination "$DESTINATION" \
+            -destination "platform=iOS Simulator,id=$SIMULATOR" \
             -enableCodeCoverage YES \
             -resultBundlePath .build/results/ci/package.xcresult \
             SWIFT_TREAT_WARNINGS_AS_ERRORS=YES \
@@ -131,6 +141,13 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Prepare the simulator
+        env:
+          DEVICE: iPhone 17
+          OS: "26.5"
+        run: |
+          udid="$(Scripts/prepare-simulator.sh "$DEVICE" "$OS")"
+          echo "SIMULATOR=$udid" >> "$GITHUB_ENV"
       - name: Test the package under the Thread Sanitizer
         run: |
           set -o pipefail
@@ -138,7 +155,7 @@ jobs:
           xcodebuild test \
             -scheme DMVariableBlurView \
             -sdk iphonesimulator \
-            -destination 'platform=iOS Simulator,name=iPhone 17,OS=26.5' \
+            -destination "platform=iOS Simulator,id=$SIMULATOR" \
             -enableThreadSanitizer YES \
             -resultBundlePath .build/results/ci/thread-sanitizer.xcresult \
             | tee .build/results/ci/thread-sanitizer.log
@@ -294,16 +311,17 @@ jobs:
           - name: iOS 26.5
             runner: macos-26
             xcode: /Applications/Xcode_26.6.app
-            destination: platform=iOS Simulator,name=iPhone 17,OS=26.5
+            device: iPhone 17
+            os: "26.5"
             newest: true
           - name: iOS 18.5
             runner: macos-15
             xcode: /Applications/Xcode_16.4.app
-            destination: platform=iOS Simulator,name=iPhone 16,OS=18.5
+            device: iPhone 16
+            os: "18.5"
             newest: false
     env:
       DEVELOPER_DIR: ${{ matrix.xcode }}/Contents/Developer
-      DESTINATION: ${{ matrix.destination }}
       # xcodebuild hands a variable with this prefix to the test process without the
       # prefix. The snapshot tests see CI: they never record a reference, and a runtime
       # without references skips them, except in the newest cell, which has references
@@ -314,6 +332,14 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # The device comes from the script, as in the test job.
+      - name: Prepare the simulator
+        env:
+          DEVICE: ${{ matrix.device }}
+          OS: ${{ matrix.os }}
+        run: |
+          udid="$(Scripts/prepare-simulator.sh "$DEVICE" "$OS")"
+          echo "SIMULATOR=$udid" >> "$GITHUB_ENV"
       # Only the committed package versions: a resolved file that no longer matches the
       # project fails here instead of being resolved again to whatever is newest.
       - name: Build the example and run its tests
@@ -323,7 +349,7 @@ jobs:
           xcodebuild test \
             -project Examples/DMVariableBlurViewExample/DMVariableBlurViewExample.xcodeproj \
             -scheme DMVariableBlurViewExample \
-            -destination "$DESTINATION" \
+            -destination "platform=iOS Simulator,id=$SIMULATOR" \
             -onlyUsePackageVersionsFromResolvedFile \
             -resultBundlePath .build/results/ci/example.xcresult \
             | tee .build/results/ci/example.log
