@@ -12,7 +12,9 @@ A blur whose radius changes from row to row, for SwiftUI and UIKit.
 [![DeepSource](https://app.deepsource.com/gh/nikolay-dementiev/DMVariableBlurView.svg/?label=active+issues&show_trend=true)](https://app.deepsource.com/gh/nikolay-dementiev/DMVariableBlurView/)
 [![Codecov](https://codecov.io/gh/nikolay-dementiev/DMVariableBlurView/branch/main/graph/badge.svg)](https://codecov.io/gh/nikolay-dementiev/DMVariableBlurView)
 
-![The same photo of a parrot on four phone screens, one for each direction of the blur: a blurred band across the middle, a blur at the top, a blur at the bottom, and a blur over the whole screen.](Documentation/Images/blur-modes.jpeg)
+<p align="center">
+  <img src="Documentation/Images/DMVariableBlurView-main.svg" width="768" alt="DMVariableBlurView: variable blur for iOS, with top, bottom, center-band and full modes">
+</p>
 
 > **This package uses a private API of the system.** App Review Guideline 2.5.1 asks that
 > apps use only public APIs, and an App Store rejection was reported for the project this
@@ -165,6 +167,8 @@ struct ArticleView: View {
 | `.blurredBottomClearTop` | at the bottom edge, fading to clear at the top edge |
 | `.blurredCenterClearTopBottom(centerBandProportion:)` | in a band across the middle, fading to clear at the top and bottom edges. The proportion is the height of the band, in `0...1`; 0.3 by default |
 | `.blurredFully` | over the whole view |
+
+![The same photo of a parrot on four phone screens, one for each direction of the blur: a blurred band across the middle, a blur at the top, a blur at the bottom, and a blur over the whole screen.](Documentation/Images/blur-modes.jpeg)
 
 ### Values
 
