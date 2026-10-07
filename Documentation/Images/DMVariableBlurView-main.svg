@@ -1,0 +1,140 @@
+<?xml version="1.0" ?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1536" height="1024" viewBox="0 0 1536 1024" role="img" aria-labelledby="title desc">
+  <title id="title">DMVariableBlurView</title>
+  <desc id="desc">Variable blur for iOS, SwiftUI and UIKit. Four panels illustrate top, bottom, center-band and full blur over the same content.</desc>
+  <defs>
+    <filter id="blur" x="-25%" y="-25%" width="150%" height="150%" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="10"/>
+    </filter>
+    <clipPath id="tile-clip">
+      <rect width="280" height="350" rx="30"/>
+    </clipPath>
+    <g id="content" fill="#17212B">
+      <circle cx="72" cy="74" r="28"/>
+      <rect x="116" y="57" width="120" height="12" rx="6"/>
+      <rect x="116" y="80" width="78" height="10" rx="5"/>
+      <rect x="36" y="136" width="208" height="14" rx="7"/>
+      <rect x="36" y="166" width="180" height="14" rx="7"/>
+      <rect x="36" y="196" width="208" height="14" rx="7"/>
+      <rect x="36" y="226" width="152" height="14" rx="7"/>
+      <rect x="36" y="274" width="208" height="14" rx="7"/>
+      <rect x="36" y="304" width="130" height="14" rx="7"/>
+    </g>
+    <linearGradient id="top-blur" x1="0" y1="0" x2="0" y2="1" gradientUnits="objectBoundingBox">
+      <stop offset="0%" stop-color="white" stop-opacity="1"/>
+      <stop offset="15.0%" stop-color="white" stop-opacity="1"/>
+      <stop offset="100%" stop-color="white" stop-opacity="0"/>
+    </linearGradient>
+    <mask id="mask-top-blur" maskUnits="userSpaceOnUse" x="0" y="0" width="280" height="350" style="mask-type:alpha">
+      <rect width="280" height="350" fill="url(#top-blur)"/>
+    </mask>
+    <linearGradient id="top-sharp" x1="0" y1="0" x2="0" y2="1" gradientUnits="objectBoundingBox">
+      <stop offset="0%" stop-color="white" stop-opacity="0"/>
+      <stop offset="15.0%" stop-color="white" stop-opacity="0"/>
+      <stop offset="100%" stop-color="white" stop-opacity="1"/>
+    </linearGradient>
+    <mask id="mask-top-sharp" maskUnits="userSpaceOnUse" x="0" y="0" width="280" height="350" style="mask-type:alpha">
+      <rect width="280" height="350" fill="url(#top-sharp)"/>
+    </mask>
+    <linearGradient id="bottom-blur" x1="0" y1="0" x2="0" y2="1" gradientUnits="objectBoundingBox">
+      <stop offset="0%" stop-color="white" stop-opacity="0"/>
+      <stop offset="85.0%" stop-color="white" stop-opacity="1"/>
+      <stop offset="100%" stop-color="white" stop-opacity="1"/>
+    </linearGradient>
+    <mask id="mask-bottom-blur" maskUnits="userSpaceOnUse" x="0" y="0" width="280" height="350" style="mask-type:alpha">
+      <rect width="280" height="350" fill="url(#bottom-blur)"/>
+    </mask>
+    <linearGradient id="bottom-sharp" x1="0" y1="0" x2="0" y2="1" gradientUnits="objectBoundingBox">
+      <stop offset="0%" stop-color="white" stop-opacity="1"/>
+      <stop offset="85.0%" stop-color="white" stop-opacity="0"/>
+      <stop offset="100%" stop-color="white" stop-opacity="0"/>
+    </linearGradient>
+    <mask id="mask-bottom-sharp" maskUnits="userSpaceOnUse" x="0" y="0" width="280" height="350" style="mask-type:alpha">
+      <rect width="280" height="350" fill="url(#bottom-sharp)"/>
+    </mask>
+    <linearGradient id="center-blur" x1="0" y1="0" x2="0" y2="1" gradientUnits="objectBoundingBox">
+      <stop offset="0%" stop-color="white" stop-opacity="0"/>
+      <stop offset="35.0%" stop-color="white" stop-opacity="1"/>
+      <stop offset="65.0%" stop-color="white" stop-opacity="1"/>
+      <stop offset="100%" stop-color="white" stop-opacity="0"/>
+    </linearGradient>
+    <mask id="mask-center-blur" maskUnits="userSpaceOnUse" x="0" y="0" width="280" height="350" style="mask-type:alpha">
+      <rect width="280" height="350" fill="url(#center-blur)"/>
+    </mask>
+    <linearGradient id="center-sharp" x1="0" y1="0" x2="0" y2="1" gradientUnits="objectBoundingBox">
+      <stop offset="0%" stop-color="white" stop-opacity="1"/>
+      <stop offset="35.0%" stop-color="white" stop-opacity="0"/>
+      <stop offset="65.0%" stop-color="white" stop-opacity="0"/>
+      <stop offset="100%" stop-color="white" stop-opacity="1"/>
+    </linearGradient>
+    <mask id="mask-center-sharp" maskUnits="userSpaceOnUse" x="0" y="0" width="280" height="350" style="mask-type:alpha">
+      <rect width="280" height="350" fill="url(#center-sharp)"/>
+    </mask>
+  </defs>
+  <g font-family="Arial, Helvetica, sans-serif">
+    <g id="header">
+      <rect width="1536" height="310" fill="#FFDD00"/>
+      <text x="64" y="176" font-size="124" font-weight="700" letter-spacing="-4" fill="#8F00FF">DMVariableBlurView</text>
+      <text x="68" y="260" font-size="51" font-weight="700" fill="#8F00FF">Variable blur for iOS</text>
+    </g>
+    <g id="blur-modes">
+      <g id="top-panel">
+        <rect x="0" y="310" width="384" height="560" fill="#01BEFE"/>
+        <g transform="translate(52 402)">
+          <rect width="280" height="350" rx="30" fill="#FFFFFF"/>
+          <g clip-path="url(#tile-clip)">
+            <use href="#content" mask="url(#mask-top-sharp)"/>
+            <g mask="url(#mask-top-blur)">
+              <use href="#content" filter="url(#blur)"/>
+            </g>
+          </g>
+          <rect width="280" height="350" rx="30" fill="none" stroke="#FFFFFF" stroke-width="4"/>
+        </g>
+        <text x="192" y="824" text-anchor="middle" font-size="53" font-weight="700" fill="#17212B">Top</text>
+      </g>
+      <g id="bottom-panel">
+        <rect x="384" y="310" width="384" height="560" fill="#ADFF02"/>
+        <g transform="translate(436 402)">
+          <rect width="280" height="350" rx="30" fill="#FFFFFF"/>
+          <g clip-path="url(#tile-clip)">
+            <use href="#content" mask="url(#mask-bottom-sharp)"/>
+            <g mask="url(#mask-bottom-blur)">
+              <use href="#content" filter="url(#blur)"/>
+            </g>
+          </g>
+          <rect width="280" height="350" rx="30" fill="none" stroke="#FFFFFF" stroke-width="4"/>
+        </g>
+        <text x="576" y="824" text-anchor="middle" font-size="53" font-weight="700" fill="#17212B">Bottom</text>
+      </g>
+      <g id="center-panel">
+        <rect x="768" y="310" width="384" height="560" fill="#FF7D00"/>
+        <g transform="translate(820 402)">
+          <rect width="280" height="350" rx="30" fill="#FFFFFF"/>
+          <g clip-path="url(#tile-clip)">
+            <use href="#content" mask="url(#mask-center-sharp)"/>
+            <g mask="url(#mask-center-blur)">
+              <use href="#content" filter="url(#blur)"/>
+            </g>
+          </g>
+          <rect width="280" height="350" rx="30" fill="none" stroke="#FFFFFF" stroke-width="4"/>
+        </g>
+        <text x="960" y="824" text-anchor="middle" font-size="53" font-weight="700" fill="#17212B">Center</text>
+      </g>
+      <g id="full-panel">
+        <rect x="1152" y="310" width="384" height="560" fill="#FF006D"/>
+        <g transform="translate(1204 402)">
+          <rect width="280" height="350" rx="30" fill="#FFFFFF"/>
+          <g clip-path="url(#tile-clip)">
+            <use href="#content" filter="url(#blur)"/>
+          </g>
+          <rect width="280" height="350" rx="30" fill="none" stroke="#FFFFFF" stroke-width="4"/>
+        </g>
+        <text x="1344" y="824" text-anchor="middle" font-size="53" font-weight="700" fill="#17212B">Full</text>
+      </g>
+    </g>
+    <g id="footer">
+      <rect y="870" width="1536" height="154" fill="#FFDD00"/>
+      <text x="768" y="966" text-anchor="middle" font-size="45" font-weight="700" fill="#8F00FF">SwiftUI · UIKit</text>
+    </g>
+  </g>
+</svg>
