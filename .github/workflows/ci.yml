@@ -270,7 +270,8 @@ jobs:
       - name: Compare the public interface with the baseline
         run: Scripts/check-api.sh
       # What the pull request removes, changes or adds in the baseline, for the reviewer. The
-      # comparison above is the one that fails; this step fails only when it cannot compare.
+      # comparison above is the one that fails; this step fails only when it cannot compare. The
+      # text is indented as a code block: a line of a fork's baseline could close a fence.
       - name: Write the interface delta against the base to the job summary
         if: ${{ !cancelled() && github.event_name == 'pull_request' }}
         env:
@@ -282,9 +283,7 @@ jobs:
           {
             echo "### Public interface against the base of the pull request"
             echo
-            echo '```'
-            cat "$RUNNER_TEMP/delta.txt"
-            echo '```'
+            sed 's/^/    /' "$RUNNER_TEMP/delta.txt"
           } >> "$GITHUB_STEP_SUMMARY"
           if [ "$status" -eq 2 ]; then
             cat "$RUNNER_TEMP/delta.txt" >&2
