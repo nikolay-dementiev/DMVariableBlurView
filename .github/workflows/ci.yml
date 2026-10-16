@@ -270,6 +270,8 @@ jobs:
       - name: Compare the public interface with the baseline
         run: Scripts/check-api.sh
 
+  # The pod is frozen at 1.1.0 and nothing goes to the trunk again. The job lints the current
+  # sources as a pod and checks what a consumer of it would link.
   podspec:
     name: podspec
     runs-on: macos-26
