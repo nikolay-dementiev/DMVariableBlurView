@@ -92,10 +92,10 @@ merge first, then tag. Before the tag is pushed:
    `Scripts/check-release.sh` refuses a version that keeps the major version of the previous one
    when it finds either. Lines that were only added pass the script, and they are additive only
    after a review that none adds a requirement to a protocol or an overload that makes an
-   existing call ambiguous: the script cannot see either. It cannot tell a line that a new
-   compiler reworded from a line that the code changed, so both count. Run
-   `Scripts/check-api.sh` first, since the baseline is the interface of the library only while
-   that check passes.
+   existing call ambiguous: the script cannot see either, nor the order of the cases of an enum.
+   It cannot tell a line that a new compiler reworded from a line that the code changed, so both
+   count. Run `Scripts/check-api.sh` first, since the baseline is the interface of the library
+   only while that check passes.
 3. The tests of the package and of the example app pass on an iOS 17 simulator, the oldest version
    the package supports. CI's oldest runtime is iOS 18.5, so this run is local:
    `xcodebuild test -scheme DMVariableBlurView -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5'`,

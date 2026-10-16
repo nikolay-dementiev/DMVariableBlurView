@@ -13,7 +13,9 @@
 # version. The check cannot tell a line that a new compiler reworded from a line that the code
 # changed, so both count. An added line is additive only after a review that it adds no
 # requirement to a protocol (every type that conforms to it stops compiling) and no overload that
-# makes an existing call ambiguous; this check cannot see either. Run with --update and commit
+# makes an existing call ambiguous; this check cannot see either. Nor does --since see the order
+# of the members of a type, so the order of the cases of an enum, which decides allCases and the
+# raw values that are not written out, is invisible to it. Run with --update and commit
 # the baseline together with the change, so the whole API delta is readable in the diff of one file.
 #
 # The interface text depends on the compiler and the SDK. CI runs this check on one
