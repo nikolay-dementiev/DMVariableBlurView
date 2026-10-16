@@ -666,13 +666,18 @@ if [ "${1:-}" = "--self-test" ]; then
     # --since reads the baselines of the repository its script sits in, so these cases run a copy of
     # the script in a scratch repository with two commits: one without a baseline and one with it.
     # A status alone would also match a crash, so each case names a text of its output as well. The
-    # scratch repository is kept apart from the environment of the caller: GIT_DIR and its relatives
-    # would point git at the repository of the caller, and a global setting of hooks, signing or
-    # ignored files would stop the scratch commits.
+    # scratch repository is kept apart from the environment of the caller: GIT_DIR and the other
+    # variables that git lists with rev-parse --local-env-vars would point git at the repository or
+    # the object store of the caller, and a global setting of hooks, signing or ignored files would
+    # stop the scratch commits.
+    GIT_LOCAL_VARIABLES=()
+    for VARIABLE in $(git rev-parse --local-env-vars); do
+        GIT_LOCAL_VARIABLES+=(-u "$VARIABLE")
+    done
     expect_since() {
         local name="$1" expected_status="$2" expected_text="$3" status=0
         shift 3
-        env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE "$SCRATCH/Scripts/check-api.sh" --since "$@" > "$WORK/$name.out" 2> "$WORK/$name.error" || status=$?
+        env ${GIT_LOCAL_VARIABLES[@]+"${GIT_LOCAL_VARIABLES[@]}"} "$SCRATCH/Scripts/check-api.sh" --since "$@" > "$WORK/$name.out" 2> "$WORK/$name.error" || status=$?
         if [ "$status" = "$expected_status" ] && grep -q -F -- "$expected_text" "$WORK/$name.out" "$WORK/$name.error"; then
             echo "check-api: ok   $name"
         else
@@ -681,7 +686,7 @@ if [ "${1:-}" = "--self-test" ]; then
         fi
     }
     scratch_git() {
-        env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null \
+        env ${GIT_LOCAL_VARIABLES[@]+"${GIT_LOCAL_VARIABLES[@]}"} GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null \
             git -C "$SCRATCH" -c init.defaultBranch=main -c user.name=check-api -c user.email=check-api@example.invalid \
             -c commit.gpgsign=false -c tag.gpgSign=false -c core.hooksPath=/dev/null "$@"
     }
