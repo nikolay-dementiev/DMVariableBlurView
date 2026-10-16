@@ -17,7 +17,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CHANGELOG="$ROOT/CHANGELOG.md"
 PODSPEC="$ROOT/DMVariableBlurView.podspec"
 # The CocoaPods channel ended with 1.1.0 (README, "CocoaPods"). The podspec stays at that
-# version; a release is checked against the changelog alone.
+# version; the release version is checked against the changelog alone.
 FROZEN_POD_VERSION="1.1.0"
 
 NOTES=0
