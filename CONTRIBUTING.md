@@ -88,10 +88,12 @@ merge first, then tag. Before the tag is pushed:
    small one. A removed or changed line of the interface is one:
    `Scripts/check-api.sh --since <previous version>` lists them. A change of behaviour is another,
    and the notes of the release declare it in a `### Breaking changes` subsection, because no
-   script can see behaviour. `Scripts/check-release.sh` refuses a version that keeps the major
-   version of the previous one when it finds either. Lines that were only added pass the script,
-   and they are additive only after a review that none adds a requirement to a protocol or an
-   overload that makes an existing call ambiguous: the script cannot see either. Run
+   script can see behaviour: a change listed under `### Changed` alone does not count.
+   `Scripts/check-release.sh` refuses a version that keeps the major version of the previous one
+   when it finds either. Lines that were only added pass the script, and they are additive only
+   after a review that none adds a requirement to a protocol or an overload that makes an
+   existing call ambiguous: the script cannot see either. It cannot tell a line that a new
+   compiler reworded from a line that the code changed, so both count. Run
    `Scripts/check-api.sh` first, since the baseline is the interface of the library only while
    that check passes.
 3. The tests of the package and of the example app pass on an iOS 17 simulator, the oldest version
