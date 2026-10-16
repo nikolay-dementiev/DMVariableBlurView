@@ -456,24 +456,27 @@ def entries(lines):
             found.append((context, line))
             stack.append(("#", line))
         elif text.startswith("#else"):
-            if stack and stack[-1][0] == "#":
-                condition = stack.pop()[1] + "\n" + line
-                found.append((tuple(stack), condition))
-                stack.append(("#", condition))
-            else:
-                found.append((context, line))
+            if not stack or stack[-1][0] != "#":
+                raise ValueError("a branch of a condition is not inside that condition: " + text)
+            condition = stack.pop()[1] + "\n" + line
+            found.append((tuple(stack), condition))
+            stack.append(("#", condition))
         elif text.startswith("#endif"):
-            if stack and stack[-1][0] == "#":
-                stack.pop()
+            if not stack or stack[-1][0] != "#":
+                raise ValueError("a condition ends outside the block it began in: " + text)
+            stack.pop()
         elif text == "}":
-            if stack and stack[-1][0] == "{":
-                stack.pop()
+            if not stack or stack[-1][0] != "{":
+                raise ValueError("a block ends inside a condition or outside every block")
+            stack.pop()
         else:
             declaration = "\n".join(held + [line])
             held = []
             found.append((context, declaration))
             if line.rstrip().endswith("{"):
                 stack.append(("{", declaration))
+    if stack:
+        raise ValueError("a block or a condition is still open at the end of the interface")
     found.extend((tuple(stack), attribute) for attribute in held)
     return found
 
@@ -696,7 +699,7 @@ if [ "${1:-}" = "--self-test" ]; then
     scratch_git add -f Fixtures
     scratch_git commit -q -m "baseline"
     scratch_git tag recorded
-    expect_since since-same 0 "are the same" recorded
+    expect_since since-same 0 "the same declarations" recorded
     printf 'public struct First {\n  public func keep()\n  public func more()\n}\n' > "$SCRATCH_BASELINE"
     expect_since since-added 3 "Added" recorded
     printf 'public struct First {\n}\n' > "$SCRATCH_BASELINE"
@@ -750,7 +753,7 @@ if [ "${1:-}" = "--since" ]; then
     STATUS=0
     delta "$WORK/since-old.txt" "$WORK/since-new.txt" > "$WORK/since.delta" || STATUS=$?
     case "$STATUS" in
-        0) echo "check-api: the baseline at $REF and the baseline of the working tree are the same." ;;
+        0) echo "check-api: the baseline at $REF and the baseline of the working tree have the same declarations." ;;
         1 | 3)
             echo "check-api: the baseline of the working tree differs from the baseline at $REF."
             cat "$WORK/since.delta"
