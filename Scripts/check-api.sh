@@ -384,39 +384,82 @@ print("\n".join(sorted(blocks)))
 }
 
 # Prints what two normalised interface texts do not share: the removed or changed lines, then the
-# added ones. A changed line is both. A line is identified by its text and the declarations around
-# it, the outermost first, a compiler condition among them. So the member of one type is never
-# matched by the same text in another type, and neither the order of the members of a type nor the
-# number of extensions that hold them is a difference. The opening lines of declarations and
-# conditions are compared as a set, every other line as many times as it occurs: a type has one
-# opening line however many extensions hold it, and two declarations may carry the same attribute
-# line. A closing line follows from its opening line and is not compared.
+# added ones. A changed line is both. A line is identified by its text, the attributes that the
+# printer put on lines of their own above it, and the declarations around it, the outermost
+# first. A branch of a compiler condition is one of those declarations, and it holds every
+# condition above it: the else branch of one condition is not the else branch of another. So the
+# member of one type is never matched by the same text in another type, and a member that moves
+# under another attribute or condition is a removal and an addition. Neither the order of the
+# members of a type nor the number of extensions that hold them is a difference: the lines are
+# compared as a set, and a type has one opening line however many extensions hold it. A closing
+# line follows from its opening line and is not compared. A member that moves from a type to an
+# extension of it is reported as removed and added, and so is a conformance that moves from the
+# header of a type.
 # Status 0 the texts are the same, 1 a line was removed or changed, 3 lines were only added, 2 the
 # texts could not be compared. The heading of the added lines says what no line can show: an added
 # line may still break a conformer of a protocol or make an existing call ambiguous.
 delta() {
     python3 -c '
 import sys
-from collections import Counter
 
 def read(path):
     with open(path, encoding="utf-8") as handle:
         return [line for line in handle.read().split("\n") if line.strip()]
 
+def skip_attributes(text):
+    """The text after its leading attributes, their arguments included."""
+    position, end = 0, len(text)
+    while True:
+        while position < end and text[position].isspace():
+            position += 1
+        if position >= end or text[position] != "@":
+            return text[position:]
+        position += 1
+        while position < end and (text[position].isalnum() or text[position] in "_."):
+            position += 1
+        if position < end and text[position] == "(":
+            depth, in_string = 0, False
+            while position < end:
+                character = text[position]
+                position += 1
+                if in_string:
+                    if character == "\\":
+                        position += 1
+                    elif character == "\"":
+                        in_string = False
+                elif character == "\"":
+                    in_string = True
+                elif character == "(":
+                    depth += 1
+                elif character == ")":
+                    depth -= 1
+                    if depth == 0:
+                        break
+
 def entries(lines):
-    """Each line to compare: the declarations around it, the line, and whether it opens a block."""
-    stack, found = [], []
+    """Each line to compare: the declarations around it and the line itself, with the attributes
+    that the printer put on lines of their own above it."""
+    stack, held, found = [], [], []
     for line in lines:
         text = line.strip()
+        if text.startswith("@") and not skip_attributes(text).strip():
+            held.append(line)
+            continue
+        directive = text.startswith(("#if", "#else", "#endif"))
+        if held and (directive or text == "}"):
+            found.extend((tuple(stack), attribute) for attribute in held)
+            held = []
         context = tuple(stack)
         if text.startswith("#if"):
-            found.append((context, line, True))
+            found.append((context, line))
             stack.append(("#", line))
         elif text.startswith("#else"):
-            inside_condition = bool(stack) and stack[-1][0] == "#"
-            found.append((tuple(stack[:-1]) if inside_condition else context, line, True))
-            if inside_condition:
-                stack[-1] = ("#", line)
+            if stack and stack[-1][0] == "#":
+                condition = stack.pop()[1] + "\n" + line
+                found.append((tuple(stack), condition))
+                stack.append(("#", condition))
+            else:
+                found.append((context, line))
         elif text.startswith("#endif"):
             if stack and stack[-1][0] == "#":
                 stack.pop()
@@ -424,34 +467,31 @@ def entries(lines):
             if stack and stack[-1][0] == "{":
                 stack.pop()
         else:
-            opens = line.rstrip().endswith("{")
-            found.append((context, line, opens))
-            if opens:
-                stack.append(("{", line))
+            declaration = "\n".join(held + [line])
+            held = []
+            found.append((context, declaration))
+            if line.rstrip().endswith("{"):
+                stack.append(("{", declaration))
+    found.extend((tuple(stack), attribute) for attribute in held)
     return found
 
 def difference(first, second):
     """The entries of the first that the second lacks, in the order of the first."""
-    unmatched = Counter((context, line) for context, line, opens in second if not opens)
-    named = {(context, line) for context, line, opens in second if opens}
-    lacking = []
-    for context, line, opens in first:
-        key = (context, line)
-        if opens:
-            if key not in named:
-                named.add(key)
-                lacking.append(key)
-        elif unmatched[key] > 0:
-            unmatched[key] -= 1
-        else:
+    present, seen, lacking = set(second), set(), []
+    for key in first:
+        if key not in present and key not in seen:
+            seen.add(key)
             lacking.append(key)
     return lacking
 
 def show(sign, keys):
-    for context, line in keys:
-        homes = [text for kind, text in context if kind == "{"]
-        note = "   (in " + homes[-1].strip()[:100] + ")" if homes else ""
-        print(sign + " " + line + note)
+    for context, text in keys:
+        homes = [line.split("\n")[-1] for kind, line in context if kind == "{"]
+        note = "   (in " + skip_attributes(homes[-1]).strip()[:100] + ")" if homes else ""
+        parts = text.split("\n")
+        for part in parts[:-1]:
+            print(sign + " " + part)
+        print(sign + " " + parts[-1] + note)
 
 def main():
     old, new = entries(read(sys.argv[1])), entries(read(sys.argv[2]))
@@ -606,7 +646,7 @@ if [ "${1:-}" = "--self-test" ]; then
     expect_delta delta-removal-hidden-by-a-later-block 1 "removed added" 'public enum Direction {\n  case up\n  case down\n}\n' 'public enum Direction {\n  case up\n}\npublic enum Edge {\n  case down\n}\n'
     expect_delta delta-accessor-removed-and-property-added 1 "removed added" 'public struct Box {\n  public var first: Swift.Int {\n    get\n    set\n  }\n}\n' 'public struct Box {\n  public var first: Swift.Int {\n    get\n  }\n  public var second: Swift.Int {\n    get\n    set\n  }\n}\n'
     expect_delta delta-member-moved-to-another-type 1 "removed added" 'public struct First {\n  public func keep()\n}\npublic struct Second {\n  public func other()\n}\n' 'public struct First {\n}\npublic struct Second {\n  public func other()\n  public func keep()\n}\n'
-    expect_delta delta-attribute-removed-from-one-declaration 1 removed 'public struct First {\n  @available(iOS 17.0, *)\n  public func one()\n  @available(iOS 17.0, *)\n  public func two()\n}\n' 'public struct First {\n  public func one()\n  @available(iOS 17.0, *)\n  public func two()\n}\n'
+    expect_delta delta-attribute-removed-from-one-declaration 1 "removed added" 'public struct First {\n  @available(iOS 17.0, *)\n  public func one()\n  @available(iOS 17.0, *)\n  public func two()\n}\n' 'public struct First {\n  public func one()\n  @available(iOS 17.0, *)\n  public func two()\n}\n'
     # The order of the members of a type, and the number of extensions that hold them, are no API.
     expect_delta delta-members-reordered-in-a-type 0 none 'public struct First {\n  public func one()\n  public func two()\n}\n' 'public struct First {\n  public func two()\n  public func one()\n}\n'
     expect_delta delta-extensions-merged 0 none 'extension First {\n  public func one()\n}\nextension First {\n  public func two()\n}\n' 'extension First {\n  public func one()\n  public func two()\n}\n'
