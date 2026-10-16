@@ -540,6 +540,57 @@ if [ "${1:-}" = "--self-test" ]; then
     expect_delta delta-member-removed 1 removed 'public struct First {\n  public func keep()\n  public func drop()\n}\n' "$FIRST"
     expect_delta delta-signature-changed 1 "removed added" "$FIRST" 'public struct First {\n  public func keep(flag: Swift.Bool = true)\n}\n'
     expect_delta delta-type-replaced 1 "removed added" "$FIRST" "$SECOND"
+    # A line is the same line only inside the same declaration. A removed line whose text is found
+    # again further on, in a block that sorts later, is still a removal.
+    expect_delta delta-removal-hidden-by-a-later-block 1 "removed added" 'public enum Direction {\n  case up\n  case down\n}\n' 'public enum Direction {\n  case up\n}\npublic enum Edge {\n  case down\n}\n'
+    expect_delta delta-accessor-removed-and-property-added 1 "removed added" 'public struct Box {\n  public var first: Swift.Int {\n    get\n    set\n  }\n}\n' 'public struct Box {\n  public var first: Swift.Int {\n    get\n  }\n  public var second: Swift.Int {\n    get\n    set\n  }\n}\n'
+    expect_delta delta-member-moved-to-another-type 1 "removed added" 'public struct First {\n  public func keep()\n}\npublic struct Second {\n  public func other()\n}\n' 'public struct First {\n}\npublic struct Second {\n  public func other()\n  public func keep()\n}\n'
+    expect_delta delta-attribute-removed-from-one-declaration 1 removed 'public struct First {\n  @available(iOS 17.0, *)\n  public func one()\n  @available(iOS 17.0, *)\n  public func two()\n}\n' 'public struct First {\n  public func one()\n  @available(iOS 17.0, *)\n  public func two()\n}\n'
+    # The order of the members of a type, and the number of extensions that hold them, are no API.
+    expect_delta delta-members-reordered-in-a-type 0 none 'public struct First {\n  public func one()\n  public func two()\n}\n' 'public struct First {\n  public func two()\n  public func one()\n}\n'
+    expect_delta delta-extensions-merged 0 none 'extension First {\n  public func one()\n}\nextension First {\n  public func two()\n}\n' 'extension First {\n  public func one()\n  public func two()\n}\n'
+    # --since reads the baselines of the repository its script sits in, so these cases run a copy of
+    # the script in a scratch repository with two commits: one without a baseline and one with it.
+    expect_since() {
+        local name="$1" expected_status="$2" status=0
+        shift 2
+        "$SCRATCH/Scripts/check-api.sh" --since "$@" > "$WORK/$name.out" 2> "$WORK/$name.error" || status=$?
+        if [ "$status" = "$expected_status" ]; then
+            echo "check-api: ok   $name"
+        else
+            echo "check-api: FAIL $name: expected status $expected_status, got $status: $(head -c 300 "$WORK/$name.error")" >&2
+            FAILED=1
+        fi
+    }
+    scratch_git() {
+        git -C "$SCRATCH" -c init.defaultBranch=main -c user.name=check-api -c user.email=check-api@example.invalid -c commit.gpgsign=false "$@"
+    }
+    SCRATCH="$WORK/since-repository"
+    rm -rf "$SCRATCH"
+    mkdir -p "$SCRATCH/Scripts" "$SCRATCH/Fixtures/API"
+    cp "${BASH_SOURCE[0]}" "$SCRATCH/Scripts/check-api.sh"
+    scratch_git init -q
+    printf 'a repository without a baseline\n' > "$SCRATCH/README"
+    scratch_git add README
+    scratch_git commit -q -m "no baseline"
+    scratch_git tag no-baseline
+    SCRATCH_BASELINE="$SCRATCH/Fixtures/API/public-interface.txt"
+    printf 'public struct First {\n  public func keep()\n}\n' > "$SCRATCH_BASELINE"
+    scratch_git add Fixtures
+    scratch_git commit -q -m "baseline"
+    scratch_git tag recorded
+    expect_since since-same 0 recorded
+    printf 'public struct First {\n  public func keep()\n  public func more()\n}\n' > "$SCRATCH_BASELINE"
+    expect_since since-added 3 recorded
+    printf 'public struct First {\n}\n' > "$SCRATCH_BASELINE"
+    expect_since since-removed 1 recorded
+    printf 'public struct First {\n  public func keep()\n}\n' > "$SCRATCH_BASELINE"
+    expect_since since-unknown-ref 2 no-such-ref
+    expect_since since-ref-that-looks-like-an-option 2 -x
+    expect_since since-ref-without-a-baseline 4 no-baseline
+    rm "$SCRATCH_BASELINE"
+    expect_since since-no-baseline-in-the-working-tree 2 recorded
+    expect_since since-no-baseline-anywhere 2 no-baseline
     exit "$FAILED"
 fi
 
