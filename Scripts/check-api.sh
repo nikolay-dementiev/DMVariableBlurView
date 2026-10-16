@@ -657,6 +657,9 @@ if [ "${1:-}" = "--self-test" ]; then
     expect_delta delta-member-moved-under-an-attribute 1 "removed added" '@available(iOS 18.0, *)\nextension First {\n  public func one()\n}\nextension First {\n  public func two()\n}\n' '@available(iOS 18.0, *)\nextension First {\n  public func one()\n  public func two()\n}\n'
     expect_delta delta-attribute-swapped-between-members 1 "removed added" 'public struct First {\n  @available(*, unavailable)\n  public func legacy()\n  public func current()\n}\n' 'public struct First {\n  public func legacy()\n  @available(*, unavailable)\n  public func current()\n}\n'
     expect_delta delta-member-moved-to-the-else-of-another-condition 1 "removed added" '#if os(iOS)\npublic func one()\n#else\npublic func two()\n#endif\n#if os(macOS)\npublic func three()\n#else\npublic func four()\n#endif\n' '#if os(iOS)\npublic func one()\n#else\n#endif\n#if os(macOS)\npublic func three()\n#else\npublic func four()\npublic func two()\n#endif\n'
+    # A condition that straddles a block cannot come from the compiler. The delta stops with status 2
+    # instead of comparing the lines against a nesting that the text does not have.
+    expect_delta delta-condition-straddling-a-block 2 none '#if os(iOS)\npublic struct S : P {\n  public func f()\n#else\n  public func g()\n#endif\n}\n' '#if os(iOS)\npublic struct S : P {\n  public func f()\n  public func g()\n#else\n#endif\n}\n'
     # --since reads the baselines of the repository its script sits in, so these cases run a copy of
     # the script in a scratch repository with two commits: one without a baseline and one with it.
     # A status alone would also match a crash, so each case names a text of its output as well. The
