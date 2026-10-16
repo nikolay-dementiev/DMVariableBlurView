@@ -467,6 +467,41 @@ if [ "${1:-}" = "--self-test" ]; then
         echo "check-api: FAIL output-encoding: the Latin-1 stream differs or stopped: $(head -c 300 "$WORK/euro-sign.error")" >&2
         FAILED=1
     fi
+    # The delta that --since prints: each case is two interface texts, the status that delta must
+    # return for them, and the sections it must print. A run that prints a section the case does
+    # not name, or leaves one out, fails the case.
+    expect_delta() {
+        local name="$1" expected_status="$2" expected_sections="$3" status=0 sections=""
+        printf '%b' "$4" > "$WORK/delta-old.txt"
+        printf '%b' "$5" > "$WORK/delta-new.txt"
+        if ! normalize "$WORK/delta-old.txt" > "$WORK/delta-old.normalized" || ! normalize "$WORK/delta-new.txt" > "$WORK/delta-new.normalized"; then
+            echo "check-api: FAIL $name: the normalisation stopped with an error" >&2
+            FAILED=1
+            return
+        fi
+        delta "$WORK/delta-old.normalized" "$WORK/delta-new.normalized" > "$WORK/$name.out" 2> "$WORK/$name.error" || status=$?
+        if grep -q '^Removed or changed' "$WORK/$name.out"; then
+            sections="removed"
+        fi
+        if grep -q '^Added' "$WORK/$name.out"; then
+            sections="${sections:+$sections }added"
+        fi
+        if [ "$status" = "$expected_status" ] && [ "${sections:-none}" = "$expected_sections" ]; then
+            echo "check-api: ok   $name"
+        else
+            echo "check-api: FAIL $name: expected status $expected_status and sections '$expected_sections', got status $status and '${sections:-none}': $(head -c 300 "$WORK/$name.error")" >&2
+            FAILED=1
+        fi
+    }
+    FIRST='public struct First {\n  public func keep()\n}\n'
+    SECOND='public struct Second {\n  public func keep()\n}\n'
+    expect_delta delta-reordered-declarations 0 none "$FIRST$SECOND" "$SECOND$FIRST"
+    expect_delta delta-member-added 3 added "$FIRST" 'public struct First {\n  public func keep()\n  public func more()\n}\n'
+    expect_delta delta-type-added 3 added "$FIRST" "$FIRST$SECOND"
+    expect_delta delta-protocol-requirement-added 3 added 'public protocol Source {\n  func read() -> Swift.Int\n}\n' 'public protocol Source {\n  func read() -> Swift.Int\n  func write()\n}\n'
+    expect_delta delta-member-removed 1 removed 'public struct First {\n  public func keep()\n  public func drop()\n}\n' "$FIRST"
+    expect_delta delta-signature-changed 1 "removed added" "$FIRST" 'public struct First {\n  public func keep(flag: Swift.Bool = true)\n}\n'
+    expect_delta delta-type-replaced 1 "removed added" "$FIRST" "$SECOND"
     exit "$FAILED"
 fi
 
