@@ -10,10 +10,11 @@
 #                                      Fixtures/API/normalizer, no compiler needed
 #
 # Any difference fails. A removed or changed line breaks the public contract: it needs a new major
-# version. An added line is additive only after a review that it adds no requirement to a protocol
-# (every type that conforms to it stops compiling) and no overload that makes an existing call
-# ambiguous; this check cannot see either. Run with --update and commit the baseline together
-# with the change, so the whole API delta is readable in the diff of one file.
+# version. The check cannot tell a line that a new compiler reworded from a line that the code
+# changed, so both count. An added line is additive only after a review that it adds no
+# requirement to a protocol (every type that conforms to it stops compiling) and no overload that
+# makes an existing call ambiguous; this check cannot see either. Run with --update and commit
+# the baseline together with the change, so the whole API delta is readable in the diff of one file.
 #
 # The interface text depends on the compiler and the SDK. CI runs this check on one
 # pinned Xcode; after a toolchain change the baseline may need --update with no API change.
@@ -382,35 +383,95 @@ print("\n".join(sorted(blocks)))
 '
 }
 
-# Prints the lines that two normalised interface texts do not share: the lines only in the first
-# are removed or changed ones, the lines only in the second are added ones. A changed line is both.
-# Status 0 the texts are the same, 1 a line was removed or changed, 3 lines were only added, 2 diff
-# could not read them. The heading of the added lines says what no line can show: an added line
-# may still break a conformer of a protocol or make an existing call ambiguous.
+# Prints what two normalised interface texts do not share: the removed or changed lines, then the
+# added ones. A changed line is both. A line is identified by its text and the declarations around
+# it, the outermost first, a compiler condition among them. So the member of one type is never
+# matched by the same text in another type, and neither the order of the members of a type nor the
+# number of extensions that hold them is a difference. The opening lines of declarations and
+# conditions are compared as a set, every other line as many times as it occurs: a type has one
+# opening line however many extensions hold it, and two declarations may carry the same attribute
+# line. A closing line follows from its opening line and is not compared.
+# Status 0 the texts are the same, 1 a line was removed or changed, 3 lines were only added, 2 the
+# texts could not be compared. The heading of the added lines says what no line can show: an added
+# line may still break a conformer of a protocol or make an existing call ambiguous.
 delta() {
-    local status=0
-    diff "$1" "$2" > "$WORK/delta.diff" || status=$?
-    if [ "$status" -gt 1 ]; then
-        echo "check-api: diff could not compare the two interfaces (exit $status)." >&2
-        return 2
-    fi
-    LC_ALL=C sed -n 's/^< //p' "$WORK/delta.diff" > "$WORK/delta.removed"
-    LC_ALL=C sed -n 's/^> //p' "$WORK/delta.diff" > "$WORK/delta.added"
-    if [ -s "$WORK/delta.removed" ]; then
-        echo "Removed or changed (breaking: a new major version):"
-        LC_ALL=C sed 's/^/- /' "$WORK/delta.removed"
-    fi
-    if [ -s "$WORK/delta.added" ]; then
-        echo "Added (additive only after a review: no protocol requirement, no overload that makes a call ambiguous):"
-        LC_ALL=C sed 's/^/+ /' "$WORK/delta.added"
-    fi
-    if [ -s "$WORK/delta.removed" ]; then
-        return 1
-    fi
-    if [ -s "$WORK/delta.added" ]; then
-        return 3
-    fi
-    return 0
+    python3 -c '
+import sys
+from collections import Counter
+
+def read(path):
+    with open(path, encoding="utf-8") as handle:
+        return [line for line in handle.read().split("\n") if line.strip()]
+
+def entries(lines):
+    """Each line to compare: the declarations around it, the line, and whether it opens a block."""
+    stack, found = [], []
+    for line in lines:
+        text = line.strip()
+        context = tuple(stack)
+        if text.startswith("#if"):
+            found.append((context, line, True))
+            stack.append(("#", line))
+        elif text.startswith("#else"):
+            inside_condition = bool(stack) and stack[-1][0] == "#"
+            found.append((tuple(stack[:-1]) if inside_condition else context, line, True))
+            if inside_condition:
+                stack[-1] = ("#", line)
+        elif text.startswith("#endif"):
+            if stack and stack[-1][0] == "#":
+                stack.pop()
+        elif text == "}":
+            if stack and stack[-1][0] == "{":
+                stack.pop()
+        else:
+            opens = line.rstrip().endswith("{")
+            found.append((context, line, opens))
+            if opens:
+                stack.append(("{", line))
+    return found
+
+def difference(first, second):
+    """The entries of the first that the second lacks, in the order of the first."""
+    unmatched = Counter((context, line) for context, line, opens in second if not opens)
+    named = {(context, line) for context, line, opens in second if opens}
+    lacking = []
+    for context, line, opens in first:
+        key = (context, line)
+        if opens:
+            if key not in named:
+                named.add(key)
+                lacking.append(key)
+        elif unmatched[key] > 0:
+            unmatched[key] -= 1
+        else:
+            lacking.append(key)
+    return lacking
+
+def show(sign, keys):
+    for context, line in keys:
+        homes = [text for kind, text in context if kind == "{"]
+        note = "   (in " + homes[-1].strip()[:100] + ")" if homes else ""
+        print(sign + " " + line + note)
+
+def main():
+    old, new = entries(read(sys.argv[1])), entries(read(sys.argv[2]))
+    removed, added = difference(old, new), difference(new, old)
+    sys.stdout.reconfigure(encoding="utf-8")
+    if removed:
+        print("Removed or changed (breaking: a new major version):")
+        show("-", removed)
+    if added:
+        print("Added (additive only after a review: no protocol requirement, no overload that makes a call ambiguous):")
+        show("+", added)
+    return 1 if removed else 3 if added else 0
+
+try:
+    status = main()
+except Exception as error:
+    print("check-api: the two interfaces could not be compared: " + str(error), file=sys.stderr)
+    sys.exit(2)
+sys.exit(status)
+' "$1" "$2"
 }
 
 # Each case holds two interface texts and says whether they must normalise to the same
@@ -610,13 +671,17 @@ if [ "${1:-}" = "--since" ]; then
         echo "check-api: $REF is not a commit of this repository. If it is a tag, fetch it: git fetch --tags." >&2
         exit 2
     fi
-    if ! git -C "$ROOT" cat-file -e "$REF:$BASELINE_PATH" 2> /dev/null; then
-        echo "check-api: $REF holds no baseline at $BASELINE_PATH: its interface was not recorded."
-        exit 4
-    fi
     if [ ! -f "$BASELINE" ]; then
         echo "check-api: no baseline at $BASELINE_PATH. Run with --update." >&2
         exit 2
+    fi
+    if ! LISTING="$(git -C "$ROOT" ls-tree --name-only "$REF" -- "$BASELINE_PATH")"; then
+        echo "check-api: could not list the files of $REF." >&2
+        exit 2
+    fi
+    if [ -z "$LISTING" ]; then
+        echo "check-api: $REF holds no baseline at $BASELINE_PATH: its interface was not recorded."
+        exit 4
     fi
     if ! git -C "$ROOT" show "$REF:$BASELINE_PATH" > "$WORK/since-baseline.txt"; then
         echo "check-api: could not read $BASELINE_PATH at $REF." >&2
