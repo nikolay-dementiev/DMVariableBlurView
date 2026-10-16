@@ -25,7 +25,7 @@ The checks below are scripts in `Scripts/`, and CI runs them as you do, except
 | `Scripts/check-manifest.sh` | the manifest, installation by version, the consumer fixture, that no resource bundle ships, and every Swift block of `README.md`, each on its own: a manifest block is evaluated, every other block compiled. A warning in a block fails it too |
 | `Scripts/check-podspec.sh` | `pod lib lint` in Swift 5.0 and 6.0 mode, and that the pod links no test framework |
 | `Scripts/coverage-gate.sh <result bundle>` | the line coverage of the library against its floor |
-| `Scripts/check-release.sh <version>` | that the podspec and the changelog agree on a version |
+| `Scripts/check-release.sh <version>` | that the newest heading of `CHANGELOG.md` is that version, with a release date that is a day of the calendar and notes under it, and that the podspec still names 1.1.0, the version the pod is frozen at |
 | `Scripts/check-example-project.sh` | that the Xcode project of the example matches its XcodeGen spec |
 
 The checks run code that the branch contains: `Package.swift` and the manifest blocks of the README
@@ -81,8 +81,9 @@ change to the example's project.
 A release starts from a tag that is the version itself, such as `1.1.0`, on a commit of `main`:
 merge first, then tag. Before the tag is pushed:
 
-1. The podspec names that version, and the newest heading of `CHANGELOG.md` is `## [1.1.0] -` with
-   the release date and the notes under it. `Scripts/check-release.sh 1.1.0` checks them.
+1. The newest heading of `CHANGELOG.md` is `## [<version>] -` with the release date and the notes
+   under it. `Scripts/check-release.sh <version>` checks it. The podspec stays at 1.1.0 because
+   the pod is frozen.
 2. The tests of the package and of the example app pass on an iOS 17 simulator, the oldest version
    the package supports. CI's oldest runtime is iOS 18.5, so this run is local:
    `xcodebuild test -scheme DMVariableBlurView -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5'`,
@@ -90,7 +91,8 @@ merge first, then tag. Before the tag is pushed:
 
 On the tag, the release workflow runs the check, makes sure the tagged commit is on `main`, runs the
 whole CI workflow, makes sure the tag still points at the commit CI tested, and drafts a GitHub
-release from the changelog section. Publishing the release, and the pod, stays a manual step.
+release from the changelog section. Publishing the release stays a manual step, and nothing goes to
+the CocoaPods trunk.
 
 ## Security
 
