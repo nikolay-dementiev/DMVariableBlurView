@@ -269,6 +269,27 @@ jobs:
         run: Scripts/check-api.sh --self-test
       - name: Compare the public interface with the baseline
         run: Scripts/check-api.sh
+      # What the pull request removes, changes or adds in the baseline, for the reviewer. The
+      # comparison above is the one that fails; this step fails only when it cannot compare.
+      - name: Write the interface delta against the base to the job summary
+        if: ${{ !cancelled() && github.event_name == 'pull_request' }}
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git fetch --no-tags --depth=1 origin "$BASE_SHA"
+          status=0
+          Scripts/check-api.sh --since "$BASE_SHA" > "$RUNNER_TEMP/delta.txt" 2>&1 || status=$?
+          {
+            echo "### Public interface against the base of the pull request"
+            echo
+            echo '```'
+            cat "$RUNNER_TEMP/delta.txt"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$status" -eq 2 ]; then
+            cat "$RUNNER_TEMP/delta.txt" >&2
+            exit 2
+          fi
 
   # The pod is frozen at 1.1.0 and nothing goes to the trunk again. The job lints the current
   # sources as a pod and checks what a consumer of it would link.
