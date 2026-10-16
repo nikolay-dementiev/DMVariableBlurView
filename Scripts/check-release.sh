@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Checks a release version against the changelog, and that the frozen podspec is untouched.
+# Checks a release version against the changelog, and that the podspec names the frozen version.
 #
 #   Scripts/check-release.sh <version>           check; exit 1 on any mismatch
 #   Scripts/check-release.sh --notes <version>   print the changelog section of that version
