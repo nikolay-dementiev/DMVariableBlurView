@@ -657,19 +657,25 @@ if [ "${1:-}" = "--self-test" ]; then
     expect_delta delta-member-moved-to-the-else-of-another-condition 1 "removed added" '#if os(iOS)\npublic func one()\n#else\npublic func two()\n#endif\n#if os(macOS)\npublic func three()\n#else\npublic func four()\n#endif\n' '#if os(iOS)\npublic func one()\n#else\n#endif\n#if os(macOS)\npublic func three()\n#else\npublic func four()\npublic func two()\n#endif\n'
     # --since reads the baselines of the repository its script sits in, so these cases run a copy of
     # the script in a scratch repository with two commits: one without a baseline and one with it.
+    # A status alone would also match a crash, so each case names a text of its output as well. The
+    # scratch repository is kept apart from the environment of the caller: GIT_DIR and its relatives
+    # would point git at the repository of the caller, and a global setting of hooks, signing or
+    # ignored files would stop the scratch commits.
     expect_since() {
-        local name="$1" expected_status="$2" status=0
-        shift 2
-        "$SCRATCH/Scripts/check-api.sh" --since "$@" > "$WORK/$name.out" 2> "$WORK/$name.error" || status=$?
-        if [ "$status" = "$expected_status" ]; then
+        local name="$1" expected_status="$2" expected_text="$3" status=0
+        shift 3
+        env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE "$SCRATCH/Scripts/check-api.sh" --since "$@" > "$WORK/$name.out" 2> "$WORK/$name.error" || status=$?
+        if [ "$status" = "$expected_status" ] && grep -q -F -- "$expected_text" "$WORK/$name.out" "$WORK/$name.error"; then
             echo "check-api: ok   $name"
         else
-            echo "check-api: FAIL $name: expected status $expected_status, got $status: $(head -c 300 "$WORK/$name.error")" >&2
+            echo "check-api: FAIL $name: expected status $expected_status and '$expected_text', got $status: $(head -c 300 "$WORK/$name.out" "$WORK/$name.error")" >&2
             FAILED=1
         fi
     }
     scratch_git() {
-        git -C "$SCRATCH" -c init.defaultBranch=main -c user.name=check-api -c user.email=check-api@example.invalid -c commit.gpgsign=false "$@"
+        env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null \
+            git -C "$SCRATCH" -c init.defaultBranch=main -c user.name=check-api -c user.email=check-api@example.invalid \
+            -c commit.gpgsign=false -c tag.gpgSign=false -c core.hooksPath=/dev/null "$@"
     }
     SCRATCH="$WORK/since-repository"
     rm -rf "$SCRATCH"
@@ -677,26 +683,26 @@ if [ "${1:-}" = "--self-test" ]; then
     cp "${BASH_SOURCE[0]}" "$SCRATCH/Scripts/check-api.sh"
     scratch_git init -q
     printf 'a repository without a baseline\n' > "$SCRATCH/README"
-    scratch_git add README
+    scratch_git add -f README
     scratch_git commit -q -m "no baseline"
     scratch_git tag no-baseline
     SCRATCH_BASELINE="$SCRATCH/Fixtures/API/public-interface.txt"
     printf 'public struct First {\n  public func keep()\n}\n' > "$SCRATCH_BASELINE"
-    scratch_git add Fixtures
+    scratch_git add -f Fixtures
     scratch_git commit -q -m "baseline"
     scratch_git tag recorded
-    expect_since since-same 0 recorded
+    expect_since since-same 0 "are the same" recorded
     printf 'public struct First {\n  public func keep()\n  public func more()\n}\n' > "$SCRATCH_BASELINE"
-    expect_since since-added 3 recorded
+    expect_since since-added 3 "Added" recorded
     printf 'public struct First {\n}\n' > "$SCRATCH_BASELINE"
-    expect_since since-removed 1 recorded
+    expect_since since-removed 1 "Removed or changed" recorded
     printf 'public struct First {\n  public func keep()\n}\n' > "$SCRATCH_BASELINE"
-    expect_since since-unknown-ref 2 no-such-ref
-    expect_since since-ref-that-looks-like-an-option 2 -x
-    expect_since since-ref-without-a-baseline 4 no-baseline
+    expect_since since-unknown-ref 2 "is not a commit" no-such-ref
+    expect_since since-ref-that-looks-like-an-option 2 "usage" -x
+    expect_since since-ref-without-a-baseline 4 "holds no baseline" no-baseline
     rm "$SCRATCH_BASELINE"
-    expect_since since-no-baseline-in-the-working-tree 2 recorded
-    expect_since since-no-baseline-anywhere 2 no-baseline
+    expect_since since-no-baseline-in-the-working-tree 2 "no baseline at" recorded
+    expect_since since-no-baseline-anywhere 2 "no baseline at" no-baseline
     exit "$FAILED"
 fi
 
