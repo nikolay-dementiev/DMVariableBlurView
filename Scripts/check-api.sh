@@ -610,6 +610,11 @@ if [ "${1:-}" = "--self-test" ]; then
     # The order of the members of a type, and the number of extensions that hold them, are no API.
     expect_delta delta-members-reordered-in-a-type 0 none 'public struct First {\n  public func one()\n  public func two()\n}\n' 'public struct First {\n  public func two()\n  public func one()\n}\n'
     expect_delta delta-extensions-merged 0 none 'extension First {\n  public func one()\n}\nextension First {\n  public func two()\n}\n' 'extension First {\n  public func one()\n  public func two()\n}\n'
+    # An attribute belongs to the declaration below it, and a branch of a condition to the conditions
+    # above it: moving a member under another attribute or another condition narrows its availability.
+    expect_delta delta-member-moved-under-an-attribute 1 "removed added" '@available(iOS 18.0, *)\nextension First {\n  public func one()\n}\nextension First {\n  public func two()\n}\n' '@available(iOS 18.0, *)\nextension First {\n  public func one()\n  public func two()\n}\n'
+    expect_delta delta-attribute-swapped-between-members 1 "removed added" 'public struct First {\n  @available(*, unavailable)\n  public func legacy()\n  public func current()\n}\n' 'public struct First {\n  public func legacy()\n  @available(*, unavailable)\n  public func current()\n}\n'
+    expect_delta delta-member-moved-to-the-else-of-another-condition 1 "removed added" '#if os(iOS)\npublic func one()\n#else\npublic func two()\n#endif\n#if os(macOS)\npublic func three()\n#else\npublic func four()\n#endif\n' '#if os(iOS)\npublic func one()\n#else\n#endif\n#if os(macOS)\npublic func three()\n#else\npublic func four()\npublic func two()\n#endif\n'
     # --since reads the baselines of the repository its script sits in, so these cases run a copy of
     # the script in a scratch repository with two commits: one without a baseline and one with it.
     expect_since() {
