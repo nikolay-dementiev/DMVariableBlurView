@@ -4,17 +4,24 @@
 #
 #   Scripts/check-api.sh               compare, exit 1 on any difference
 #   Scripts/check-api.sh --update      rewrite the baseline from the current sources
+#   Scripts/check-api.sh --since <ref> print the lines the baseline lost, changed or gained since
+#                                      a git ref, such as a release tag, without a compiler
 #   Scripts/check-api.sh --self-test   run the normalisation on the cases in
 #                                      Fixtures/API/normalizer, no compiler needed
 #
-# Any difference fails. A removed or changed line is a break of the public contract.
-# An added line is new public API: run with --update and commit the baseline together
+# Any difference fails. A removed or changed line breaks the public contract: it needs a new major
+# version. An added line is additive only after a review that it adds no requirement to a protocol
+# (every type that conforms to it stops compiling) and no overload that makes an existing call
+# ambiguous; this check cannot see either. Run with --update and commit the baseline together
 # with the change, so the whole API delta is readable in the diff of one file.
 #
 # The interface text depends on the compiler and the SDK. CI runs this check on one
 # pinned Xcode; after a toolchain change the baseline may need --update with no API change.
 #
 # Exit codes: 0 the same interface, 1 a different interface, 2 the check could not run.
+# With --since: 0 the same, 1 a line was removed or changed, 2 the comparison could not run (no
+# such ref, no baseline in the working tree), 3 lines were only added, 4 the ref holds no
+# baseline: its interface was not recorded.
 
 set -euo pipefail
 
@@ -375,6 +382,37 @@ print("\n".join(sorted(blocks)))
 '
 }
 
+# Prints the lines that two normalised interface texts do not share: the lines only in the first
+# are removed or changed ones, the lines only in the second are added ones. A changed line is both.
+# Status 0 the texts are the same, 1 a line was removed or changed, 3 lines were only added, 2 diff
+# could not read them. The heading of the added lines says what no line can show: an added line
+# may still break a conformer of a protocol or make an existing call ambiguous.
+delta() {
+    local status=0
+    diff "$1" "$2" > "$WORK/delta.diff" || status=$?
+    if [ "$status" -gt 1 ]; then
+        echo "check-api: diff could not compare the two interfaces (exit $status)." >&2
+        return 2
+    fi
+    LC_ALL=C sed -n 's/^< //p' "$WORK/delta.diff" > "$WORK/delta.removed"
+    LC_ALL=C sed -n 's/^> //p' "$WORK/delta.diff" > "$WORK/delta.added"
+    if [ -s "$WORK/delta.removed" ]; then
+        echo "Removed or changed (breaking: a new major version):"
+        LC_ALL=C sed 's/^/- /' "$WORK/delta.removed"
+    fi
+    if [ -s "$WORK/delta.added" ]; then
+        echo "Added (additive only after a review: no protocol requirement, no overload that makes a call ambiguous):"
+        LC_ALL=C sed 's/^/+ /' "$WORK/delta.added"
+    fi
+    if [ -s "$WORK/delta.removed" ]; then
+        return 1
+    fi
+    if [ -s "$WORK/delta.added" ]; then
+        return 3
+    fi
+    return 0
+}
+
 # Each case holds two interface texts and says whether they must normalise to the same
 # text. A change to normalize() that hides an API change, or reports one that is not
 # there, fails one of them.
@@ -505,6 +543,50 @@ if [ "${1:-}" = "--self-test" ]; then
     exit "$FAILED"
 fi
 
+# The baseline at an earlier ref against the baseline of the working tree, without a compiler.
+# The baseline of the working tree is the interface of the library only while the comparison
+# below passes, which CI runs on every commit.
+if [ "${1:-}" = "--since" ]; then
+    REF="${2:-}"
+    case "$REF" in
+        '' | -*)
+            echo "usage: Scripts/check-api.sh --since <git ref>" >&2
+            exit 2
+            ;;
+    esac
+    BASELINE_PATH="${BASELINE#"$ROOT"/}"
+    if ! git -C "$ROOT" rev-parse --verify --quiet "$REF^{commit}" > /dev/null; then
+        echo "check-api: $REF is not a commit of this repository. If it is a tag, fetch it: git fetch --tags." >&2
+        exit 2
+    fi
+    if ! git -C "$ROOT" cat-file -e "$REF:$BASELINE_PATH" 2> /dev/null; then
+        echo "check-api: $REF holds no baseline at $BASELINE_PATH: its interface was not recorded."
+        exit 4
+    fi
+    if [ ! -f "$BASELINE" ]; then
+        echo "check-api: no baseline at $BASELINE_PATH. Run with --update." >&2
+        exit 2
+    fi
+    if ! git -C "$ROOT" show "$REF:$BASELINE_PATH" > "$WORK/since-baseline.txt"; then
+        echo "check-api: could not read $BASELINE_PATH at $REF." >&2
+        exit 2
+    fi
+    if ! normalize "$WORK/since-baseline.txt" > "$WORK/since-old.txt" || ! normalize "$BASELINE" > "$WORK/since-new.txt"; then
+        echo "check-api: a baseline could not be normalised." >&2
+        exit 2
+    fi
+    STATUS=0
+    delta "$WORK/since-old.txt" "$WORK/since-new.txt" > "$WORK/since.delta" || STATUS=$?
+    case "$STATUS" in
+        0) echo "check-api: the baseline at $REF and the baseline of the working tree are the same." ;;
+        1 | 3)
+            echo "check-api: the baseline of the working tree differs from the baseline at $REF."
+            cat "$WORK/since.delta"
+            ;;
+    esac
+    exit "$STATUS"
+fi
+
 # The files of a module are passed in one fixed order. A plain sort follows the locale
 # of the machine, and the order of the files is the order in which the compiler emits
 # the declarations.
@@ -627,7 +709,8 @@ if diff -u --label "$(basename "$BASELINE")" --label "current interface" "$WORK/
 fi
 
 echo "check-api: the public interface differs from the baseline." >&2
-echo "  '-' lines were removed or changed: that breaks the public contract." >&2
-echo "  '+' lines are new public API: run Scripts/check-api.sh --update and commit the baseline." >&2
+echo "  A '-' line was removed or changed: that breaks the public contract and needs a new major version." >&2
+echo "  A '+' line is new public API. It is additive only if it adds no protocol requirement and no overload" >&2
+echo "  that makes an existing call ambiguous. When it is additive, run Scripts/check-api.sh --update and commit the baseline." >&2
 cat "$WORK/api.diff" >&2
 exit 1
