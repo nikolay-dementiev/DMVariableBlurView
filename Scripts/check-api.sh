@@ -15,8 +15,10 @@
 # requirement to a protocol (every type that conforms to it stops compiling) and no overload that
 # makes an existing call ambiguous; this check cannot see either. Nor does --since see the order
 # of the members of a type, so the order of the cases of an enum, which decides allCases and the
-# raw values that are not written out, is invisible to it. Run with --update and commit
-# the baseline together with the change, so the whole API delta is readable in the diff of one file.
+# raw values that are not written out, is invisible to it. So are the order and the repetition of
+# the statements in the body of an inlinable function, which no baseline of these packages holds
+# today. Run with --update and commit the baseline together with the change, so the whole API
+# delta is readable in the diff of one file.
 #
 # The interface text depends on the compiler and the SDK. CI runs this check on one
 # pinned Xcode; after a toolchain change the baseline may need --update with no API change.
