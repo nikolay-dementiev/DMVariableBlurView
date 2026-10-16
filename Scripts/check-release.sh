@@ -2,7 +2,7 @@
 #
 # Checks a release version against the changelog, and that the podspec names the frozen version.
 #
-#   Scripts/check-release.sh <version>           check; exit 1 on any mismatch
+#   Scripts/check-release.sh <version>           check; exit 1 if not ready, 2 if it cannot compare
 #   Scripts/check-release.sh --notes <version>   print the changelog section of that version
 #
 # A release starts from a tag that is the version itself, such as 1.1.0. The newest heading of
@@ -146,9 +146,19 @@ if [ "$HEADING_VERSION" = "$VERSION" ]; then
                 case "$DELTA_STATUS" in
                     0) ;;
                     1)
-                        if [ "$RAISES_MAJOR" -eq 0 ]; then
-                            PROBLEMS+=("the interface lost or changed lines since $PREVIOUS (Scripts/check-api.sh --since $PREVIOUS lists them): that needs a new major version, and $VERSION does not raise the major version of $PREVIOUS")
-                        fi
+                        # A script that stops on an error exits with 1 as well, so the exit code
+                        # counts only with the heading of the lines that were removed or changed.
+                        case "$DELTA" in
+                            *"Removed or changed"*)
+                                if [ "$RAISES_MAJOR" -eq 0 ]; then
+                                    PROBLEMS+=("the interface lost or changed lines since $PREVIOUS (Scripts/check-api.sh --since $PREVIOUS lists them): that needs a new major version, and $VERSION does not raise the major version of $PREVIOUS")
+                                fi
+                                ;;
+                            *)
+                                PROBLEMS+=("the interface could not be compared with $PREVIOUS: $(printf '%s\n' "$DELTA" | sed -n '1p')")
+                                COULD_NOT_COMPARE=1
+                                ;;
+                        esac
                         ;;
                     3)
                         echo "check-release: lines were added to the interface since $PREVIOUS. Review that none adds a protocol requirement or an overload that makes a call ambiguous: either needs a new major version."
