@@ -464,19 +464,20 @@ def entries(lines):
             found.append((tuple(stack), condition))
             stack.append(("#", condition))
         elif text.startswith("#endif"):
-            if not stack or stack[-1][0] != "#":
-                raise ValueError("a condition ends outside the block it began in: " + text)
-            stack.pop()
+            if stack and stack[-1][0] == "#":
+                stack.pop()
         elif text == "}":
-            if not stack or stack[-1][0] != "{":
-                raise ValueError("a block ends inside a condition or outside every block")
-            stack.pop()
+            if not stack:
+                raise ValueError("a block ends where none began")
+            if stack[-1][0] == "{":
+                stack.pop()
         else:
             declaration = "\n".join(held + [line])
             held = []
             found.append((context, declaration))
             if line.rstrip().endswith("{"):
                 stack.append(("{", declaration))
+    # An end that met the wrong frame was skipped above and left that frame open, which stops here.
     if stack:
         raise ValueError("a block or a condition is still open at the end of the interface")
     found.extend((tuple(stack), attribute) for attribute in held)
@@ -665,6 +666,11 @@ if [ "${1:-}" = "--self-test" ]; then
     # A condition that straddles a block cannot come from the compiler. The delta stops with status 2
     # instead of comparing the lines against a nesting that the text does not have.
     expect_delta delta-condition-straddling-a-block 2 none '#if os(iOS)\npublic struct S : P {\n  public func f()\n#else\n  public func g()\n#endif\n}\n' '#if os(iOS)\npublic struct S : P {\n  public func f()\n  public func g()\n#else\n#endif\n}\n'
+    expect_delta delta-block-ending-inside-a-condition 2 none 'public struct S {\n#if os(iOS)\n  public func f()\n}\n#endif\n' 'public struct S {\n#if os(iOS)\n  public func f()\n  public func g()\n}\n#endif\n'
+    expect_delta delta-condition-ending-inside-a-block 2 none '#if os(iOS)\npublic struct S {\n  public func f()\n#endif\n}\n' '#if os(iOS)\npublic struct S {\n  public func f()\n  public func g()\n#endif\n}\n'
+    expect_delta delta-block-left-open 2 none 'public struct S {\n  public func f()\n' 'public struct S {\n  public func f()\n  public func g()\n'
+    expect_delta delta-block-ending-where-none-began 2 none 'public struct S {\n  public func f()\n}\n}\n' 'public struct S {\n  public func f()\n  public func g()\n}\n}\n'
+    expect_delta delta-branch-outside-a-condition 2 none 'public func one()\n#else\npublic func two()\n' 'public func one()\n#else\npublic func two()\npublic func three()\n'
     # --since reads the baselines of the repository its script sits in, so these cases run a copy of
     # the script in a scratch repository with two commits: one without a baseline and one with it.
     # A status alone would also match a crash, so each case names a text of its output as well. The
