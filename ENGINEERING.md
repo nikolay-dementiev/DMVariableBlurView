@@ -167,11 +167,13 @@ is a breaking change too, and needs a major version.
   any dependency in `Package.swift` and on a plugin on any target, and names the dependency: it
   keeps failing until the maintainer approves the dependency and the check changes in the same pull
   request. It also checks that the installation manifest of the README, with its URL pointed at a
-  tagged copy of the tracked files, resolves and builds by version for the iOS simulator and that
-  its consumer resolves this package only, that `Fixtures/Consumer` builds, that no resource bundle
-  ships and that every Swift block of the README compiles, a manifest block being evaluated. Its
-  `--self-test` runs the readers of the manifest and of `Package.resolved` on built-in texts. The
-  approval itself is a rule the reviewer applies.
+  tagged copy of the tracked manifest and sources, resolves and builds for the iOS simulator and
+  that its consumer resolves this package only, that `Fixtures/Consumer` builds, that no resource
+  bundle ships and that every Swift block of the README compiles, a manifest block being
+  evaluated. The URL and the version the README names are not compared with the podspec or with a
+  release: the copy is tagged with that version, whatever it is. Its `--self-test` runs the readers
+  of the manifest, of the README and of `Package.resolved` on built-in texts, and not the shell
+  around them. The approval itself is a rule the reviewer applies.
 - XCTest is the test framework. A test goes through the public API and through the `package`
   declarations of the module, the four protocols, their implementations and the domain values; it
   never uses `@testable import`, and the reviewer applies that. Another framework comes only by the

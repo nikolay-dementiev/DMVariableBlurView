@@ -256,7 +256,7 @@ jobs:
           persist-credentials: false
       # A check that never fails looks the same as a clean tree, so its readers are tried on texts
       # that must fail before they are trusted with the real ones.
-      - name: Check the readers of the manifest and of Package.resolved
+      - name: Check the readers of the manifest, of the README and of Package.resolved
         run: Scripts/check-manifest.sh --self-test
       - name: Check what a consumer gets
         run: Scripts/check-manifest.sh

@@ -22,24 +22,28 @@
 #    read, that holds no pin or more than one pin of the copy, or that is not of format
 #    version 2 or 3 is a failure. The build keeps its own cache, so manifests and
 #    repositories cached on the machine of whoever runs this cannot stand in for what the
-#    build resolves.
+#    build resolves. The URL and the version that the README names are not compared with
+#    anything: the copy is tagged with that version, whatever it is.
 # 3. Fixtures/Consumer builds. It uses every call shape of the released API and every
 #    declaration added since, so if it stops building, a consumer's code stops building.
 # 4. The library ships no resource bundle.
 # 5. Every Swift block of README.md compiles as written.
 #
 # --self-test needs no network, no build and no swift. A reader that never fails looks the
-# same as a clean tree, so it takes the python block of item 1 (marked manifest-rules) and
-# the one of item 2 (marked resolved-inventory) out of this very file, the text that the
-# check runs, and runs them on texts that it carries: a manifest with a dependency by
-# version, by path, by branch or by revision, a plugin, or without its list of dependencies
-# or of targets; a Package.resolved with an extra pin, no pin, the copy twice, a format
-# other than 2 and 3, or that is not a resolution at all. A reader that was changed to pass
-# one of these fails the self-test.
+# same as a clean tree, so it takes the python blocks of item 1 (marked manifest-rules) and
+# of item 2 (marked readme-consumer and resolved-inventory) out of this very file, the text
+# that the check runs, and runs them on texts that it carries: a manifest with a dependency
+# from a registry, by version, by path, by branch or by revision, a second dependency, a
+# plugin, or without its list of dependencies or of targets; a README with no package
+# manifest, two, exact: for from:, or two requirements; a Package.resolved with an extra
+# pin, no pin, the copy twice, a format other than 2 and 3, or that is not a resolution at
+# all. A reader that was changed to pass one of these fails the self-test. It does not run
+# the shell around the readers, the lines that set FAILED.
 #
 # Exit codes: 0 every check passed, 1 a check failed, 2 wrong usage, or the self-test could
 # not be made (python3 is missing, or a marked block is not where it expects), or the
-# search of the build products failed.
+# search of the build products failed. A command of the setup of item 2 that fails, such as
+# git or rsync, ends the script with its own status.
 
 set -euo pipefail
 
@@ -405,7 +409,7 @@ print("\n".join(problems))
 sys.exit(1 if problems else 0)
 PY
 )"; then
-                echo "check-manifest: the manifest of README.md asks for version $VERSION, resolves and builds by version for the iOS $IOS_FLOOR simulator, and the consumer resolves this package only."
+                echo "check-manifest: the manifest of README.md, pointed at a copy tagged $VERSION, resolves and builds for the iOS $IOS_FLOOR simulator, and the consumer resolves this package only."
             else
                 echo "check-manifest: the consumer of README.md's manifest does not resolve this package only:" >&2
                 printf '%s\n' "$EXTRA" >&2
