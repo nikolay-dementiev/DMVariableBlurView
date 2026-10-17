@@ -11,9 +11,12 @@
 #
 # Any difference fails. A removed or changed line breaks the public contract: it needs a new major
 # version. The check cannot tell a line that a new compiler reworded from a line that the code
-# changed, so both count. An added line is additive only after a review that it adds no
-# requirement to a protocol (every type that conforms to it stops compiling) and no overload that
-# makes an existing call ambiguous; this check cannot see either. Nor does --since see the order
+# changed, so both count. An added line is additive only after a review. A new case of a public
+# enum (a switch over it stops compiling), a protocol requirement without a default implementation
+# (every type that conforms to it stops compiling) and an overload that makes an existing call
+# ambiguous are breaking and need a new major version; a requirement with a default implementation
+# is additive only when its name is new to the protocol and to its extensions. This check cannot
+# see which of them an added line is. Nor does --since see the order
 # of the members of a type, so the order of the cases of an enum, which decides allCases and the
 # raw values that are not written out, is invisible to it. So are the order and the repetition of
 # the statements in the body of an inlinable function, which no baseline of these packages holds
@@ -82,6 +85,7 @@ normalize() {
     # byte that is no UTF-8 sequence, and the reader would never see that line. Exit 1 is a file
     # without lines; any other failure, such as a file it cannot read, stops the normalisation.
     # The single quotes hand the Python program to python3 unexpanded. skipcq: SH-2016
+    # shellcheck disable=SC2016
     { LC_ALL=C grep -n '^' "$1" || [ $? -eq 1 ]; } | python3 -c '
 import re
 import sys
@@ -401,7 +405,8 @@ print("\n".join(sorted(blocks)))
 # header of a type.
 # Status 0 the texts are the same, 1 a line was removed or changed, 3 lines were only added, 2 the
 # texts could not be compared. The heading of the added lines says what no line can show: an added
-# line may still break a conformer of a protocol or make an existing call ambiguous.
+# line may still add a case to a public enum, break a conformer of a protocol or make an existing
+# call ambiguous.
 delta() {
     python3 -c '
 import sys
@@ -509,7 +514,7 @@ def main():
         print("Removed or changed (breaking: a new major version):")
         show("-", removed)
     if added:
-        print("Added (additive only after a review: no protocol requirement, no overload that makes a call ambiguous):")
+        print("Added (review each: a case of a public enum, a protocol requirement without a default implementation and an overload that makes an existing call ambiguous are breaking and need a new major version; a requirement with a default implementation is additive only when its name is new to the protocol and to its extensions):")
         show("+", added)
     return 1 if removed else 3 if added else 0
 
@@ -715,6 +720,10 @@ if [ "${1:-}" = "--self-test" ]; then
     expect_since since-same 0 "the same declarations" recorded
     printf 'public struct First {\n  public func keep()\n  public func more()\n}\n' > "$SCRATCH_BASELINE"
     expect_since since-added 3 "Added" recorded
+    # The heading of the added lines is the reminder that a reviewer reads: what in them breaks.
+    expect_since since-added-names-an-enum-case 3 "case of a public enum" recorded
+    expect_since since-added-names-a-requirement-without-a-default 3 "without a default implementation" recorded
+    expect_since since-added-says-when-a-default-is-additive 3 "its name is new to the protocol" recorded
     printf 'public struct First {\n}\n' > "$SCRATCH_BASELINE"
     expect_since since-removed 1 "Removed or changed" recorded
     printf 'public struct First {\n  public func keep()\n}\n' > "$SCRATCH_BASELINE"
@@ -898,7 +907,8 @@ fi
 
 echo "check-api: the public interface differs from the baseline." >&2
 echo "  A '-' line was removed or changed: that breaks the public contract and needs a new major version." >&2
-echo "  A '+' line is new public API. It is additive only if it adds no protocol requirement and no overload" >&2
-echo "  that makes an existing call ambiguous. When it is additive, run Scripts/check-api.sh --update and commit the baseline." >&2
+echo "  A '+' line is new public API. A case of a public enum, a protocol requirement without a default implementation and an overload" >&2
+echo "  that makes an existing call ambiguous are breaking and need a new major version; a requirement with a default implementation is additive only" >&2
+echo "  when its name is new to the protocol and to its extensions. When the line is additive, run Scripts/check-api.sh --update and commit the baseline." >&2
 cat "$WORK/api.diff" >&2
 exit 1
