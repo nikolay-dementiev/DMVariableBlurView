@@ -69,7 +69,7 @@ extract_block() {  # <marker> <output file>
 # Runs the readers of step 1 (the manifest) and of step 2 (Package.resolved) on built-in texts, and exits.
 SELF_TEST_WORK=""
 self_test() {
-    local total=0 failures=0 dm plain got output
+    local total=0 failures=0 dm plain got output fence app app_two
     if ! command -v python3 > /dev/null; then
         echo "check-manifest: self-test: python3 is not installed" >&2
         exit 2
@@ -77,6 +77,7 @@ self_test() {
     SELF_TEST_WORK="$(mktemp -d "${TMPDIR:-/tmp}/check-manifest-self-test.XXXXXX")" || exit 2
     trap 'rm -rf "$SELF_TEST_WORK"' EXIT
     extract_block manifest-rules "$SELF_TEST_WORK/rules.py"
+    extract_block readme-consumer "$SELF_TEST_WORK/readme.py"
     extract_block resolved-inventory "$SELF_TEST_WORK/inventory.py"
     pin() {  # <identity> <version>
         printf '{"identity":"%s","kind":"localSourceControl","location":"/x/%s","state":{"revision":"abc","version":"%s"}}' "$1" "$1" "$2"
@@ -94,6 +95,13 @@ self_test() {
     expect() {  # <name> <expected status> <expected text>: the reader on Package.resolved as it is
         local got=0 output
         output="$(python3 "$SELF_TEST_WORK/inventory.py" "$SELF_TEST_WORK/Package.resolved" "$MODULE" 2>&1)" || got=$?
+        judge "$1" "$2" "$3" "$got" "$output"
+    }
+    readme_case() {  # <name> <expected status> <expected text> <text of README.md>
+        local got=0 output
+        mkdir -p "$SELF_TEST_WORK/probe/consumer"
+        printf '%s\n' "$4" > "$SELF_TEST_WORK/README.md"
+        output="$(python3 "$SELF_TEST_WORK/readme.py" "$SELF_TEST_WORK/README.md" "$SELF_TEST_WORK/probe" 2>&1)" || got=$?
         judge "$1" "$2" "$3" "$got" "$output"
     }
     manifest_case() {  # <name> <expected status> <expected text> <text of the manifest>
@@ -144,11 +152,51 @@ self_test() {
     got=0
     output="$(python3 "$SELF_TEST_WORK/rules.py" "$SELF_TEST_WORK/manifest.json" 2>&1)" || got=$?
     judge "a manifest that is not there" 1 "the manifest cannot be read" "$got" "$output"
+    # The README as step 2 reads it: one package manifest in a swift fence.
+    fence='```'
+    swift_block() {  # <text of the block>
+        printf '%s\n%s\n%s\n' "${fence}swift" "$1" "$fence"
+    }
+    app='// swift-tools-version: 6.0
+import PackageDescription
+let package = Package(
+    name: "App",
+    dependencies: [
+        .package(url: "https://github.com/x/Foo.git", from: "1.2.3")
+    ],
+    targets: [.target(name: "App", dependencies: [.product(name: "Foo", package: "Foo")])]
+)'
+    readme_case "one manifest: the version and the copy" 0 "1.2.3 Foo" "$(swift_block "$app")"
+    got=0
+    grep -q -F "url: \"file://$SELF_TEST_WORK/probe/Foo\"" "$SELF_TEST_WORK/probe/consumer/Package.swift" || got=$?
+    judge "the consumer points at the copy" 0 "" "$got" ""
+    got=0
+    grep -q -F "github.com" "$SELF_TEST_WORK/probe/consumer/Package.swift" || got=$?
+    judge "the consumer keeps nothing of the real URL" 1 "" "$got" ""
+    readme_case "a URL with a trailing slash and no .git" 0 "1.2.3 Foo" "$(swift_block "${app//Foo.git/Foo/}")"
+    readme_case "no package manifest" 1 "has 0 package manifests" "$(swift_block 'let answer = 42')"
+    readme_case "two package manifests" 1 "has 2 package manifests" "$(swift_block "$app")
+$(swift_block "$app")"
+    readme_case "a manifest in a fence that is not swift" 1 "has 0 package manifests" "~~~swift
+$app
+~~~"
+    readme_case "exact: instead of from:" 1 "does not ask for the package with url: and from:" "$(swift_block "${app//from:/exact:}")"
+    app_two='// swift-tools-version: 6.0
+import PackageDescription
+let package = Package(
+    name: "App",
+    dependencies: [
+        .package(url: "https://github.com/x/Foo.git", from: "1.2.3"),
+        .package(url: "https://github.com/x/Bar.git", from: "2.0.0")
+    ],
+    targets: [.target(name: "App")]
+)'
+    readme_case "two requirements with url: and from:" 1 "does not ask for the package with url: and from:" "$(swift_block "$app_two")"
     if [ "$failures" -gt 0 ]; then
         echo "check-manifest: self-test: $failures of $total checks failed" >&2
         exit 1
     fi
-    echo "check-manifest: self-test: $total checks of the readers of the manifest and of Package.resolved, all ok."
+    echo "check-manifest: self-test: $total checks of the readers of the manifest, of the README and of Package.resolved, all ok."
     exit 0
 }
 
