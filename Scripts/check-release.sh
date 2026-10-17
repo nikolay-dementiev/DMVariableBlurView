@@ -248,6 +248,9 @@ SHIM
     }
 
     run_case "an additive release passes with the reminder" 0 "lines were added to the interface" new=added
+    run_case "the reminder names an added case of a public enum" 0 "case of a public enum" new=added
+    run_case "the reminder names a protocol requirement added without a default" 0 "without a default implementation" new=added
+    run_case "the reminder says when a requirement with a default is additive" 0 "its name is new to the protocol" new=added
     run_case "a removed line under the same major fails" 1 "needs a new major version" new=removed
     run_case "a removed line under a new major passes" 0 "agrees on 2.0.0" version=2.0.0 new=removed
     run_case "a breaking subsection in lower case under the same major fails" 1 "'### Breaking changes' subsection" "subsection=### breaking changes"

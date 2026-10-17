@@ -716,6 +716,10 @@ if [ "${1:-}" = "--self-test" ]; then
     expect_since since-same 0 "the same declarations" recorded
     printf 'public struct First {\n  public func keep()\n  public func more()\n}\n' > "$SCRATCH_BASELINE"
     expect_since since-added 3 "Added" recorded
+    # The heading of the added lines is the reminder that a reviewer reads: what in them breaks.
+    expect_since since-added-names-an-enum-case 3 "case of a public enum" recorded
+    expect_since since-added-names-a-requirement-without-a-default 3 "without a default implementation" recorded
+    expect_since since-added-says-when-a-default-is-additive 3 "its name is new to the protocol" recorded
     printf 'public struct First {\n}\n' > "$SCRATCH_BASELINE"
     expect_since since-removed 1 "Removed or changed" recorded
     printf 'public struct First {\n  public func keep()\n}\n' > "$SCRATCH_BASELINE"
