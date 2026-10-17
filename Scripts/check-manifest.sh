@@ -5,7 +5,9 @@
 #   Scripts/check-manifest.sh              run the checks below
 #   Scripts/check-manifest.sh --self-test  run the readers of the checks on built-in texts
 #
-# 1. The manifest declares no dependency and uses no plugin. A dependency needs the
+# 1. The manifest declares no dependency, uses no plugin, declares no plugin target and no
+#    binary target that is downloaded (one with a url; one with a path is carried by the
+#    repository). A dependency needs the
 #    maintainer's approval and a change of this check in the same pull request. Item 2
 #    sees only a dependency that a target of a product uses: SwiftPM leaves one that
 #    nothing uses out of what a consumer resolves, so only the manifest shows it. A
@@ -36,7 +38,9 @@
 # of item 2 (marked readme-consumer and resolved-inventory) out of this very file, the text
 # that the check runs, and runs them on texts that it carries: a manifest with a dependency
 # from a registry, by version, by path, by branch or by revision, a second dependency, a
-# plugin, or without its list of dependencies or of targets; a README with no package
+# plugin, a plugin target, a binary target with a url, or without its list of dependencies or
+# of targets, or with a target that has no type or a binary target with neither a url nor a
+# path; a README with no package
 # manifest, two, exact: for from:, or two requirements, a URL that is not the podspec's or
 # differs from it by .git, a version that is not the newest release's, a podspec or a changelog
 # that cannot be read or has no source or no dated release; a Package.resolved with an extra
@@ -315,6 +319,14 @@ try:
     if not all(isinstance(entry, dict) and isinstance(entry.get("requirement", {}), dict) for entry in entries):
         raise TypeError("a dependency is not described by an object")
     usages = [(target["name"], usage) for target in targets for usage in target.get("pluginUsages") or []]
+    plugins = [target["name"] for target in targets if target["type"] == "plugin"]
+    downloads = []
+    for target in targets:
+        if target["type"] == "binary":
+            if isinstance(target.get("url"), str):
+                downloads.append((target["name"], target["url"]))
+            elif not isinstance(target.get("path"), str):
+                raise TypeError(f"binary target '{target['name']}' has neither a url nor a path")
 except (OSError, ValueError, KeyError, TypeError, AttributeError) as error:
     print(f"check-manifest: the manifest cannot be read: {error!r}", file=sys.stderr)
     sys.exit(1)
@@ -333,6 +345,16 @@ for entry in entries:
             )
 for name, usage in usages:
     problems.append(f"target '{name}' uses a plugin: {json.dumps(usage)}")
+for name in plugins:
+    problems.append(
+        f"target '{name}' is a plugin: a plugin needs the maintainer's approval and a change of "
+        "this check in the same pull request"
+    )
+for name, url in downloads:
+    problems.append(
+        f"target '{name}' is a binary fetched from {url}: code that is downloaded when the package "
+        "is resolved needs the maintainer's approval and a change of this check in the same pull request"
+    )
 for problem in problems:
     print(f"check-manifest: {problem}", file=sys.stderr)
 sys.exit(1 if problems else 0)
@@ -340,7 +362,7 @@ PY
 then
     FAILED=1
 else
-    echo "check-manifest: no dependency and no plugin in Package.swift."
+    echo "check-manifest: no dependency, no plugin and no downloaded binary in Package.swift."
 fi
 
 # 2. The installation manifest of README.md, built by version against a throw-away tagged copy of
