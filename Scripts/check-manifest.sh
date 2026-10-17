@@ -404,20 +404,21 @@ rm -rf "$WORK/manifests"
 mkdir -p "$WORK/manifests"
 MANIFEST_NAMES=()
 DUMPS=()
-while IFS= read -r MANIFEST_FILE; do
+while IFS= read -r -d '' MANIFEST_FILE; do
     mkdir -p "$WORK/manifests/$MANIFEST_FILE.d"
     cp "$ROOT/$MANIFEST_FILE" "$WORK/manifests/$MANIFEST_FILE.d/Package.swift"
     # A file that does not evaluate leaves an empty dump, so that the reader names it as one that
-    # cannot be read.
-    if ! swift package --package-path "$WORK/manifests/$MANIFEST_FILE.d" dump-package \
+    # cannot be read. The dump takes its input from /dev/null: the loop reads the list of files from
+    # its own input, and a command that read it too would leave the loop one file.
+    if ! swift package --package-path "$WORK/manifests/$MANIFEST_FILE.d" dump-package < /dev/null \
             > "$WORK/manifests/$MANIFEST_FILE.json" 2> "$WORK/manifests/$MANIFEST_FILE.log"; then
         : > "$WORK/manifests/$MANIFEST_FILE.json"
-        echo "check-manifest: $MANIFEST_FILE does not evaluate:" >&2
-        head -5 "$WORK/manifests/$MANIFEST_FILE.log" | sed 's/^/  /' >&2
+        echo "check-manifest: $MANIFEST_FILE does not evaluate. See ${WORK#"$ROOT"/}/manifests/$MANIFEST_FILE.log" >&2
+        grep -E 'error:' "$WORK/manifests/$MANIFEST_FILE.log" | cut -c1-300 | head -5 | sed 's/^/  /' >&2 || true
     fi
     MANIFEST_NAMES+=("$MANIFEST_FILE")
     DUMPS+=("$WORK/manifests/$MANIFEST_FILE.json")
-done < <(git -C "$ROOT" ls-files -- 'Package*.swift')
+done < <(git -C "$ROOT" ls-files -z -- ':(glob)Package*.swift')
 if ! python3 - ${DUMPS[@]+"${DUMPS[@]}"} <<'PY'
 # manifest-rules
 import json
