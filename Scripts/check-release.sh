@@ -434,6 +434,27 @@ if [ "$HEADING_VERSION" = "$VERSION" ]; then
                 PROBLEMS+=("the tag $PREVIOUS of the release below $VERSION is not in this repository, so the interface cannot be compared: git fetch --tags")
                 COULD_NOT_COMPARE=1
             else
+                # The release before this one has to be part of the history of this one. A tag on a side
+                # branch compares the interface with a release that this commit does not follow. In a
+                # shallow clone git merge-base --is-ancestor says no for a tag that is an ancestor, so
+                # that case is asked about first and is never a pass.
+                if [ "$(git -C "$ROOT" rev-parse --is-shallow-repository)" = "true" ]; then
+                    PROBLEMS+=("this clone is shallow, so it cannot be checked that $PREVIOUS is an ancestor of the commit being released: git fetch --unshallow --tags")
+                    COULD_NOT_COMPARE=1
+                else
+                    ANCESTOR_STATUS=0
+                    git -C "$ROOT" merge-base --is-ancestor "refs/tags/$PREVIOUS^{commit}" HEAD || ANCESTOR_STATUS=$?
+                    case "$ANCESTOR_STATUS" in
+                        0) ;;
+                        1)
+                            PROBLEMS+=("the tag $PREVIOUS of the release below $VERSION is not an ancestor of the commit being released: $VERSION does not follow $PREVIOUS, so the comparison of the interface does not say what changed since it")
+                            ;;
+                        *)
+                            PROBLEMS+=("it could not be checked whether the tag $PREVIOUS is an ancestor of the commit being released (git merge-base exit status $ANCESTOR_STATUS)")
+                            COULD_NOT_COMPARE=1
+                            ;;
+                    esac
+                fi
                 DELTA_STATUS=0
                 DELTA="$("$ROOT/Scripts/check-api.sh" --since "$PREVIOUS" 2>&1)" || DELTA_STATUS=$?
                 case "$DELTA_STATUS" in
