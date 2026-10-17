@@ -111,13 +111,13 @@ is a breaking change too, and needs a major version.
   "Private API", lists its names, the checks made before the filter is installed and the risk that
   remains; this file does not restate them. A new private name of the system is a decision for the
   maintainer (CONTRIBUTING.md, "Commits and pull requests").
-- **A failure reaches the host.** When a value is not valid, or the system does not offer the
-  filter, the view shows the plain blur of the system over its whole frame. The one exception is a
-  `DMVariableBlurUIView` whose `effect` the host has set to `nil`, which shows no blur until it gets
-  an effect back. The view records the reason as a `DMVariableBlurError`. In SwiftUI a handler
-  passed to `onFailure(_:)` receives it, and the unified log gets one line when no handler is set.
-  In UIKit the `failure` property holds it and the unified log gets a line. The README, "Failures",
-  and the DocC article Handling failures
+- **A failure reaches the host.** When a value is not valid, the system does not offer the filter
+  or the image that shapes the blur cannot be created, the view shows the plain blur of the system
+  over its whole frame. The one exception is a `DMVariableBlurUIView` whose `effect` the host has
+  set to `nil`, which shows no blur until it gets an effect back. The view records the reason as a
+  `DMVariableBlurError`. In SwiftUI a handler passed to `onFailure(_:)` receives it, and the
+  unified log gets one line when no handler is set. In UIKit the `failure` property holds it and
+  the unified log gets a line. The README, "Failures", and the DocC article Handling failures
   (`Sources/DMVariableBlurView/DMVariableBlurView.docc/HandlingFailures.md`) have the details.
 - **The library does not stop its host.** Its sources contain no `fatalError`,
   `preconditionFailure`, `assertionFailure`, `precondition`, `assert`, `dispatchPrecondition`,

@@ -95,8 +95,9 @@ merge first, then tag. Before the tag is pushed:
    when it finds either. Lines that were only added pass the script. A new case in a public enum
    is breaking and needs a major version; a requirement added to a protocol or an overload is
    additive only after a review that it makes no existing call ambiguous and asks nothing of a
-   conformer. The script cannot classify an added line, and it cannot see the order of the cases
-   of an enum or of the statements in the body of an inlinable function.
+   conformer, under the conditions of ENGINEERING.md. The script cannot classify an added line, and
+   it cannot see the order of the cases of an enum or of the statements in the body of an
+   inlinable function.
    It cannot tell a line that a new compiler reworded from a line that the code changed, so both
    count. Run `Scripts/check-api.sh` first, since the baseline is the interface of the library
    only while that check passes.
