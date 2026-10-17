@@ -44,10 +44,13 @@ line_length:
   warning: 130
   error: 200
 
+# The patterns are matched against the absolute path. They name the module folder, so that a checkout
+# under a parent folder called Examples or Fixtures cannot switch a rule off, and so that the example
+# app and the consumer fixture, whose modules have other names, stay out of reach.
 custom_rules:
   domain_imports:
     name: "Domain imports"
-    included: "Sources/.*/Domain/.*\\.swift"
+    included: ".*/Sources/DMVariableBlurView/Domain/.*\\.swift"
     # Any attribute, access level and import kind; a second import after a semicolon; a
     # submodule of Foundation or CoreGraphics is allowed. Comments and strings never match.
     regex: '(?:^|;)[ \t]*(@\w+(\([^)]*\))?\s+)*((public|package|internal|fileprivate|private)\s+)?import\s+(?:(?:struct|class|enum|protocol|typealias|func|var|let)\s+)?+(?!(?:CoreGraphics|Foundation)\b)\w+'
@@ -56,8 +59,7 @@ custom_rules:
     severity: error
   no_process_termination:
     name: "No process termination"
-    included: "Sources/.*\\.swift"
-    excluded: "(Examples|Fixtures)/"
+    included: ".*/Sources/DMVariableBlurView/.*\\.swift"
     regex: '\b(fatalError|preconditionFailure|assertionFailure|precondition|assert|dispatchPrecondition|abort|exit)\s*\('
     match_kinds: [identifier]
     message: "A library never terminates its host. Report the failure to the caller."
