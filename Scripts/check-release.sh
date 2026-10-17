@@ -124,6 +124,7 @@ SHIM
         S_VERSION="1.1.0" S_NEWEST="" S_PREVIOUS="1.0.0" S_DATE="2026-10-03" S_SUBSECTION=""
         S_PODSPEC="$FROZEN_POD_VERSION" S_OLD="keep" S_NEW="keep" S_TAG="main" S_TAG_BASELINE="yes"
         S_API="real" S_STUB_STATUS="" S_STUB_TEXT="" S_NOTES="no" S_ABSENT="" S_PYTHON="real" S_DIGESTER="none" S_SHALLOW="no" S_GIT="real"
+        S_NODATE="no" S_EMPTY="no" S_NOPODSPEC="no"
     }
     apply() {  # <setting>=<value> ...
         local setting
@@ -148,6 +149,9 @@ SHIM
                 digester=*) S_DIGESTER="${setting#digester=}" ;;
                 shallow=*) S_SHALLOW="${setting#shallow=}" ;;
                 git=*) S_GIT="${setting#git=}" ;;
+                nodate=*) S_NODATE="${setting#nodate=}" ;;
+                empty=*) S_EMPTY="${setting#empty=}" ;;
+                nopodspec=*) S_NOPODSPEC="${setting#nopodspec=}" ;;
                 *)
                     echo "check-release: self-test: unknown setting '$setting'" >&2
                     exit 2
@@ -185,11 +189,17 @@ SHIM
             fi
         fi
         {
-            printf '## [%s] - %s\n\n' "${S_NEWEST:-$S_VERSION}" "$S_DATE"
+            if [ "$S_NODATE" = "yes" ]; then
+                printf '## [%s]\n\n' "${S_NEWEST:-$S_VERSION}"
+            else
+                printf '## [%s] - %s\n\n' "${S_NEWEST:-$S_VERSION}" "$S_DATE"
+            fi
             if [ -n "$S_SUBSECTION" ]; then
                 printf '%s\n\n- a behaviour changed\n\n' "$S_SUBSECTION"
             fi
-            printf -- '- a change\n'
+            if [ "$S_EMPTY" != "yes" ]; then
+                printf -- '- a change\n'
+            fi
             if [ -n "$S_PREVIOUS" ]; then
                 printf '\n## [%s] - 2025-10-11\n\n- earlier\n' "$S_PREVIOUS"
             fi
@@ -199,6 +209,9 @@ SHIM
         baseline_text "$S_NEW" > "$directory/Fixtures/API/public-interface.txt"
         scratch_git "$directory" add -f CHANGELOG.md "$podspec_name" Fixtures/API/public-interface.txt
         scratch_git "$directory" commit -q -m "the release"
+        if [ "$S_NOPODSPEC" = "yes" ]; then
+            rm -f "$directory/$podspec_name"
+        fi
         cp "${BASH_SOURCE[0]}" "$directory/Scripts/check-release.sh"
         if [ "$S_API" = "stub" ]; then
             printf '#!/bin/bash\necho "%s"\nexit %s\n' "$S_STUB_TEXT" "$S_STUB_STATUS" > "$directory/Scripts/check-api.sh"
@@ -296,7 +309,14 @@ SHIM
     run_case "a breaking subsection in lower case under the same major fails" 1 "'### Breaking changes' subsection" "subsection=### breaking changes"
     run_case "a breaking subsection in title case under the same major fails" 1 "'### Breaking changes' subsection" "subsection=### Breaking Changes"
     run_case "a breaking subsection in upper case under the same major fails" 1 "'### Breaking changes' subsection" "subsection=### BREAKING CHANGES"
+    run_case "a breaking subsection with blanks after it still fails" 1 "'### Breaking changes' subsection" "subsection=### Breaking changes   "
     run_case "a breaking subsection under a new major passes" 0 "agrees on 2.0.0" version=2.0.0 "subsection=### Breaking changes"
+    run_case "a heading with no date" 1 "has no heading of the form" nodate=yes
+    run_case "a heading with nothing under it" 1 "has no notes under a heading for 1.1.0" empty=yes
+    run_case "a version with two groups of digits" 2 "usage: Scripts/check-release.sh" version=1.1
+    run_case "a version with four groups of digits" 2 "usage: Scripts/check-release.sh" version=1.1.0.1
+    run_case "a version that starts with a dot" 2 "usage: Scripts/check-release.sh" version=.1.0
+    run_case "a podspec that is not there is exit 2, not a release that is not ready" 2 "does not exist" nopodspec=yes
     run_case "the first release is not compared" 0 "no release below" previous=
     run_case "the newest heading is for another version" 1 "the newest changelog heading is for 1.2.0, not 1.1.0" newest=1.2.0
     run_case "an impossible date" 1 "not a day of the calendar" date=2026-02-30
