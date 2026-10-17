@@ -24,6 +24,7 @@ The checks below are scripts in `Scripts/`, and CI runs them as you do, except
 | `Scripts/lint.sh` | SwiftLint, at the version pinned in `.swiftlint.yml`. The first run fetches that version into `.build/tools` and checks its checksum. `--analyze <xcodebuild log>` also runs the analyzer rule for unused imports. It needs the log of a clean build: a log without compiler invocations stops the run |
 | `Scripts/check-api.sh` | the public interface against `Fixtures/API/public-interface.txt`; `--self-test` runs the cases of its normalisation; `--since <ref>` prints, without a compiler, the lines the baseline lost, changed or gained since a git ref such as a release tag. A deliberate change of the public API updates the baseline in the same commit |
 | `Scripts/check-manifest.sh` | the manifest, installation by version, the consumer fixture, that no resource bundle ships, and every Swift block of `README.md`, each on its own: a manifest block is evaluated, every other block compiled. A warning in a block fails it too |
+| `Scripts/check-lint-contract.sh` | that the lint rules `domain_imports`, `force_unwrapping` and `no_process_termination` fire on the lines of `Fixtures/Lint` that expect them and on no other line. It lints the fixtures in a scratch copy with the `.swiftlint.yml` of the repository, unchanged |
 | `Scripts/check-podspec.sh` | `pod lib lint` in Swift 5.0 and 6.0 mode, and that the pod links no test framework |
 | `Scripts/coverage-gate.sh <result bundle>` | the line coverage of the library against its floor |
 | `Scripts/check-release.sh <version>` | that the newest heading of `CHANGELOG.md` is that version, with a release date that is a day of the calendar and notes under it, and that the podspec still names 1.1.0, the version the pod is frozen at; it also compares the release with the one below it in the changelog and refuses a version that keeps its major version after a removed or changed line of the interface, or after a `### Breaking changes` subsection |
@@ -46,6 +47,10 @@ The snapshot references live in `Examples/DMVariableBlurViewExample/Snapshots`, 
 iOS version, named `<name>_ios<major>_<minor>.1.png`. A local run records a missing reference and
 fails once; CI never records one. To record a reference again, move the old file away, run the
 tests on that iOS version, look at the new picture, and commit it with the reason.
+
+CI checks how many tests each cell of the `example` job ran: the `passed` and `skipped` numbers of
+that cell in `.github/workflows/ci.yml` must equal the ones in the result bundle, and no test may
+fail. A new test of the example changes them, in the same commit.
 
 The Xcode project is generated with XcodeGen 2.45.3 from `Examples/DMVariableBlurViewExample/project.yml`,
 and both are committed. Change the spec, not the project:
