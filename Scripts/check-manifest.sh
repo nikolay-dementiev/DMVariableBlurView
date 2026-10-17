@@ -5,15 +5,18 @@
 #   Scripts/check-manifest.sh              run the checks below
 #   Scripts/check-manifest.sh --self-test  run the readers of the checks on built-in texts
 #
-# 1. The manifest declares no dependency, uses no plugin, declares no plugin target and no
-#    binary target that is downloaded (one with a url; one with a path is carried by the
-#    repository). A dependency needs the
-#    maintainer's approval and a change of this check in the same pull request. Item 2
-#    sees only a dependency that a target of a product uses: SwiftPM leaves one that
-#    nothing uses out of what a consumer resolves, so only the manifest shows it. A
-#    dependency by branch or revision is named for its requirement as well: SwiftPM
-#    refuses a version requirement on a package that has an unstable dependency. A build
-#    plugin of a dependency runs in every consumer's build.
+# 1. No manifest file of the package declares a dependency, uses a plugin, declares a plugin
+#    target or declares a binary target that is downloaded (one with a url: it is code that
+#    arrives when the package is resolved; one with a path is carried by the repository).
+#    The files are Package.swift and every Package@swift-*.swift: SwiftPM reads one of the
+#    latter in place of Package.swift when the tools of a consumer are newer, so a problem
+#    is named after the file it is in. A dependency needs the maintainer's approval and a
+#    change of this check in the same pull request. Item 2 sees only a dependency that a
+#    target of a product uses: SwiftPM leaves one that nothing uses out of what a consumer
+#    resolves, so only the manifest shows it. A dependency by branch or revision is named
+#    for its requirement as well: SwiftPM refuses a version requirement on a package that
+#    has an unstable dependency. A build plugin of a dependency runs in every consumer's
+#    build.
 # 2. The installation manifest of README.md works. With only its URL pointed at a
 #    throw-away tagged copy of the tracked manifest and sources, it resolves and builds
 #    for the iOS simulator: a consumer that depends on the checkout by path cannot show a
@@ -40,13 +43,14 @@
 # from a registry, by version, by path, by branch or by revision, a second dependency, a
 # plugin, a plugin target, a binary target with a url, or without its list of dependencies or
 # of targets, or with a target that has no type or a binary target with neither a url nor a
-# path; a README with no package
-# manifest, two, exact: for from:, or two requirements, a URL that is not the podspec's or
-# differs from it by .git, a version that is not the newest release's, a podspec or a changelog
-# that cannot be read or has no source or no dated release; a Package.resolved with an extra
-# pin, no pin, the copy twice, a format other than 2 and 3, or that is not a resolution at
-# all. A reader that was changed to pass one of these fails the self-test. It does not run
-# the shell around the readers, the lines that set FAILED.
+# path, and several manifest files with a problem in the first, in the second, in both, or in
+# a dump that is not JSON; a README with no package manifest, two, exact: for from:, or two
+# requirements, a URL that is not the podspec's or differs from it by .git, a version that is
+# not the newest release's, a podspec or a changelog that cannot be read or has no source or no
+# dated release; a Package.resolved with an extra pin, no pin, the copy twice, a format other
+# than 2 and 3, or that is not a resolution at all. A reader that was changed to pass one of
+# these fails the self-test. It does not run the shell around the readers: the lines that set
+# FAILED, and the ones that find each manifest file, copy it and ask swift to dump it.
 #
 # Exit codes: 0 every check passed, 1 a check failed, 2 wrong usage, or the self-test could
 # not be made (python3 is missing, or a marked block is not where it expects), or the
