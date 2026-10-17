@@ -192,6 +192,8 @@ self_test() {
     manifest_case "a dependency without an entry" 1 "the manifest cannot be read" '{"dependencies":[{}],"targets":[]}'
     manifest_case "a kind of dependency without an entry" 1 "the manifest cannot be read" '{"dependencies":[{"sourceControl":[]}],"targets":[]}'
     manifest_case "a requirement that is not an object" 1 "the manifest cannot be read" '{"dependencies":[{"sourceControl":[{"identity":"x","requirement":"main"}]}],"targets":[]}'
+    manifest_case "dependencies and targets that are objects, not lists" 1 "the manifest cannot be read" '{"dependencies":{},"targets":{}}'
+    manifest_case "dependencies and targets that are strings, not lists" 1 "the manifest cannot be read" '{"dependencies":"","targets":""}'
     manifest_case "not JSON" 1 "the manifest cannot be read" 'not json'
     rm -f "$SELF_TEST_WORK/Package.swift.json"
     got=0
