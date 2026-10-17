@@ -146,6 +146,8 @@ self_test() {
     manifest_case "no list of dependencies" 1 "the manifest cannot be read" '{"targets":[]}'
     manifest_case "no list of targets" 1 "the manifest cannot be read" '{"dependencies":[]}'
     manifest_case "an entry that is not an object" 1 "the manifest cannot be read" '{"dependencies":[{"sourceControl":["text"]}],"targets":[]}'
+    manifest_case "a dependency without an entry" 1 "the manifest cannot be read" '{"dependencies":[{}],"targets":[]}'
+    manifest_case "a kind of dependency without an entry" 1 "the manifest cannot be read" '{"dependencies":[{"sourceControl":[]}],"targets":[]}'
     manifest_case "a requirement that is not an object" 1 "the manifest cannot be read" '{"dependencies":[{"sourceControl":[{"identity":"x","requirement":"main"}]}],"targets":[]}'
     manifest_case "not JSON" 1 "the manifest cannot be read" 'not json'
     rm -f "$SELF_TEST_WORK/manifest.json"
