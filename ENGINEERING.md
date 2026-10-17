@@ -138,10 +138,11 @@ is a breaking change too, and needs a major version.
   other line. A fixture is linted where its folder says: one in the root of `Fixtures/Lint` as a
   file of the library, one in `Domain`, `UI` or `Adapters` in that folder of the library, and one
   under `Outside` outside the library, where it expects nothing. So the contract shows where a
-  rule reaches. `domain_imports` fires in `Domain` and in no other folder of the library, and not in
-  the `Domain` folder of another module. `no_process_termination` reaches `Domain`, `UI`,
-  `Adapters` and the root of the library, and not another module, the consumer fixture or the
-  example app. A rule that is widened, narrowed or aimed at a module whose name starts like the
+  rule reaches. `domain_imports` fires in `Domain` and its subfolders and in no other folder of the
+  library, and not in the `Domain` folder of another module. `no_process_termination` reaches
+  `Domain`, `UI`, `Adapters` and the root of the library, and not another module, the consumer
+  fixture, the tests or the example app. A rule that is widened to another folder, module or the
+  tests, narrowed to some of the folders it names, or aimed at a module whose name starts like the
   library's fails it. It does not notice that `Domain` was renamed while the include of
   `domain_imports` was left alone, so the reviewer applies that. `domain_imports` does not see an
   import that has a comment inside it, that follows a block comment on its line, or that names the
