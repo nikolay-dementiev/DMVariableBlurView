@@ -19,6 +19,11 @@ analyzer_rules:
 missing_docs:
   excludes_inherited_types: false
 
+# By default the rule lets a few calls with a literal argument be force unwrapped, such as
+# URL(string: "https://example.com")!. ENGINEERING.md states no exception, so the list is empty.
+force_unwrapping:
+  ignored_literal_argument_functions: []
+
 identifier_name:
   min_length: 2
   allowed_symbols: [_]
@@ -39,21 +44,25 @@ line_length:
   warning: 130
   error: 200
 
+# The patterns are matched against the absolute path. They name the module folder, so that a checkout
+# under a parent folder called Examples or Fixtures cannot switch a rule off, and so that the example
+# app and the consumer fixture, whose modules have other names, stay out of reach.
 custom_rules:
   domain_imports:
     name: "Domain imports"
-    included: "Sources/.*/Domain/.*\\.swift"
+    included: ".*/Sources/DMVariableBlurView/Domain/.*\\.swift"
     # Any attribute, access level and import kind; a second import after a semicolon; a
     # submodule of Foundation or CoreGraphics is allowed. Comments and strings never match.
-    regex: '(?:^|;)\s*(@\w+(\([^)]*\))?\s+)*((public|package|internal|fileprivate|private)\s+)?import\s+(?:(?:struct|class|enum|protocol|typealias|func|var|let)\s+)?+(?!(?:CoreGraphics|Foundation)\b)\w+'
+    # Not seen: an import with a comment inside it or after a block comment on its line, and a
+    # module name in backticks.
+    regex: '(?:^|;)[ \t]*(@\w+(\([^)]*\))?\s+)*((public|package|internal|fileprivate|private)\s+)?import\s+(?:(?:struct|class|enum|protocol|typealias|func|var|let)\s+)?+(?!(?:CoreGraphics|Foundation)\b)\w+'
     match_kinds: [keyword, identifier, attribute.builtin, attribute.id]
     message: "The Domain folder imports only Foundation and CoreGraphics: no UI and no rendering framework."
     severity: error
-  no_termination:
-    name: "No termination"
-    included: "Sources/.*\\.swift"
-    excluded: "(Examples|Fixtures)/"
+  no_process_termination:
+    name: "No process termination"
+    included: ".*/Sources/DMVariableBlurView/.*\\.swift"
     regex: '\b(fatalError|preconditionFailure|assertionFailure|precondition|assert|dispatchPrecondition|abort|exit)\s*\('
     match_kinds: [identifier]
-    message: "Library code never stops the host: return nil, throw, or record a failure instead."
+    message: "A library never terminates its host. Report the failure to the caller."
     severity: error
