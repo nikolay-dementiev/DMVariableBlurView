@@ -2,7 +2,8 @@
 #
 # Checks what a consumer of the package gets.
 #
-#   Scripts/check-manifest.sh
+#   Scripts/check-manifest.sh              run the checks below
+#   Scripts/check-manifest.sh --self-test  run the readers of the checks on built-in texts
 #
 # 1. The manifest has no dependency by branch or revision and uses no plugin. SwiftPM
 #    refuses a version requirement on a package that has an unstable dependency, and a
@@ -16,6 +17,89 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+MODULE="DMVariableBlurView"
+
+# Takes the python block that follows the line "# <marker>" out of this script into <output file>:
+# the very text that the check runs. The marker must appear once, directly under the line that
+# opens the heredoc, so that a line added above it or a second marker cannot make the two differ.
+extract_block() {  # <marker> <output file>
+    local marker="$1" output="$2" found
+    found="$(awk -v marker="# $marker" '$0 == marker { count++; opener = prev } { prev = $0 } END { print count + 0 ":" opener }' "${BASH_SOURCE[0]}")"
+    case "$found" in
+        "1:"*"<<'PY'") ;;
+        *)
+            echo "check-manifest: self-test: the marker $marker must appear once, under the line that opens the heredoc of its step (found '$found')" >&2
+            exit 2
+            ;;
+    esac
+    awk -v marker="# $marker" '$0 == marker { found = 1 } found && /^PY$/ { exit } found' "${BASH_SOURCE[0]}" > "$output"
+    if [ ! -s "$output" ]; then
+        echo "check-manifest: self-test: the python block marked $marker is not in ${BASH_SOURCE[0]}" >&2
+        exit 2
+    fi
+}
+
+# Runs the reader of Package.resolved (the block of step 2) on built-in texts, and exits.
+SELF_TEST_WORK=""
+self_test() {
+    local total=0 failures=0 dm
+    if ! command -v python3 > /dev/null; then
+        echo "check-manifest: self-test: python3 is not installed" >&2
+        exit 2
+    fi
+    SELF_TEST_WORK="$(mktemp -d "${TMPDIR:-/tmp}/check-manifest-self-test.XXXXXX")" || exit 2
+    trap 'rm -rf "$SELF_TEST_WORK"' EXIT
+    extract_block resolved-inventory "$SELF_TEST_WORK/inventory.py"
+    pin() {  # <identity> <version>
+        printf '{"identity":"%s","kind":"localSourceControl","location":"/x/%s","state":{"revision":"abc","version":"%s"}}' "$1" "$1" "$2"
+    }
+    expect() {  # <name> <expected status> <expected text>: the reader on Package.resolved as it is
+        local got=0 output
+        total=$((total + 1))
+        output="$(python3 "$SELF_TEST_WORK/inventory.py" "$SELF_TEST_WORK/Package.resolved" "$MODULE" 2>&1)" || got=$?
+        if [ "$got" -eq "$2" ] && printf '%s\n' "$output" | grep -q -F -- "$3"; then
+            echo "check-manifest: self-test ok   $1"
+        else
+            failures=$((failures + 1))
+            echo "check-manifest: self-test FAIL $1: expected status $2 and '$3', got status $got:" >&2
+            printf '%s\n' "$output" | head -5 | sed 's/^/    /' >&2
+        fi
+    }
+    check() {  # <name> <expected status> <expected text> <text of Package.resolved>
+        printf '%s\n' "$4" > "$SELF_TEST_WORK/Package.resolved"
+        expect "$1" "$2" "$3"
+    }
+    dm="$(pin dmvariableblurview 1.1.0)"
+    check "the copy alone, format 3" 0 "" "{\"version\":3,\"pins\":[$dm]}"
+    check "the copy alone, format 2" 0 "" "{\"version\":2,\"pins\":[$dm]}"
+    check "an extra pin is named" 1 "second (localSourceControl, 1.0.0, /x/second)" "{\"version\":3,\"pins\":[$(pin second 1.0.0),$dm]}"
+    check "another pin only" 1 "dmvariableblurview, the tagged copy, is not among the resolved packages" "{\"version\":3,\"pins\":[$(pin second 1.0.0)]}"
+    check "no pin at all" 1 "is not among the resolved packages" '{"version":3,"pins":[]}'
+    check "format 1" 1 "not of format version 2 or 3" '{"object":{"pins":[{"package":"DMVariableBlurView"}]},"version":1}'
+    check "format 4" 1 "not of format version 2 or 3" "{\"version\":4,\"pins\":[$dm]}"
+    check "no list of pins" 1 "not of format version 2 or 3" '{"version":3}'
+    check "not JSON" 1 "cannot be read" 'not json'
+    check "the copy twice" 1 "pinned 2 times" "{\"version\":3,\"pins\":[$dm,$(pin dmvariableblurview 1.2.0)]}"
+    check "a pin that is not an object" 1 "not of format version 2 or 3" "{\"version\":3,\"pins\":[$dm,\"text\"]}"
+    check "a null state" 1 "second (registry, None, None)" "{\"version\":3,\"pins\":[$dm,{\"identity\":\"second\",\"kind\":\"registry\",\"state\":null}]}"
+    rm -f "$SELF_TEST_WORK/Package.resolved"
+    expect "a file that is not there" 1 "cannot be read"
+    if [ "$failures" -gt 0 ]; then
+        echo "check-manifest: self-test: $failures of $total checks failed" >&2
+        exit 1
+    fi
+    echo "check-manifest: self-test: $total checks of the reader of Package.resolved, all ok."
+    exit 0
+}
+
+if [ "$#" -gt 0 ]; then
+    if [ "$1" = "--self-test" ] && [ "$#" -eq 1 ]; then
+        self_test
+    fi
+    echo "usage: Scripts/check-manifest.sh [--self-test]" >&2
+    exit 2
+fi
+
 WORK="$ROOT/.build/check-manifest"
 FAILED=0
 
