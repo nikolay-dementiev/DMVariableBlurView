@@ -11,9 +11,12 @@
 #
 # Any difference fails. A removed or changed line breaks the public contract: it needs a new major
 # version. The check cannot tell a line that a new compiler reworded from a line that the code
-# changed, so both count. An added line is additive only after a review that it adds no
-# requirement to a protocol (every type that conforms to it stops compiling) and no overload that
-# makes an existing call ambiguous; this check cannot see either. Nor does --since see the order
+# changed, so both count. An added line is additive only after a review. A new case of a public
+# enum (a switch over it stops compiling), a protocol requirement without a default implementation
+# (every type that conforms to it stops compiling) and an overload that makes an existing call
+# ambiguous are breaking and need a new major version; a requirement with a default implementation
+# is additive only when its name is new to the protocol and to its extensions. This check cannot
+# see which of them an added line is. Nor does --since see the order
 # of the members of a type, so the order of the cases of an enum, which decides allCases and the
 # raw values that are not written out, is invisible to it. So are the order and the repetition of
 # the statements in the body of an inlinable function, which no baseline of these packages holds
@@ -402,7 +405,8 @@ print("\n".join(sorted(blocks)))
 # header of a type.
 # Status 0 the texts are the same, 1 a line was removed or changed, 3 lines were only added, 2 the
 # texts could not be compared. The heading of the added lines says what no line can show: an added
-# line may still break a conformer of a protocol or make an existing call ambiguous.
+# line may still add a case to a public enum, break a conformer of a protocol or make an existing
+# call ambiguous.
 delta() {
     python3 -c '
 import sys
