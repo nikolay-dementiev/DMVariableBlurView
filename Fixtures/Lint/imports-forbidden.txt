@@ -24,3 +24,6 @@ import func SwiftUI.withAnimation // expect: domain_imports
 #if canImport(UIKit)
 import UIKit // expect: domain_imports
 #endif
+import Foundation2 // expect: domain_imports
+import Foundation_Extras // expect: domain_imports
+import CoreGraphics_Private // expect: domain_imports
