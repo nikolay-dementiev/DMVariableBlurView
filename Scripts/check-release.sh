@@ -41,7 +41,7 @@ FROZEN_POD_VERSION="1.1.0"
 # cannot be made to give.
 SELF_TEST_WORK=""
 self_test() {
-    local total=0 failures=0 number=0 variable absent_note
+    local total=0 failures=0 number=0 variable absent_note tool tool_path no_python broken_python
     local git_local=()
     if ! command -v python3 > /dev/null 2>&1 || ! python3 -c 'import datetime' > /dev/null 2>&1; then
         echo "check-release: self-test: python3 is needed, and it does not run on this machine" >&2
@@ -55,6 +55,25 @@ self_test() {
     for variable in $(git rev-parse --local-env-vars); do
         git_local+=(-u "$variable")
     done
+    # Two interpreters that are not the one of the machine: a PATH that holds the tools of the script
+    # and no python3, and a python3 that starts and then fails at everything but the import that is
+    # tried first.
+    no_python="$SELF_TEST_WORK/no-python"
+    broken_python="$SELF_TEST_WORK/broken-python"
+    mkdir -p "$no_python" "$broken_python"
+    for tool in git sed awk grep head tail tr cut wc cat dirname basename mktemp rm mkdir env date sort uniq xargs find; do
+        tool_path="$(command -v "$tool")" || continue
+        ln -s "$tool_path" "$no_python/$tool"
+    done
+    cat > "$broken_python/python3" <<'SHIM'
+#!/bin/sh
+if [ "$2" = "import datetime" ]; then
+    exit 0
+fi
+echo "python3: cannot run this program" >&2
+exit 1
+SHIM
+    chmod +x "$broken_python/python3"
     scratch_git() {  # <directory> <git arguments>
         local directory="$1"
         shift
@@ -77,7 +96,7 @@ self_test() {
     reset_case() {
         S_VERSION="1.1.0" S_NEWEST="" S_PREVIOUS="1.0.0" S_DATE="2026-10-03" S_SUBSECTION=""
         S_PODSPEC="$FROZEN_POD_VERSION" S_OLD="keep" S_NEW="keep" S_TAG="main" S_TAG_BASELINE="yes"
-        S_API="real" S_STUB_STATUS="" S_STUB_TEXT="" S_NOTES="no" S_ABSENT=""
+        S_API="real" S_STUB_STATUS="" S_STUB_TEXT="" S_NOTES="no" S_ABSENT="" S_PYTHON="real" S_DIGESTER="none"
     }
     apply() {  # <setting>=<value> ...
         local setting
@@ -98,6 +117,8 @@ self_test() {
                 text=*) S_STUB_TEXT="${setting#text=}" ;;
                 notes=*) S_NOTES="${setting#notes=}" ;;
                 absent=*) S_ABSENT="${setting#absent=}" ;;
+                python=*) S_PYTHON="${setting#python=}" ;;
+                digester=*) S_DIGESTER="${setting#digester=}" ;;
                 *)
                     echo "check-release: self-test: unknown setting '$setting'" >&2
                     exit 2
@@ -155,6 +176,18 @@ self_test() {
             cp "$ROOT/Scripts/check-api.sh" "$directory/Scripts/check-api.sh"
         fi
         chmod +x "$directory/Scripts/check-release.sh" "$directory/Scripts/check-api.sh"
+        if [ "$S_DIGESTER" != "none" ]; then
+            case "$S_DIGESTER" in
+                ok) printf '#!/bin/bash\necho "no break"\nexit 0\n' ;;
+                break) printf '#!/bin/bash\necho "a break"\nexit 1\n' ;;
+                fail) printf '#!/bin/bash\necho "cannot run"\nexit 3\n' ;;
+                *)
+                    echo "check-release: self-test: no digester named '$S_DIGESTER'" >&2
+                    exit 2
+                    ;;
+            esac > "$directory/Scripts/check-api-digester.sh"
+            chmod +x "$directory/Scripts/check-api-digester.sh"
+        fi
     }
     judge() {  # <name> <expected status> <expected text> <status> <output> <text that must be absent>
         total=$((total + 1))
@@ -171,12 +204,21 @@ self_test() {
         fi
     }
     run_case() {  # <name> <expected status> <expected text> [<setting>=<value> ...]
-        local name="$1" expected_status="$2" expected_text="$3" directory output status=0
+        local name="$1" expected_status="$2" expected_text="$3" directory output status=0 run_path="$PATH"
         local arguments=()
         shift 3
         number=$((number + 1))
         reset_case
         apply "$@"
+        case "$S_PYTHON" in
+            real) ;;
+            none) run_path="$no_python" ;;
+            broken) run_path="$broken_python:$PATH" ;;
+            *)
+                echo "check-release: self-test: no python named '$S_PYTHON'" >&2
+                exit 2
+                ;;
+        esac
         directory="$SELF_TEST_WORK/case-$number"
         build_repo "$directory"
         if [ "$S_NOTES" = "yes" ]; then
@@ -184,7 +226,7 @@ self_test() {
         else
             arguments=("$S_VERSION")
         fi
-        output="$(env ${git_local[@]+"${git_local[@]}"} /bin/bash "$directory/Scripts/check-release.sh" "${arguments[@]}" 2>&1)" || status=$?
+        output="$(env ${git_local[@]+"${git_local[@]}"} PATH="$run_path" /bin/bash "$directory/Scripts/check-release.sh" "${arguments[@]}" 2>&1)" || status=$?
         judge "$name" "$expected_status" "$expected_text" "$status" "$output" "$S_ABSENT"
     }
 
@@ -208,6 +250,16 @@ self_test() {
     run_case "the notes of a version" 0 "a change" notes=yes
     run_case "the notes of a version that has none" 1 "has no notes under a heading for 9.9.9" notes=yes newest=1.1.0 version=9.9.9
     run_case "no digester script: nothing is said about it" 0 "agrees on 1.1.0" absent=digester
+    run_case "no python3: the problems found so far are listed" 2 "the pod is frozen at" python=none podspec=1.0.0 "absent=not a day of the calendar"
+    run_case "no python3: the script says that it needs it" 2 "python3 is needed to read the release date" python=none
+    run_case "a python3 that fails: the problems found so far are listed" 2 "the pod is frozen at" python=broken podspec=1.0.0 "absent=not a day of the calendar"
+    run_case "a python3 that fails: the script says what it said" 2 "python3 could not check the release date" python=broken
+    run_case "the digester finds a break under the same major" 1 "the digester reports a break" digester=break
+    run_case "the digester finds no break" 0 "the digester finds no break" digester=ok
+    run_case "the digester is not asked under a new major" 0 "agrees on 2.0.0" version=2.0.0 digester=break absent=digester
+    run_case "the digester cannot compare" 2 "the digester could not compare" digester=fail
+    run_case "the digester is not asked after a comparison that could not run" 2 "could not be compared" api=stub status=5 text=boom digester=break absent=digester
+    run_case "the digester is told that the previous release holds no baseline" 0 "the digester was not run against 1.0.0" tagbaseline=no digester=ok
 
     if [ "$total" -eq 0 ]; then
         echo "check-release: self-test: no case ran" >&2
