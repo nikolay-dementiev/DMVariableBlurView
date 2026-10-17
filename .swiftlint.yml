@@ -19,6 +19,11 @@ analyzer_rules:
 missing_docs:
   excludes_inherited_types: false
 
+# By default the rule lets a few calls with a literal argument be force unwrapped, such as
+# URL(string: "https://example.com")!. ENGINEERING.md states no exception, so the list is empty.
+force_unwrapping:
+  ignored_literal_argument_functions: []
+
 identifier_name:
   min_length: 2
   allowed_symbols: [_]
