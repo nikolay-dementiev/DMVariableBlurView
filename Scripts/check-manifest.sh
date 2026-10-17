@@ -431,6 +431,8 @@ def problems_of(path):
             manifest = json.load(handle)
         dependencies = manifest["dependencies"]
         targets = manifest["targets"]
+        if not isinstance(dependencies, list) or not isinstance(targets, list):
+            raise TypeError("the dependencies and the targets are not lists")
         entries = [entry for dependency in dependencies for group in dependency.values() for entry in group]
         if not all(any(dependency.values()) for dependency in dependencies):
             raise TypeError("a dependency has no entry")
