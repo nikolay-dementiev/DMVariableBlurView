@@ -35,7 +35,7 @@ than a reading of semantic versioning that allows a patch release for a fix of a
 | An added overload | additive, or breaking if an existing call now resolves to it or becomes ambiguous | minor or major |
 | Depending on a new major version of a dependency (the package has none) | breaking | major |
 | Raising the minimum version of a dependency within the same major | additive or breaking, see below | minor or major |
-| A CI or tool pin, such as a runner image or the SwiftLint version | none | patch, or no release |
+| A CI or tool pin that leaves the compiler of the `api` job alone, such as a runner image or the SwiftLint version | none | patch, or no release |
 | A pure refactor | none | patch, or no release |
 | A crash that stops happening | breaking | major |
 
@@ -60,8 +60,9 @@ version that keeps the major version of the previous release when the baseline l
 line since that release, or when the notes of the version have a `### Breaking changes`
 subsection, in any letter case. The lines show an added case of a public enum, an added protocol
 requirement or an added overload only as an added line, which passes the script with a reminder to
-review it; the reminder does not tell a requirement with a default implementation from one
-without, and the review above decides. The script cannot tell a line that a new compiler reworded
+review it. The reminder names only a requirement and an overload, and says that either needs a
+major version; it does not tell a requirement with a default implementation from one without, and
+the review above decides. The script cannot tell a line that a new compiler reworded
 from a line that the code changed, so both count. It does not see the order of the cases of an enum
 or the statements in the body of an inlinable function (the package has no inlinable function
 today), and it cannot see behaviour. The pull request template asks for the class, the changes of
@@ -77,8 +78,10 @@ which a test catches only where a test pins the behaviour.
 No compiler deprecation attribute ships in a 1.x release. Its warning appears at every use of the
 symbol and fails a consumer that builds with warnings as errors, so it would turn a notice into a
 breaking change. A symbol is retired in the documentation instead: the replacement and a
-migration example say what to use. The next major version removes it. No tool refuses a
-deprecation attribute; the reviewer applies this.
+migration example say what to use. The next major version removes it. `Scripts/check-release.sh`
+counts a deprecation attribute on a declaration that already exists as a changed line and refuses
+it in a release that keeps the major version; a declaration added already deprecated is only an
+added line, and the reviewer applies this rule to it.
 
 ## History
 
@@ -90,7 +93,7 @@ is a breaking change too, and needs a major version.
 ## The package as it is
 
 - **Three layers, by folder.** `Sources/DMVariableBlurView/Domain` holds the values and the
-  decisions that need no framework: `DMVariableBlurDirection`, `DMVariableBlurError`,
+  decisions that need no UI framework: `DMVariableBlurDirection`, `DMVariableBlurError`,
   `VariableBlurConfiguration` and `BlurMaskProfile`, which says how strongly each height of the view
   is blurred. The folder imports Foundation and CoreGraphics only, and `Scripts/lint.sh` enforces
   that: the custom rule `domain_imports` reports any other import in it. `Adapters` wraps the
@@ -108,22 +111,24 @@ is a breaking change too, and needs a major version.
   "Private API", lists its names, the checks made before the filter is installed and the risk that
   remains; this file does not restate them. A new private name of the system is a decision for the
   maintainer (CONTRIBUTING.md, "Commits and pull requests").
-- **A failure reaches the host.** When the view cannot show the variable blur, it shows the plain
-  blur of the system over its whole frame, except in a `DMVariableBlurUIView` whose `effect` the
-  host has set to `nil`, which shows no blur until it gets an effect back. In both cases it records
-  the reason as a `DMVariableBlurError`. In SwiftUI a handler passed to `onFailure(_:)` receives it,
-  and the unified log gets one line when no handler is set. In UIKit the `failure` property holds
-  it and the unified log gets a line. The README, "Failures", and the DocC article Handling failures
+- **A failure reaches the host.** When a value is not valid, or the system does not offer the
+  filter, the view shows the plain blur of the system over its whole frame. The one exception is a
+  `DMVariableBlurUIView` whose `effect` the host has set to `nil`, which shows no blur until it gets
+  an effect back. The view records the reason as a `DMVariableBlurError`. In SwiftUI a handler
+  passed to `onFailure(_:)` receives it, and the unified log gets one line when no handler is set.
+  In UIKit the `failure` property holds it and the unified log gets a line. The README, "Failures",
+  and the DocC article Handling failures
   (`Sources/DMVariableBlurView/DMVariableBlurView.docc/HandlingFailures.md`) have the details.
 - **The library does not stop its host.** Its sources contain no `fatalError`,
   `preconditionFailure`, `assertionFailure`, `precondition`, `assert`, `dispatchPrecondition`,
   `abort` or `exit`, no force unwrap, no `try!`, no `as!` and no implicitly unwrapped optional.
   `Scripts/lint.sh` rejects, over `Sources`, a call written as one of those names followed by an
   opening parenthesis (the custom rule `no_termination`), and SwiftLint's `force_unwrapping`,
-  `implicitly_unwrapped_optional`, `force_try` and `force_cast` reject the unwraps and the casts.
-  Another way to end a process, such as `_exit(` or `raise(`, stays with the reviewer. One thing
-  stays outside the library's own code: an exception raised inside the private code of the system
-  cannot be caught from Swift and ends the app (README, "Private API").
+  `implicitly_unwrapped_optional`, `force_try` and `force_cast` reject force unwraps, implicitly
+  unwrapped optionals, `try!` and `as!`. Another way to end a process, such as `_exit(` or
+  `raise(`, stays with the reviewer. One thing stays outside the library's own code: an exception
+  raised inside the private code of the system cannot be caught from Swift and ends the app
+  (README, "Private API").
 - **Isolation.** The package builds in the Swift 6 language mode. Both views are `@MainActor`, the
   two public enums are `Sendable` and the handler of `onFailure(_:)` is `@MainActor @Sendable`.
 - **Documented limits.** What the library enforces and what it cannot promise are in the README,
@@ -150,9 +155,10 @@ is a breaking change too, and needs a major version.
   consumer resolves the package by version, that `Fixtures/Consumer` builds, that no resource
   bundle ships and that every Swift block of the README compiles, a manifest block being
   evaluated. The approval itself is a rule the reviewer applies.
-- XCTest is the test framework. A test goes through the public API, and through a `package`
-  protocol where it must replace a collaborator; it never uses `@testable import`, and the reviewer
-  applies that. Another framework comes only by the maintainer's decision.
+- XCTest is the test framework. A test goes through the public API and through the `package`
+  declarations of the module, the four protocols, their implementations and the domain values; it
+  never uses `@testable import`, and the reviewer applies that. Another framework comes only by the
+  maintainer's decision.
 - The manifest sets no `defaultIsolation`: it would change the inferred isolation of public
   declarations, which is observable behaviour.
 - The CocoaPods channel is frozen at 1.1.0 (README, "CocoaPods").

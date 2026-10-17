@@ -92,11 +92,11 @@ merge first, then tag. Before the tag is pushed:
    case, because no script can see behaviour: a change listed under `### Changed` alone does not
    count.
    `Scripts/check-release.sh` refuses a version that keeps the major version of the previous one
-   when it finds either. Lines that were only added pass the script, and they are additive only
-   after a review: a new case in a public enum needs a major version, and so can a requirement
-   added to a protocol or an overload that makes an existing call ambiguous. The script cannot
-   see any of these, nor the order of the cases of an enum or of the statements in the body of an
-   inlinable function.
+   when it finds either. Lines that were only added pass the script. A new case in a public enum
+   is breaking and needs a major version; a requirement added to a protocol or an overload is
+   additive only after a review that it makes no existing call ambiguous and asks nothing of a
+   conformer. The script cannot classify an added line, and it cannot see the order of the cases
+   of an enum or of the statements in the body of an inlinable function.
    It cannot tell a line that a new compiler reworded from a line that the code changed, so both
    count. Run `Scripts/check-api.sh` first, since the baseline is the interface of the library
    only while that check passes.
