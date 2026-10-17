@@ -29,8 +29,11 @@
 #    repositories cached on the machine of whoever runs this cannot stand in for what the
 #    build resolves. The copy is tagged with the version the README names, so the README
 #    is compared with what a consumer is told elsewhere: its URL must be the podspec's
-#    :git source, character for character, and its version that of the newest dated
-#    release heading of CHANGELOG.md.
+#    :git source (the one on a line that is not a comment), character for character, and
+#    its version that of the newest release heading of CHANGELOG.md. A heading with
+#    nothing after its bracket, such as Unreleased, is not a release heading; any other
+#    must read '## [x.y.z] - YYYY-MM-DD', or it is named and not passed over for an older
+#    release.
 # 3. Fixtures/Consumer builds. It uses every call shape of the released API and every
 #    declaration added since, so if it stops building, a consumer's code stops building.
 # 4. The library ships no resource bundle.
@@ -43,19 +46,21 @@
 # from a registry, by version, by path, by branch or by revision, a second dependency, a
 # plugin, a plugin target, a binary target with a url, or without its list of dependencies or
 # of targets, or with a target that has no type or a binary target with neither a url nor a
-# path, and several manifest files with a problem in the first, in the second, in both, or in
-# a dump that is not JSON; a README with no package manifest, two, exact: for from:, or two
-# requirements, a URL that is not the podspec's or differs from it by .git, a version that is
-# not the newest release's, a podspec or a changelog that cannot be read or has no source or no
-# dated release; a Package.resolved with an extra pin, no pin, the copy twice, a format other
+# path, or with its dependencies and targets as something other than lists, and several
+# manifest files with a problem in the first, in the second, in both, or in a dump that is not
+# JSON; a README with no package manifest, two, exact: for from:, or two requirements, a URL
+# that is not the podspec's or differs from it by .git, a version that is not the newest
+# release's, a podspec or a changelog that cannot be read, a podspec with no source, a source in
+# a comment or two sources, a changelog with no release heading or whose newest heading is not
+# a release date; a Package.resolved with an extra pin, no pin, the copy twice, a format other
 # than 2 and 3, or that is not a resolution at all. A reader that was changed to pass one of
 # these fails the self-test. It does not run the shell around the readers: the lines that set
 # FAILED, and the ones that find each manifest file, copy it and ask swift to dump it.
 #
 # Exit codes: 0 every check passed, 1 a check failed, 2 wrong usage, or the self-test could
 # not be made (python3 is missing, or a marked block is not where it expects), or the
-# search of the build products failed. A command of the setup of item 2 that fails, such as
-# git or rsync, ends the script with its own status.
+# search of the build products failed. A command of the setup of item 1 or 2 that fails, such
+# as swift, git, cp or rsync, ends the script with its own status.
 
 set -euo pipefail
 
