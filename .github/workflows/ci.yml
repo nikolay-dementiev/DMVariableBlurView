@@ -350,12 +350,17 @@ jobs:
             device: iPhone 17
             os: "26.5"
             newest: true
+            passed: 20
+            skipped: 0
           - name: iOS 18.5
             runner: macos-15
             xcode: /Applications/Xcode_16.4.app
             device: iPhone 16
             os: "18.5"
             newest: false
+            # This runtime has no snapshot references, so the five snapshot tests are skipped.
+            passed: 15
+            skipped: 5
     env:
       DEVELOPER_DIR: ${{ matrix.xcode }}/Contents/Developer
       # xcodebuild hands a variable with this prefix to the test process without the
@@ -389,6 +394,28 @@ jobs:
             -onlyUsePackageVersionsFromResolvedFile \
             -resultBundlePath .build/results/ci/example.xcresult \
             | tee .build/results/ci/example.log
+      # A run that runs no test passes, and so does one that skips what it should run. The
+      # numbers of the matrix are what the example has in this cell, so a lost test or a run that
+      # skips everything fails here. A new example test changes them, in the same commit.
+      - name: Check how many tests ran
+        env:
+          EXPECTED_PASSED: ${{ matrix.passed }}
+          EXPECTED_SKIPPED: ${{ matrix.skipped }}
+        run: |
+          xcrun xcresulttool get test-results summary --path .build/results/ci/example.xcresult \
+            > "$RUNNER_TEMP/example-summary.json"
+          python3 - "$RUNNER_TEMP/example-summary.json" "$EXPECTED_PASSED" "$EXPECTED_SKIPPED" <<'PY'
+          import json
+          import sys
+
+          summary = json.load(open(sys.argv[1]))
+          expected = {"passedTests": int(sys.argv[2]), "skippedTests": int(sys.argv[3]), "failedTests": 0}
+          actual = {key: summary.get(key) for key in expected}
+          if actual != expected:
+              print(f"example: the tests that ran are not the ones this cell expects: expected {expected}, got {actual}")
+              sys.exit(1)
+          print(f"example: {actual['passedTests']} tests passed and {actual['skippedTests']} were skipped, as expected.")
+          PY
       # Xcode compiles a package dependency with its warnings suppressed, so the build
       # cannot turn warnings into errors as a whole. The library's own warnings fail the
       # test job; this step covers the sources of the example.
