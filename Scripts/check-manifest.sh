@@ -108,6 +108,7 @@ PROBE=""
 DERIVED=""
 SNIPPETS=""
 SNIPPETS_DERIVED=""
+# shellcheck disable=SC2329  # invoked by the trap below
 cleanup() {  # The EXIT trap below calls it. skipcq: SH-2329
     [ -z "$PROBE" ] || rm -rf "$PROBE"
     [ -z "$DERIVED" ] || rm -rf "$DERIVED"
