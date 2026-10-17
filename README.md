@@ -376,7 +376,8 @@ How the package is tested:
 
 DMVariableBlurView follows semantic versioning. [CHANGELOG.md](CHANGELOG.md) records every
 release. From the release after 1.1.0 on, every breaking change, as ENGINEERING.md defines it,
-needs a major version; [ENGINEERING.md](ENGINEERING.md) has the rules.
+needs a major version, and a fix of behaviour is one; [ENGINEERING.md](ENGINEERING.md) has the
+rules.
 
 Coming from 1.0.x: no declaration was removed, and the UIKit class is now `final`, which no
 code outside the package could notice because it was never `open`. Some behaviour changed,

@@ -22,7 +22,8 @@ belongs to one of three classes:
 The rule is strict and has no carve-out: every change of observable behaviour is breaking. That
 includes a crash that stops happening and a behaviour brought back in line with the documentation.
 A breaking change needs the maintainer's decision, an entry in `CHANGELOG.md`, with a change of
-behaviour declared in a `### Breaking changes` subsection, and a major version.
+behaviour declared in a `### Breaking changes` subsection, and a major version. This is stricter
+than a reading of semantic versioning that allows a patch release for a fix of a bug.
 
 | Change | Class | Release |
 |---|---|---|
@@ -57,23 +58,27 @@ request it also writes to the job summary the delta against the base of the pull
 `Scripts/check-release.sh` runs on the version tag, and before it by whoever releases: it refuses a
 version that keeps the major version of the previous release when the baseline lost or changed a
 line since that release, or when the notes of the version have a `### Breaking changes`
-subsection, in any letter case. The lines show an added protocol requirement or overload only as an
-added line, which passes the script and needs a review. The script cannot tell a line that a new
-compiler reworded from a line that the code changed, so both count. It does not see the order of
-the cases of an enum or the statements in the body of an inlinable function (the package has no
-inlinable function today), and it cannot see behaviour. The pull request template asks for the
-class, the changes of observable behaviour and the release the change needs. The reviewer applies
-the rest: that the baseline changes in the same commit as the declaration; whether an added line
-adds a requirement or an overload that makes an existing call ambiguous; and every change of
-observable behaviour that the notes do not declare, which a test catches only where a test pins
-the behaviour.
+subsection, in any letter case. The lines show an added case of a public enum, an added protocol
+requirement or an added overload only as an added line, which passes the script with a reminder to
+review it; the reminder does not tell a requirement with a default implementation from one
+without, and the review above decides. The script cannot tell a line that a new compiler reworded
+from a line that the code changed, so both count. It does not see the order of the cases of an enum
+or the statements in the body of an inlinable function (the package has no inlinable function
+today), and it cannot see behaviour. The pull request template asks for the class, the changes of
+observable behaviour and the release the change needs. The reviewer applies the rest: that the
+baseline changes in the same commit as the declaration; that an added case of a public enum gets a
+major version, as the table says; whether an added line adds a requirement or an overload that
+makes an existing call ambiguous; the order of the cases of an enum, where a raw value or
+`allCases` depends on it; and every change of observable behaviour that the notes do not declare,
+which a test catches only where a test pins the behaviour.
 
 ## Deprecation
 
 No compiler deprecation attribute ships in a 1.x release. Its warning appears at every use of the
 symbol and fails a consumer that builds with warnings as errors, so it would turn a notice into a
 breaking change. A symbol is retired in the documentation instead: the replacement and a
-migration example say what to use. The next major version removes it.
+migration example say what to use. The next major version removes it. No tool refuses a
+deprecation attribute; the reviewer applies this.
 
 ## History
 
@@ -87,33 +92,38 @@ is a breaking change too, and needs a major version.
 - **Three layers, by folder.** `Sources/DMVariableBlurView/Domain` holds the values and the
   decisions that need no framework: `DMVariableBlurDirection`, `DMVariableBlurError`,
   `VariableBlurConfiguration` and `BlurMaskProfile`, which says how strongly each height of the view
-  is blurred. It imports Foundation and CoreGraphics only, and `Scripts/lint.sh` enforces that: the
-  custom rule `domain_imports` reports any other import in that folder. `Adapters` wraps the
+  is blurred. The folder imports Foundation and CoreGraphics only, and `Scripts/lint.sh` enforces
+  that: the custom rule `domain_imports` reports any other import in it. `Adapters` wraps the
   system: four `package` protocols, `FailureLog`, `MaskImageRenderer`, `ReduceTransparencySetting`
-  and `VariableBlurInstaller`, and the implementations that touch UIKit, `os` and the private
-  filter. `UI` holds the two public views. The dependencies point inward: `Domain` names no type of
-  the other two folders, and `Adapters` names no type of `UI`. There is no further layer, no view
-  model and no coordinator.
+  and `VariableBlurInstaller`, and the implementations that touch UIKit, CoreGraphics, `os` and the
+  private filter. `UI` holds the two public views. The dependencies point inward: `Domain` names no
+  type of the other two folders, and `Adapters` names no type of `UI`. No tool checks that, because
+  an import restricts nothing inside one module; the reviewer applies it. There is no further
+  layer, no view model and no coordinator.
 - **Collaborators and the composition root.** The four protocols have `package` access, so a test
   inside the package replaces a collaborator and a consumer cannot. The two public views create the
-  concrete implementations, in `UI/DMVariableBlurView.swift` and `UI/DMVariableBlurUIView.swift`,
-  and no other file of the library does.
+  concrete implementations, in `UI/DMVariableBlurView.swift` and `UI/DMVariableBlurUIView.swift`;
+  the reviewer applies that no other file of the library does.
 - **A private system API.** The view reaches a filter of the system that is not public. The README,
   "Private API", lists its names, the checks made before the filter is installed and the risk that
   remains; this file does not restate them. A new private name of the system is a decision for the
   maintainer (CONTRIBUTING.md, "Commits and pull requests").
 - **A failure reaches the host.** When the view cannot show the variable blur, it shows the plain
-  blur of the system and records the reason as a `DMVariableBlurError`: a handler passed to
-  `onFailure(_:)` receives it in SwiftUI, the `failure` property holds it in UIKit, and the unified
-  log gets a line. The README, "Failures", and the DocC article Handling failures
+  blur of the system over its whole frame, except in a `DMVariableBlurUIView` whose `effect` the
+  host has set to `nil`, which shows no blur until it gets an effect back. In both cases it records
+  the reason as a `DMVariableBlurError`. In SwiftUI a handler passed to `onFailure(_:)` receives it,
+  and the unified log gets one line when no handler is set. In UIKit the `failure` property holds
+  it and the unified log gets a line. The README, "Failures", and the DocC article Handling failures
   (`Sources/DMVariableBlurView/DMVariableBlurView.docc/HandlingFailures.md`) have the details.
 - **The library does not stop its host.** Its sources contain no `fatalError`,
   `preconditionFailure`, `assertionFailure`, `precondition`, `assert`, `dispatchPrecondition`,
   `abort` or `exit`, no force unwrap, no `try!`, no `as!` and no implicitly unwrapped optional.
-  `Scripts/lint.sh` enforces this over `Sources`: the custom rule `no_termination` and SwiftLint's
-  `force_unwrapping`, `implicitly_unwrapped_optional`, `force_try` and `force_cast`. One thing stays
-  outside the library's own code: an exception raised inside the private code of the system cannot
-  be caught from Swift and ends the app (README, "Private API").
+  `Scripts/lint.sh` rejects, over `Sources`, a call written as one of those names followed by an
+  opening parenthesis (the custom rule `no_termination`), and SwiftLint's `force_unwrapping`,
+  `implicitly_unwrapped_optional`, `force_try` and `force_cast` reject the unwraps and the casts.
+  Another way to end a process, such as `_exit(` or `raise(`, stays with the reviewer. One thing
+  stays outside the library's own code: an exception raised inside the private code of the system
+  cannot be caught from Swift and ends the app (README, "Private API").
 - **Isolation.** The package builds in the Swift 6 language mode. Both views are `@MainActor`, the
   two public enums are `Sendable` and the handler of `onFailure(_:)` is `@MainActor @Sendable`.
 - **Documented limits.** What the library enforces and what it cannot promise are in the README,
@@ -138,10 +148,11 @@ is a breaking change too, and needs a major version.
 - No third-party dependency without the maintainer's approval. `Scripts/check-manifest.sh` rejects
   a dependency required by branch or revision and a plugin on any target, and checks that a
   consumer resolves the package by version, that `Fixtures/Consumer` builds, that no resource
-  bundle ships and that every Swift block of the README compiles. The approval itself is a rule the
-  reviewer applies.
-- XCTest is the test framework, used through the public API with no `@testable import`. Another
-  one comes only by the maintainer's decision.
+  bundle ships and that every Swift block of the README compiles, a manifest block being
+  evaluated. The approval itself is a rule the reviewer applies.
+- XCTest is the test framework. A test goes through the public API, and through a `package`
+  protocol where it must replace a collaborator; it never uses `@testable import`, and the reviewer
+  applies that. Another framework comes only by the maintainer's decision.
 - The manifest sets no `defaultIsolation`: it would change the inferred isolation of public
   declarations, which is observable behaviour.
 - The CocoaPods channel is frozen at 1.1.0 (README, "CocoaPods").
