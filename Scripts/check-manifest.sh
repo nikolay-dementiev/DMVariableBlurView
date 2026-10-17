@@ -343,8 +343,9 @@ else
         echo "check-manifest: the tagged copy holds $COPIED of the $TRACKED tracked files of the package" >&2
         FAILED=1
     elif ! IOS_FLOOR="$(python3 -c 'import json, sys; print(next(p["version"] for p in json.load(open(sys.argv[1]))["platforms"] if p["platformName"] == "ios"))' \
-            "$WORK/manifest.json" 2> /dev/null)"; then
-        echo "check-manifest: Package.swift declares no iOS platform, so the consumer cannot be built for the simulator" >&2
+            "$WORK/manifest.json" 2> "$WORK/ios-floor.log")"; then
+        echo "check-manifest: Package.swift declares no iOS platform, or its platforms cannot be read, so the consumer cannot be built for the simulator:" >&2
+        tail -3 "$WORK/ios-floor.log" | sed 's/^/  /' >&2
         FAILED=1
     elif ! SIMULATOR_SDK="$(xcrun --sdk iphonesimulator --show-sdk-path)"; then
         echo "check-manifest: the SDK of the iOS simulator cannot be found" >&2
@@ -352,7 +353,7 @@ else
     elif ! swift package --package-path "$PROBE/consumer" dump-package \
             > "$WORK/readme-manifest.json" 2> "$WORK/readme-manifest.log"; then
         echo "check-manifest: the manifest of README.md does not evaluate:" >&2
-        sed 's/^/  /' "$WORK/readme-manifest.log" | head -10 >&2
+        head -10 "$WORK/readme-manifest.log" | sed 's/^/  /' >&2
         FAILED=1
     elif ! TARGETS="$(python3 -c 'import json, sys; print("\n".join(t["name"] for t in json.load(sys.stdin)["targets"]))' \
             < "$WORK/readme-manifest.json")"; then
