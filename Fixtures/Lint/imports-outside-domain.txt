@@ -1,0 +1,7 @@
+// Linted as a file of the library, outside the Domain folder: domain_imports is a rule of the
+// Domain folder only, so no line here is reported.
+import UIKit
+import SwiftUI
+import os
+import Combine
+@preconcurrency import DMVariableBlurView
