@@ -101,7 +101,7 @@ SHIM
     reset_case() {
         S_VERSION="1.1.0" S_NEWEST="" S_PREVIOUS="1.0.0" S_DATE="2026-10-03" S_SUBSECTION=""
         S_PODSPEC="$FROZEN_POD_VERSION" S_OLD="keep" S_NEW="keep" S_TAG="main" S_TAG_BASELINE="yes"
-        S_API="real" S_STUB_STATUS="" S_STUB_TEXT="" S_NOTES="no" S_ABSENT="" S_PYTHON="real" S_DIGESTER="none"
+        S_API="real" S_STUB_STATUS="" S_STUB_TEXT="" S_NOTES="no" S_ABSENT="" S_PYTHON="real" S_DIGESTER="none" S_SHALLOW="no"
     }
     apply() {  # <setting>=<value> ...
         local setting
@@ -124,6 +124,7 @@ SHIM
                 absent=*) S_ABSENT="${setting#absent=}" ;;
                 python=*) S_PYTHON="${setting#python=}" ;;
                 digester=*) S_DIGESTER="${setting#digester=}" ;;
+                shallow=*) S_SHALLOW="${setting#shallow=}" ;;
                 *)
                     echo "check-release: self-test: unknown setting '$setting'" >&2
                     exit 2
@@ -171,6 +172,7 @@ SHIM
             fi
         } > "$directory/CHANGELOG.md"
         printf "Pod::Spec.new do |s|\n  s.version = '%s'\nend\n" "$S_PODSPEC" > "$directory/$podspec_name"
+        mkdir -p "$directory/Fixtures/API"
         baseline_text "$S_NEW" > "$directory/Fixtures/API/public-interface.txt"
         scratch_git "$directory" add -f CHANGELOG.md "$podspec_name" Fixtures/API/public-interface.txt
         scratch_git "$directory" commit -q -m "the release"
@@ -192,6 +194,13 @@ SHIM
                     ;;
             esac > "$directory/Scripts/check-api-digester.sh"
             chmod +x "$directory/Scripts/check-api-digester.sh"
+        fi
+        # A clone that holds the last commit and the tag of the previous release, and nothing between.
+        if [ "$S_SHALLOW" = "yes" ]; then
+            env ${git_local[@]+"${git_local[@]}"} GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null \
+                git clone -q --depth 1 --no-tags "file://$directory" "$directory-shallow"
+            scratch_git "$directory-shallow" fetch -q --depth 1 origin "refs/tags/$S_PREVIOUS:refs/tags/$S_PREVIOUS"
+            cp -R "$directory/Scripts" "$directory-shallow/Scripts"
         fi
     }
     judge() {  # <name> <expected status> <expected text> <status> <output> <text that must be absent>
@@ -226,6 +235,9 @@ SHIM
         esac
         directory="$SELF_TEST_WORK/case-$number"
         build_repo "$directory"
+        if [ "$S_SHALLOW" = "yes" ]; then
+            directory="$directory-shallow"
+        fi
         if [ "$S_NOTES" = "yes" ]; then
             arguments=(--notes "$S_VERSION")
         else
@@ -265,6 +277,9 @@ SHIM
     run_case "the digester cannot compare" 2 "the digester could not compare" digester=fail
     run_case "the digester is not asked after a comparison that could not run" 2 "could not be compared" api=stub status=5 text=boom digester=break absent=digester
     run_case "the digester is told that the previous release holds no baseline" 0 "the digester was not run against 1.0.0" tagbaseline=no digester=ok
+    run_case "the previous release on a side branch is not an ancestor" 1 "is not an ancestor of the commit being released" tag=side
+    run_case "the previous release on a side branch fails under a new major too" 1 "is not an ancestor of the commit being released" tag=side version=2.0.0
+    run_case "a shallow clone cannot be checked" 2 "is shallow" shallow=yes
 
     if [ "$total" -eq 0 ]; then
         echo "check-release: self-test: no case ran" >&2
