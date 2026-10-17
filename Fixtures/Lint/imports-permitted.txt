@@ -1,0 +1,19 @@
+import Foundation
+import CoreGraphics
+public import Foundation
+public import CoreGraphics
+import Foundation.NSURL
+import CoreGraphics.CGGeometry
+import struct Foundation.URL
+import struct CoreGraphics.CGFloat
+internal import Foundation
+@_exported import CoreGraphics
+// import UIKit
+/// import UIKit
+/*
+import UIKit
+*/
+let quoted = "import UIKit"
+let multiline = """
+import UIKit
+"""
