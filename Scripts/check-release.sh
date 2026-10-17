@@ -484,8 +484,13 @@ if [ "$HEADING_VERSION" = "$VERSION" ]; then
                 # branch compares the interface with a release that this commit does not follow. In a
                 # shallow clone git merge-base --is-ancestor says no for a tag that is an ancestor, so
                 # that case is asked about first and is never a pass.
-                if [ "$(git -C "$ROOT" rev-parse --is-shallow-repository)" = "true" ]; then
+                SHALLOW="$(git -C "$ROOT" rev-parse --is-shallow-repository 2>&1)" || SHALLOW="an error"
+                if [ "$SHALLOW" = "true" ]; then
                     PROBLEMS+=("this clone is shallow, so it cannot be checked that $PREVIOUS is an ancestor of the commit being released: git fetch --unshallow --tags")
+                    COULD_NOT_COMPARE=1
+                elif [ "$SHALLOW" != "false" ]; then
+                    # A git before 2.15 does not know the flag and prints it back: that is no answer.
+                    PROBLEMS+=("it could not be asked whether this clone is shallow, so it cannot be checked that $PREVIOUS is an ancestor of the commit being released (git said '$SHALLOW'; git 2.15 or later is needed)")
                     COULD_NOT_COMPARE=1
                 else
                     ANCESTOR_STATUS=0
@@ -531,7 +536,12 @@ if [ "$HEADING_VERSION" = "$VERSION" ]; then
                         COULD_NOT_COMPARE=1
                         ;;
                 esac
-                if [ -x "$ROOT/Scripts/check-api-digester.sh" ]; then
+                if [ -e "$ROOT/Scripts/check-api-digester.sh" ] && [ ! -x "$ROOT/Scripts/check-api-digester.sh" ]; then
+                    # A digester that cannot start is not a reason to pass: the hook would be dead and
+                    # the release would say nothing about it.
+                    PROBLEMS+=("Scripts/check-api-digester.sh is there and is not executable, so the digester did not run: chmod +x Scripts/check-api-digester.sh")
+                    COULD_NOT_COMPARE=1
+                elif [ -x "$ROOT/Scripts/check-api-digester.sh" ]; then
                     if [ "$DELTA_STATUS" -eq 4 ]; then
                         echo "check-release: the digester was not run against $PREVIOUS: that release holds no baseline."
                     elif [ "$RAISES_MAJOR" -eq 0 ] && [ "$COULD_NOT_COMPARE" -eq 0 ]; then
