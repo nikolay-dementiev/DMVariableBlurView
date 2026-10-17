@@ -333,60 +333,98 @@ trap cleanup EXIT
 
 mkdir -p "$WORK"
 
-# 1. Static check of the manifest.
+# 1. Static check of the manifest. The manifest that the tools of this machine choose is dumped for
+#    the iOS floor that item 2 builds for. The rules are read on every manifest file of the package,
+#    Package.swift and each Package@swift-*.swift: SwiftPM reads a version-specific manifest in place
+#    of Package.swift when its version is above the tools version of Package.swift and not above the
+#    tools, so the tools of a consumer may read what the tools of whoever runs this do not. Each file
+#    is evaluated as the Package.swift of a folder of its own, which needs no sources.
 swift package --package-path "$ROOT" dump-package > "$WORK/manifest.json"
-if ! python3 - "$WORK/manifest.json" <<'PY'
+rm -rf "$WORK/manifests"
+mkdir -p "$WORK/manifests"
+MANIFEST_NAMES=()
+DUMPS=()
+while IFS= read -r MANIFEST_FILE; do
+    mkdir -p "$WORK/manifests/$MANIFEST_FILE.d"
+    cp "$ROOT/$MANIFEST_FILE" "$WORK/manifests/$MANIFEST_FILE.d/Package.swift"
+    # A file that does not evaluate leaves an empty dump, so that the reader names it as one that
+    # cannot be read.
+    if ! swift package --package-path "$WORK/manifests/$MANIFEST_FILE.d" dump-package \
+            > "$WORK/manifests/$MANIFEST_FILE.json" 2> "$WORK/manifests/$MANIFEST_FILE.log"; then
+        : > "$WORK/manifests/$MANIFEST_FILE.json"
+        echo "check-manifest: $MANIFEST_FILE does not evaluate:" >&2
+        head -5 "$WORK/manifests/$MANIFEST_FILE.log" | sed 's/^/  /' >&2
+    fi
+    MANIFEST_NAMES+=("$MANIFEST_FILE")
+    DUMPS+=("$WORK/manifests/$MANIFEST_FILE.json")
+done < <(git -C "$ROOT" ls-files -- 'Package*.swift')
+if ! python3 - ${DUMPS[@]+"${DUMPS[@]}"} <<'PY'
 # manifest-rules
 import json
+import os
 import sys
 
-try:
-    with open(sys.argv[1], encoding="utf-8") as handle:
-        manifest = json.load(handle)
-    dependencies = manifest["dependencies"]
-    targets = manifest["targets"]
-    entries = [entry for dependency in dependencies for group in dependency.values() for entry in group]
-    if not all(any(dependency.values()) for dependency in dependencies):
-        raise TypeError("a dependency has no entry")
-    if not all(isinstance(entry, dict) and isinstance(entry.get("requirement", {}), dict) for entry in entries):
-        raise TypeError("a dependency is not described by an object")
-    usages = [(target["name"], usage) for target in targets for usage in target.get("pluginUsages") or []]
-    plugins = [target["name"] for target in targets if target["type"] == "plugin"]
-    downloads = []
-    for target in targets:
-        if target["type"] == "binary":
-            if isinstance(target.get("url"), str):
-                downloads.append((target["name"], target["url"]))
-            elif not isinstance(target.get("path"), str):
-                raise TypeError(f"binary target '{target['name']}' has neither a url nor a path")
-except (OSError, ValueError, KeyError, TypeError, AttributeError) as error:
-    print(f"check-manifest: the manifest cannot be read: {error!r}", file=sys.stderr)
+
+def problems_of(path):
+    try:
+        with open(path, encoding="utf-8") as handle:
+            manifest = json.load(handle)
+        dependencies = manifest["dependencies"]
+        targets = manifest["targets"]
+        entries = [entry for dependency in dependencies for group in dependency.values() for entry in group]
+        if not all(any(dependency.values()) for dependency in dependencies):
+            raise TypeError("a dependency has no entry")
+        if not all(isinstance(entry, dict) and isinstance(entry.get("requirement", {}), dict) for entry in entries):
+            raise TypeError("a dependency is not described by an object")
+        usages = [(target["name"], usage) for target in targets for usage in target.get("pluginUsages") or []]
+        plugins = [target["name"] for target in targets if target["type"] == "plugin"]
+        downloads = []
+        for target in targets:
+            if target["type"] == "binary":
+                if isinstance(target.get("url"), str):
+                    downloads.append((target["name"], target["url"]))
+                elif not isinstance(target.get("path"), str):
+                    raise TypeError(f"binary target '{target['name']}' has neither a url nor a path")
+    except (OSError, ValueError, KeyError, TypeError, AttributeError) as error:
+        return [f"the manifest cannot be read: {error!r}"]
+    found = []
+    for entry in entries:
+        found.append(
+            f"dependency '{entry.get('identity')}' is declared: a dependency needs the maintainer's "
+            "approval and a change of this check in the same pull request"
+        )
+        requirement = entry.get("requirement", {})
+        for unstable in ("branch", "revision"):
+            if unstable in requirement:
+                found.append(
+                    f"dependency '{entry.get('identity')}' is required by {unstable} "
+                    f"{requirement[unstable]}"
+                )
+    for name, usage in usages:
+        found.append(f"target '{name}' uses a plugin: {json.dumps(usage)}")
+    for name in plugins:
+        found.append(
+            f"target '{name}' is a plugin: a plugin needs the maintainer's approval and a change of "
+            "this check in the same pull request"
+        )
+    for name, url in downloads:
+        found.append(
+            f"target '{name}' is a binary fetched from {url}: code that is downloaded when the package "
+            "is resolved needs the maintainer's approval and a change of this check in the same pull request"
+        )
+    return found
+
+
+if len(sys.argv) < 2:
+    print("check-manifest: the manifest cannot be read: no manifest was handed to the reader", file=sys.stderr)
     sys.exit(1)
 problems = []
-for entry in entries:
-    problems.append(
-        f"dependency '{entry.get('identity')}' is declared: a dependency needs the maintainer's "
-        "approval and a change of this check in the same pull request"
-    )
-    requirement = entry.get("requirement", {})
-    for unstable in ("branch", "revision"):
-        if unstable in requirement:
-            problems.append(
-                f"dependency '{entry.get('identity')}' is required by {unstable} "
-                f"{requirement[unstable]}"
-            )
-for name, usage in usages:
-    problems.append(f"target '{name}' uses a plugin: {json.dumps(usage)}")
-for name in plugins:
-    problems.append(
-        f"target '{name}' is a plugin: a plugin needs the maintainer's approval and a change of "
-        "this check in the same pull request"
-    )
-for name, url in downloads:
-    problems.append(
-        f"target '{name}' is a binary fetched from {url}: code that is downloaded when the package "
-        "is resolved needs the maintainer's approval and a change of this check in the same pull request"
-    )
+for path in sys.argv[1:]:
+    # A dump is named after the manifest file it came from, with .json after it.
+    label = os.path.basename(path)
+    if label.endswith(".json"):
+        label = label[: -len(".json")]
+    problems.extend(f"{label}: {problem}" for problem in problems_of(path))
 for problem in problems:
     print(f"check-manifest: {problem}", file=sys.stderr)
 sys.exit(1 if problems else 0)
@@ -394,7 +432,7 @@ PY
 then
     FAILED=1
 else
-    echo "check-manifest: no dependency, no plugin and no downloaded binary in Package.swift."
+    echo "check-manifest: no dependency, no plugin and no downloaded binary in ${MANIFEST_NAMES[*]}."
 fi
 
 # 2. The installation manifest of README.md, built by version against a throw-away tagged copy of
