@@ -349,7 +349,7 @@ SHIM
     run_case "the digester is told that the previous release holds no baseline" 0 "the digester was not run against 1.0.0" tagbaseline=no digester=ok
     run_case "the previous release on a side branch is not an ancestor" 1 "is not an ancestor of the commit being released" tag=side
     run_case "the previous release on a side branch fails under a new major too" 1 "is not an ancestor of the commit being released" tag=side version=2.0.0
-    run_case "a shallow clone cannot be checked" 2 "is shallow" shallow=yes
+    run_case "a shallow clone cannot be checked" 2 "git fetch --unshallow" shallow=yes
     run_case "a git that cannot say whether the tag is an ancestor" 2 "it could not be checked whether the tag 1.0.0 is an ancestor" git=nomergebase
     run_case "a git that does not know whether the clone is shallow" 2 "whether this clone is shallow" git=oldgit
 
