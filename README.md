@@ -375,7 +375,9 @@ How the package is tested:
 ## Versions and migration
 
 DMVariableBlurView follows semantic versioning. [CHANGELOG.md](CHANGELOG.md) records every
-release.
+release. From the release after 1.1.0 on, every breaking change, as ENGINEERING.md defines it,
+needs a major version, and a fix of behaviour is one; [ENGINEERING.md](ENGINEERING.md) has the
+rules.
 
 Coming from 1.0.x: no declaration was removed, and the UIKit class is now `final`, which no
 code outside the package could notice because it was never `open`. Some behaviour changed,
@@ -400,6 +402,7 @@ DMVariableBlurView is one of three packages that share their conventions:
 ## Contributing, security, licence
 
 - [CONTRIBUTING.md](CONTRIBUTING.md): how to build, test and propose a change.
+- [ENGINEERING.md](ENGINEERING.md): the architecture, and the compatibility and release policy.
 - [SECURITY.md](SECURITY.md): how to report a vulnerability. Not in a public issue.
 - DMVariableBlurView is available under the MIT License. It derives from
   [VariableBlurView](https://github.com/jtrivedi/VariableBlurView) by jtrivedi and

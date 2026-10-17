@@ -1,7 +1,8 @@
 # Contributing to DMVariableBlurView
 
 Thank you for helping. This guide says how to build and test the package, what a test must do, and
-how to propose a change.
+how to propose a change. [ENGINEERING.md](ENGINEERING.md) has the architecture and the
+compatibility and release policy.
 
 ## Build and test
 
@@ -84,17 +85,19 @@ merge first, then tag. Before the tag is pushed:
 1. The newest heading of `CHANGELOG.md` is `## [<version>] -` with the release date and the notes
    under it. `Scripts/check-release.sh <version>` checks it. The podspec stays at 1.1.0 because
    the pod is frozen.
-2. Every change that is not purely additive needs a new major version, with no exception for a
-   small one. A removed or changed line of the interface is one:
+2. Every breaking change, as ENGINEERING.md defines it, needs a new major version, with no
+   exception for a small one. A removed or changed line of the interface is one:
    `Scripts/check-api.sh --since <previous version>` lists them. A change of behaviour is another,
    and the notes of the release declare it in a `### Breaking changes` subsection, in any letter
    case, because no script can see behaviour: a change listed under `### Changed` alone does not
    count.
    `Scripts/check-release.sh` refuses a version that keeps the major version of the previous one
-   when it finds either. Lines that were only added pass the script, and they are additive only
-   after a review that none adds a requirement to a protocol or an overload that makes an
-   existing call ambiguous: the script cannot see either, nor the order of the cases of an enum
-   or of the statements in the body of an inlinable function.
+   when it finds either. Lines that were only added pass the script. A new case in a public enum
+   is breaking and needs a major version; a requirement added to a protocol or an overload is
+   additive only after a review that it makes no existing call ambiguous and asks nothing of a
+   conformer, under the conditions of ENGINEERING.md. The script cannot classify an added line, and
+   it cannot see the order of the cases of an enum or of the statements in the body of an
+   inlinable function.
    It cannot tell a line that a new compiler reworded from a line that the code changed, so both
    count. Run `Scripts/check-api.sh` first, since the baseline is the interface of the library
    only while that check passes.
