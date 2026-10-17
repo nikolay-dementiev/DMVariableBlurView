@@ -39,31 +39,41 @@ extract_block() {  # <marker> <output file>
     fi
 }
 
-# Runs the reader of Package.resolved (the block of step 2) on built-in texts, and exits.
+# Runs the readers of step 1 (the manifest) and of step 2 (Package.resolved) on built-in texts, and exits.
 SELF_TEST_WORK=""
 self_test() {
-    local total=0 failures=0 dm
+    local total=0 failures=0 dm plain got output
     if ! command -v python3 > /dev/null; then
         echo "check-manifest: self-test: python3 is not installed" >&2
         exit 2
     fi
     SELF_TEST_WORK="$(mktemp -d "${TMPDIR:-/tmp}/check-manifest-self-test.XXXXXX")" || exit 2
     trap 'rm -rf "$SELF_TEST_WORK"' EXIT
+    extract_block manifest-rules "$SELF_TEST_WORK/rules.py"
     extract_block resolved-inventory "$SELF_TEST_WORK/inventory.py"
     pin() {  # <identity> <version>
         printf '{"identity":"%s","kind":"localSourceControl","location":"/x/%s","state":{"revision":"abc","version":"%s"}}' "$1" "$1" "$2"
     }
-    expect() {  # <name> <expected status> <expected text>: the reader on Package.resolved as it is
-        local got=0 output
+    judge() {  # <name> <expected status> <expected text> <status the reader gave> <its output>
         total=$((total + 1))
-        output="$(python3 "$SELF_TEST_WORK/inventory.py" "$SELF_TEST_WORK/Package.resolved" "$MODULE" 2>&1)" || got=$?
-        if [ "$got" -eq "$2" ] && printf '%s\n' "$output" | grep -q -F -- "$3"; then
+        if [ "$4" -eq "$2" ] && printf '%s\n' "$5" | grep -q -F -- "$3"; then
             echo "check-manifest: self-test ok   $1"
         else
             failures=$((failures + 1))
-            echo "check-manifest: self-test FAIL $1: expected status $2 and '$3', got status $got:" >&2
-            printf '%s\n' "$output" | head -5 | sed 's/^/    /' >&2
+            echo "check-manifest: self-test FAIL $1: expected status $2 and '$3', got status $4:" >&2
+            printf '%s\n' "$5" | head -5 | sed 's/^/    /' >&2
         fi
+    }
+    expect() {  # <name> <expected status> <expected text>: the reader on Package.resolved as it is
+        local got=0 output
+        output="$(python3 "$SELF_TEST_WORK/inventory.py" "$SELF_TEST_WORK/Package.resolved" "$MODULE" 2>&1)" || got=$?
+        judge "$1" "$2" "$3" "$got" "$output"
+    }
+    manifest_case() {  # <name> <expected status> <expected text> <text of the manifest>
+        local got=0 output
+        printf '%s\n' "$4" > "$SELF_TEST_WORK/manifest.json"
+        output="$(python3 "$SELF_TEST_WORK/rules.py" "$SELF_TEST_WORK/manifest.json" 2>&1)" || got=$?
+        judge "$1" "$2" "$3" "$got" "$output"
     }
     check() {  # <name> <expected status> <expected text> <text of Package.resolved>
         printf '%s\n' "$4" > "$SELF_TEST_WORK/Package.resolved"
@@ -84,11 +94,28 @@ self_test() {
     check "a null state" 1 "second (registry, None, None)" "{\"version\":3,\"pins\":[$dm,{\"identity\":\"second\",\"kind\":\"registry\",\"state\":null}]}"
     rm -f "$SELF_TEST_WORK/Package.resolved"
     expect "a file that is not there" 1 "cannot be read"
+    # The manifest as `swift package dump-package` prints it, cut down to the keys the reader looks at.
+    plain='{"identity":"swift-log","requirement":{"range":[{"lowerBound":"1.0.0","upperBound":"2.0.0"}]}}'
+    manifest_case "no dependency and no plugin" 0 "" '{"dependencies":[],"targets":[{"name":"Library","pluginUsages":null}]}'
+    manifest_case "a dependency by version is named" 1 "dependency 'swift-log' is declared: a dependency needs the maintainer's approval" "{\"dependencies\":[{\"sourceControl\":[$plain]}],\"targets\":[]}"
+    manifest_case "a dependency by path is named" 1 "dependency 'local' is declared" '{"dependencies":[{"fileSystem":[{"identity":"local","path":"/x"}]}],"targets":[]}'
+    manifest_case "a dependency by branch is named for its requirement" 1 "dependency 'swift-log' is required by branch" '{"dependencies":[{"sourceControl":[{"identity":"swift-log","requirement":{"branch":["main"]}}]}],"targets":[]}'
+    manifest_case "a dependency by revision is named for its requirement" 1 "dependency 'swift-log' is required by revision" '{"dependencies":[{"sourceControl":[{"identity":"swift-log","requirement":{"revision":["abc"]}}]}],"targets":[]}'
+    manifest_case "a plugin on a target" 1 "target 'Library' uses a plugin" '{"dependencies":[],"targets":[{"name":"Library","pluginUsages":[{"plugin":["Lint",null]}]}]}'
+    manifest_case "no list of dependencies" 1 "the manifest cannot be read" '{"targets":[]}'
+    manifest_case "no list of targets" 1 "the manifest cannot be read" '{"dependencies":[]}'
+    manifest_case "an entry that is not an object" 1 "the manifest cannot be read" '{"dependencies":[{"sourceControl":["text"]}],"targets":[]}'
+    manifest_case "a requirement that is not an object" 1 "the manifest cannot be read" '{"dependencies":[{"sourceControl":[{"identity":"x","requirement":"main"}]}],"targets":[]}'
+    manifest_case "not JSON" 1 "the manifest cannot be read" 'not json'
+    rm -f "$SELF_TEST_WORK/manifest.json"
+    got=0
+    output="$(python3 "$SELF_TEST_WORK/rules.py" "$SELF_TEST_WORK/manifest.json" 2>&1)" || got=$?
+    judge "a manifest that is not there" 1 "the manifest cannot be read" "$got" "$output"
     if [ "$failures" -gt 0 ]; then
         echo "check-manifest: self-test: $failures of $total checks failed" >&2
         exit 1
     fi
-    echo "check-manifest: self-test: $total checks of the reader of Package.resolved, all ok."
+    echo "check-manifest: self-test: $total checks of the readers of the manifest and of Package.resolved, all ok."
     exit 0
 }
 
