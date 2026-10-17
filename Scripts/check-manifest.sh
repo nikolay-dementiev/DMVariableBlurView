@@ -81,7 +81,7 @@ extract_block() {  # <marker> <output file>
 # Runs the readers of step 1 (the manifest) and of step 2 (Package.resolved) on built-in texts, and exits.
 SELF_TEST_WORK=""
 self_test() {
-    local total=0 failures=0 dm plain got output fence app app_two podspec_text changelog_text
+    local total=0 failures=0 dm plain got output fence app app_two podspec_text changelog_text clean with_dependency with_plugin
     if ! command -v python3 > /dev/null; then
         echo "check-manifest: self-test: python3 is not installed" >&2
         exit 2
@@ -121,9 +121,23 @@ self_test() {
     }
     manifest_case() {  # <name> <expected status> <expected text> <text of the manifest>
         local got=0 output
-        printf '%s\n' "$4" > "$SELF_TEST_WORK/manifest.json"
-        output="$(python3 "$SELF_TEST_WORK/rules.py" "$SELF_TEST_WORK/manifest.json" 2>&1)" || got=$?
+        printf '%s\n' "$4" > "$SELF_TEST_WORK/Package.swift.json"
+        output="$(python3 "$SELF_TEST_WORK/rules.py" "$SELF_TEST_WORK/Package.swift.json" 2>&1)" || got=$?
         judge "$1" "$2" "$3" "$got" "$output"
+    }
+    # The reader is handed the dump of every manifest file of the package, and names a problem after
+    # the file whose dump it came from, which is the name of the dump without .json.
+    manifests_case() {  # <name> <expected status> <expected text> <manifest file>=<text of its dump>...
+        local got=0 output name="$1" status="$2" text="$3" spec dumps=()
+        shift 3
+        rm -rf "$SELF_TEST_WORK/manifests"
+        mkdir -p "$SELF_TEST_WORK/manifests"
+        for spec in "$@"; do
+            printf '%s\n' "${spec#*=}" > "$SELF_TEST_WORK/manifests/${spec%%=*}.json"
+            dumps+=("$SELF_TEST_WORK/manifests/${spec%%=*}.json")
+        done
+        output="$(python3 "$SELF_TEST_WORK/rules.py" "${dumps[@]}" 2>&1)" || got=$?
+        judge "$name" "$status" "$text" "$got" "$output"
     }
     check() {  # <name> <expected status> <expected text> <text of Package.resolved>
         printf '%s\n' "$4" > "$SELF_TEST_WORK/Package.resolved"
@@ -175,10 +189,28 @@ self_test() {
     manifest_case "a kind of dependency without an entry" 1 "the manifest cannot be read" '{"dependencies":[{"sourceControl":[]}],"targets":[]}'
     manifest_case "a requirement that is not an object" 1 "the manifest cannot be read" '{"dependencies":[{"sourceControl":[{"identity":"x","requirement":"main"}]}],"targets":[]}'
     manifest_case "not JSON" 1 "the manifest cannot be read" 'not json'
-    rm -f "$SELF_TEST_WORK/manifest.json"
+    rm -f "$SELF_TEST_WORK/Package.swift.json"
     got=0
-    output="$(python3 "$SELF_TEST_WORK/rules.py" "$SELF_TEST_WORK/manifest.json" 2>&1)" || got=$?
+    output="$(python3 "$SELF_TEST_WORK/rules.py" "$SELF_TEST_WORK/Package.swift.json" 2>&1)" || got=$?
     judge "a manifest that is not there" 1 "the manifest cannot be read" "$got" "$output"
+    got=0
+    output="$(python3 "$SELF_TEST_WORK/rules.py" 2>&1)" || got=$?
+    judge "no manifest at all" 1 "no manifest was handed to the reader" "$got" "$output"
+    # One dump per manifest file: SwiftPM reads Package@swift-6.0.swift, not Package.swift, when the tools
+    # are newer than the tools version of Package.swift, so a consumer's tools may read what this machine's
+    # tools do not.
+    clean='{"dependencies":[],"targets":[{"name":"Library","type":"regular"}]}'
+    with_dependency="{\"dependencies\":[{\"sourceControl\":[$plain]}],\"targets\":[]}"
+    with_plugin='{"dependencies":[],"targets":[{"name":"Lint","type":"plugin"}]}'
+    manifests_case "two manifests without a problem" 0 "" "Package.swift=$clean" "Package@swift-6.0.swift=$clean"
+    manifests_case "a dependency of the second manifest is named after its file" 1 \
+        "Package@swift-6.0.swift: dependency 'swift-log' is declared" "Package.swift=$clean" "Package@swift-6.0.swift=$with_dependency"
+    manifests_case "a dependency of the first manifest is named after its file" 1 \
+        "Package.swift: dependency 'swift-log' is declared" "Package.swift=$with_dependency" "Package@swift-6.0.swift=$clean"
+    manifests_case "the problems of two manifests are named together" 1 \
+        "Package@swift-6.3.swift: target 'Lint' is a plugin" "Package.swift=$with_dependency" "Package@swift-6.3.swift=$with_plugin"
+    manifests_case "a dump that is not JSON is named after its file" 1 \
+        "Package@swift-6.0.swift: the manifest cannot be read" "Package.swift=$clean" "Package@swift-6.0.swift=not json"
     # The README as step 2 reads it: one package manifest in a swift fence.
     fence='```'
     swift_block() {  # <text of the block>
