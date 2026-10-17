@@ -73,7 +73,7 @@ extract_block() {  # <marker> <output file>
 # Runs the readers of step 1 (the manifest) and of step 2 (Package.resolved) on built-in texts, and exits.
 SELF_TEST_WORK=""
 self_test() {
-    local total=0 failures=0 dm plain got output fence app app_two
+    local total=0 failures=0 dm plain got output fence app app_two podspec_text changelog_text
     if ! command -v python3 > /dev/null; then
         echo "check-manifest: self-test: python3 is not installed" >&2
         exit 2
@@ -101,11 +101,14 @@ self_test() {
         output="$(python3 "$SELF_TEST_WORK/inventory.py" "$SELF_TEST_WORK/Package.resolved" "$MODULE" 2>&1)" || got=$?
         judge "$1" "$2" "$3" "$got" "$output"
     }
-    readme_case() {  # <name> <expected status> <expected text> <text of README.md>
+    readme_case() {  # <name> <expected status> <expected text> <text of README.md> [<text of the podspec> [<text of CHANGELOG.md>]]
         local got=0 output
         mkdir -p "$SELF_TEST_WORK/probe/consumer"
         printf '%s\n' "$4" > "$SELF_TEST_WORK/README.md"
-        output="$(python3 "$SELF_TEST_WORK/readme.py" "$SELF_TEST_WORK/README.md" "$SELF_TEST_WORK/probe" 2>&1)" || got=$?
+        printf '%s\n' "${5-$podspec_text}" > "$SELF_TEST_WORK/Package.podspec"
+        printf '%s\n' "${6-$changelog_text}" > "$SELF_TEST_WORK/CHANGELOG.md"
+        output="$(python3 "$SELF_TEST_WORK/readme.py" "$SELF_TEST_WORK/README.md" "$SELF_TEST_WORK/probe" \
+            "$SELF_TEST_WORK/Package.podspec" "$SELF_TEST_WORK/CHANGELOG.md" 2>&1)" || got=$?
         judge "$1" "$2" "$3" "$got" "$output"
     }
     manifest_case() {  # <name> <expected status> <expected text> <text of the manifest>
@@ -172,6 +175,16 @@ let package = Package(
     ],
     targets: [.target(name: "App", dependencies: [.product(name: "Foo", package: "Foo")])]
 )'
+    # The podspec and the changelog as the README is compared with them: the source of the pod,
+    # and the release headings, newest first, an unreleased section on top of them.
+    podspec_text="  s.source = { :git => 'https://github.com/x/Foo.git', :tag => s.version.to_s }"
+    changelog_text='# Changelog
+
+## [Unreleased]
+
+## [1.2.3] - 2026-10-03
+
+## [1.0.0] - 2025-10-11'
     readme_case "one manifest: the version and the copy" 0 "1.2.3 Foo" "$(swift_block "$app")"
     got=0
     grep -q -F "url: \"file://$SELF_TEST_WORK/probe/Foo\"" "$SELF_TEST_WORK/probe/consumer/Package.swift" || got=$?
@@ -179,7 +192,44 @@ let package = Package(
     got=0
     grep -q -F "github.com" "$SELF_TEST_WORK/probe/consumer/Package.swift" || got=$?
     judge "the consumer keeps nothing of the real URL" 1 "" "$got" ""
-    readme_case "a URL with a trailing slash and no .git" 0 "1.2.3 Foo" "$(swift_block "${app//Foo.git/Foo/}")"
+    readme_case "a URL with a trailing slash and no .git" 0 "1.2.3 Foo" "$(swift_block "${app//Foo.git/Foo/}")" \
+        "${podspec_text//Foo.git/Foo/}"
+    readme_case "a URL of another repository than the podspec's" 1 \
+        "README.md installs from https://github.com/x/Foo.git, the podspec's source is https://github.com/y/Foo.git" \
+        "$(swift_block "$app")" "${podspec_text//x\/Foo/y/Foo}"
+    readme_case "a URL that differs from the podspec's by .git only" 1 \
+        "README.md installs from https://github.com/x/Foo, the podspec's source is https://github.com/x/Foo.git" \
+        "$(swift_block "${app//Foo.git/Foo}")"
+    readme_case "a podspec with no :git source" 1 "the podspec has no source of the form :git => '<url>'" \
+        "$(swift_block "$app")" "  s.source = { :http => 'https://example.com/Foo.zip' }"
+    readme_case "a version older than the newest release" 1 \
+        "README.md asks for version 1.2.3, the newest release heading of CHANGELOG.md is 1.3.0" \
+        "$(swift_block "$app")" "$podspec_text" "## [1.3.0] - 2026-11-01
+
+$changelog_text"
+    readme_case "a version newer than the newest release" 1 \
+        "README.md asks for version 1.2.3, the newest release heading of CHANGELOG.md is 1.0.0" \
+        "$(swift_block "$app")" "$podspec_text" "## [1.0.0] - 2025-10-11"
+    readme_case "a section with a version and no date is passed over" 0 "1.2.3 Foo" "$(swift_block "$app")" \
+        "$podspec_text" "## [1.3.0]
+
+$changelog_text"
+    readme_case "a changelog with no dated release" 1 \
+        "CHANGELOG.md has no release heading of the form '## [x.y.z] - YYYY-MM-DD'" \
+        "$(swift_block "$app")" "$podspec_text" "## [Unreleased]
+
+## [1.2.3]"
+    readme_case "the URL and the version are both named" 1 \
+        "README.md asks for version 1.2.3, the newest release heading of CHANGELOG.md is 1.3.0" \
+        "$(swift_block "$app")" "${podspec_text//x\/Foo/y/Foo}" "## [1.3.0] - 2026-11-01"
+    got=0
+    output="$(python3 "$SELF_TEST_WORK/readme.py" "$SELF_TEST_WORK/README.md" "$SELF_TEST_WORK/probe" \
+        "$SELF_TEST_WORK/no-such.podspec" "$SELF_TEST_WORK/CHANGELOG.md" 2>&1)" || got=$?
+    judge "a podspec that is not there" 1 "no-such.podspec cannot be read" "$got" "$output"
+    got=0
+    output="$(python3 "$SELF_TEST_WORK/readme.py" "$SELF_TEST_WORK/README.md" "$SELF_TEST_WORK/probe" \
+        "$SELF_TEST_WORK/Package.podspec" "$SELF_TEST_WORK/no-such.md" 2>&1)" || got=$?
+    judge "a changelog that is not there" 1 "no-such.md cannot be read" "$got" "$output"
     readme_case "no package manifest" 1 "has 0 package manifests" "$(swift_block 'let answer = 42')"
     readme_case "two package manifests" 1 "has 2 package manifests" "$(swift_block "$app")
 $(swift_block "$app")"
