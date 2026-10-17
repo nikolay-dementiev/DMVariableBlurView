@@ -324,9 +324,11 @@ else
     mkdir -p "$PROBE/$COPY"
     # Without -l, rsync skips a symbolic link and says so only in a warning: the counts below
     # would show it.
-    (cd "$ROOT" && git ls-files -z -- Package.swift Sources | xargs -0 -I{} rsync -Rl {} "$PROBE/$COPY/")
+    # A manifest for one version of the tools, Package@swift-6.3.swift, is part of the package:
+    # SwiftPM reads it in place of Package.swift when it is the newest one the tools can use.
+    (cd "$ROOT" && git ls-files -z -- 'Package*.swift' Sources | xargs -0 -I{} rsync -Rl {} "$PROBE/$COPY/")
     COPIED="$(cd "$PROBE/$COPY" && find . \( -type f -o -type l \) | wc -l | tr -d ' ')"
-    TRACKED="$(git -C "$ROOT" ls-files -- Package.swift Sources | wc -l | tr -d ' ')"
+    TRACKED="$(git -C "$ROOT" ls-files -- 'Package*.swift' Sources | wc -l | tr -d ' ')"
     if [ "$COPIED" -eq "$TRACKED" ]; then
         # SwiftPM resolves the copy as soon as it reads the consumer's manifest.
         probe_git init -q
