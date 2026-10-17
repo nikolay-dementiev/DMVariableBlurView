@@ -294,6 +294,7 @@ probe_git() {
 }
 # Writes the consumer's manifest, and prints the version the README asks for and the name of the copy.
 if ! ANSWER="$(python3 - "$ROOT/README.md" "$PROBE" <<'PY'
+# readme-consumer
 import re
 import sys
 
