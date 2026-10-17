@@ -190,31 +190,96 @@ else
     echo "check-manifest: no dependency and no plugin in Package.swift."
 fi
 
-# 2. Resolution by version, against a throw-away copy of the working tree with a tag.
-#    The probe repository must not depend on the git configuration of the machine: a
-#    signing requirement or a hook of the user would stop the commit.
+# 2. The installation manifest of README.md, built by version against a throw-away tagged copy of
+#    the tracked files. The copy is named after the last component of the README's URL, as SwiftPM
+#    names the package it fetches from there, so the package name the README uses must match it.
+#    A consumer that depends on the checkout by path cannot show a failure of a version
+#    requirement, and only a build shows a wrong product or package name. The package is UIKit
+#    and SwiftUI, so the consumer is built for the iOS simulator with the SDK of the machine, and
+#    the iOS version of the triple is the package's own floor: a README that declares a lower
+#    platform fails the build. The cache lies in the folder of the probe, so that manifests and
+#    repositories cached on the machine of whoever runs this cannot stand in for what the build
+#    resolves.
 PROBE="$(mktemp -d "$WORK/version-probe.XXXXXX")"
-mkdir -p "$PROBE/package" "$PROBE/consumer/Sources/Probe"
-(cd "$ROOT" && git ls-files -z -- Package.swift Sources | xargs -0 -I{} rsync -R {} "$PROBE/package/")
-git -C "$PROBE/package" init -q
-git -C "$PROBE/package" add -A
-git -C "$PROBE/package" -c user.name=probe -c user.email=probe@example.invalid \
-    -c commit.gpgsign=false -c core.hooksPath=/dev/null commit -q -m probe
-git -C "$PROBE/package" -c tag.gpgsign=false tag 99.0.0
-cat > "$PROBE/consumer/Package.swift" <<EOF
-// swift-tools-version: 6.0
-import PackageDescription
-let package = Package(
-    name: "Probe",
-    platforms: [.iOS(.v17)],
-    dependencies: [.package(url: "file://$PROBE/package", from: "99.0.0")],
-    targets: [.target(name: "Probe", dependencies: [.product(name: "DMVariableBlurView", package: "package")])]
-)
-EOF
-echo "import DMVariableBlurView" > "$PROBE/consumer/Sources/Probe/Probe.swift"
-if swift package --package-path "$PROBE/consumer" resolve > "$WORK/version-resolution.log" 2>&1; then
-    # What the consumer resolved, as SwiftPM pinned it: the tagged copy and nothing else.
-    if EXTRA="$(python3 - "$PROBE/consumer/Package.resolved" package <<'PY'
+mkdir -p "$PROBE/consumer"
+# The probe repository takes nothing from the git configuration of whoever runs this: no signing,
+# no hooks, no identity.
+probe_git() {
+    git -C "$PROBE/$COPY" \
+        -c user.name=probe -c user.email=probe@example.invalid \
+        -c commit.gpgsign=false -c tag.gpgSign=false -c core.hooksPath=/dev/null \
+        "$@"
+}
+# Writes the consumer's manifest, and prints the version the README asks for and the name of the copy.
+if ! ANSWER="$(python3 - "$ROOT/README.md" "$PROBE" <<'PY'
+import re
+import sys
+
+readme, probe = sys.argv[1:3]
+blocks = re.findall(r"^```swift\n(.*?)^```$", open(readme, encoding="utf-8").read(), re.S | re.M)
+manifests = [block for block in blocks if "Package(" in block]
+if len(manifests) != 1:
+    sys.exit(f"check-manifest: README.md has {len(manifests)} package manifests; it must have one")
+requirements = re.findall(r'\.package\(url: "([^"]+)", from: "([^"]+)"\)', manifests[0])
+if len(requirements) != 1:
+    sys.exit("check-manifest: the manifest of README.md does not ask for the package with url: and from:")
+url, version = requirements[0]
+# SwiftPM names a package it fetches after the last component of its URL.
+copy = re.sub(r"\.git$", "", url.rstrip("/").split("/")[-1])
+with open(f"{probe}/consumer/Package.swift", "w", encoding="utf-8") as consumer:
+    consumer.write(manifests[0].replace(f'url: "{url}"', f'url: "file://{probe}/{copy}"'))
+print(version, copy)
+PY
+)"; then
+    FAILED=1
+else
+    read -r VERSION COPY <<< "$ANSWER"
+    mkdir -p "$PROBE/$COPY"
+    # Without -l, rsync skips a symbolic link and says so only in a warning: the counts below
+    # would show it.
+    (cd "$ROOT" && git ls-files -z -- Package.swift Sources | xargs -0 -I{} rsync -Rl {} "$PROBE/$COPY/")
+    COPIED="$(cd "$PROBE/$COPY" && find . \( -type f -o -type l \) | wc -l | tr -d ' ')"
+    TRACKED="$(git -C "$ROOT" ls-files -- Package.swift Sources | wc -l | tr -d ' ')"
+    if [ "$COPIED" -eq "$TRACKED" ]; then
+        # SwiftPM resolves the copy as soon as it reads the consumer's manifest.
+        probe_git init -q
+        probe_git add -A
+        probe_git commit -q -m probe
+        probe_git tag "$VERSION"
+    fi
+    if [ "$COPIED" -ne "$TRACKED" ]; then
+        echo "check-manifest: the tagged copy holds $COPIED of the $TRACKED tracked files of the package" >&2
+        FAILED=1
+    elif ! IOS_FLOOR="$(python3 -c 'import json, sys; print(next(p["version"] for p in json.load(open(sys.argv[1]))["platforms"] if p["platformName"] == "ios"))' \
+            "$WORK/manifest.json" 2> /dev/null)"; then
+        echo "check-manifest: Package.swift declares no iOS platform, so the consumer cannot be built for the simulator" >&2
+        FAILED=1
+    elif ! SIMULATOR_SDK="$(xcrun --sdk iphonesimulator --show-sdk-path)"; then
+        echo "check-manifest: the SDK of the iOS simulator cannot be found" >&2
+        FAILED=1
+    elif ! swift package --package-path "$PROBE/consumer" dump-package \
+            > "$WORK/readme-manifest.json" 2> "$WORK/readme-manifest.log"; then
+        echo "check-manifest: the manifest of README.md does not evaluate:" >&2
+        sed 's/^/  /' "$WORK/readme-manifest.log" | head -10 >&2
+        FAILED=1
+    elif ! TARGETS="$(python3 -c 'import json, sys; print("\n".join(t["name"] for t in json.load(sys.stdin)["targets"]))' \
+            < "$WORK/readme-manifest.json")"; then
+        echo "check-manifest: the targets of the README's manifest cannot be read" >&2
+        FAILED=1
+    elif [ -z "$TARGETS" ]; then
+        echo "check-manifest: the manifest of README.md has no target to build" >&2
+        FAILED=1
+    else
+        # Every target of the consumer gets a source file that imports the module.
+        while IFS= read -r TARGET; do
+            mkdir -p "$PROBE/consumer/Sources/$TARGET"
+            echo "import $MODULE" > "$PROBE/consumer/Sources/$TARGET/$TARGET.swift"
+        done <<< "$TARGETS"
+        if swift build --package-path "$PROBE/consumer" --cache-path "$PROBE/cache" \
+                --sdk "$SIMULATOR_SDK" --triple "arm64-apple-ios${IOS_FLOOR}-simulator" \
+                > "$WORK/version-build.log" 2>&1; then
+            # What the build resolved, as SwiftPM pinned it: the tagged copy and nothing else.
+            if EXTRA="$(python3 - "$PROBE/consumer/Package.resolved" "$COPY" <<'PY'
 # resolved-inventory
 import json
 import sys
@@ -247,16 +312,23 @@ print("\n".join(problems))
 sys.exit(1 if problems else 0)
 PY
 )"; then
-        echo "check-manifest: a version requirement on the package resolves, and the consumer resolves this package only."
-    else
-        echo "check-manifest: the consumer of the package does not resolve this package only:" >&2
-        printf '%s\n' "$EXTRA" >&2
-        FAILED=1
+                echo "check-manifest: the manifest of README.md asks for version $VERSION, resolves and builds by version for the iOS $IOS_FLOOR simulator, and the consumer resolves this package only."
+            else
+                echo "check-manifest: the consumer of README.md's manifest does not resolve this package only:" >&2
+                printf '%s\n' "$EXTRA" >&2
+                FAILED=1
+            fi
+        else
+            echo "check-manifest: the manifest of README.md does not resolve or build by version:" >&2
+            ERRORS="$(grep -E "error:|cannot be used|unstable|unsafe" "$WORK/version-build.log" | cut -c1-300 | head -5 || true)"
+            if [ -n "$ERRORS" ]; then
+                printf '%s\n' "$ERRORS" >&2
+            else
+                tail -15 "$WORK/version-build.log" | sed 's/^/  /' >&2
+            fi
+            FAILED=1
+        fi
     fi
-else
-    echo "check-manifest: a version requirement on the package does not resolve:" >&2
-    grep -E "error:|cannot be used|unstable" "$WORK/version-resolution.log" | head -5 >&2 || true
-    FAILED=1
 fi
 
 # 3. The consumer fixture. xcodebuild finds a package only in the current directory.
