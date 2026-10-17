@@ -242,6 +242,8 @@ try:
     dependencies = manifest["dependencies"]
     targets = manifest["targets"]
     entries = [entry for dependency in dependencies for group in dependency.values() for entry in group]
+    if not all(any(dependency.values()) for dependency in dependencies):
+        raise TypeError("a dependency has no entry")
     if not all(isinstance(entry, dict) and isinstance(entry.get("requirement", {}), dict) for entry in entries):
         raise TypeError("a dependency is not described by an object")
     usages = [(target["name"], usage) for target in targets for usage in target.get("pluginUsages") or []]
