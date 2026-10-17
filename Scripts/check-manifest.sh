@@ -149,24 +149,37 @@ mkdir -p "$WORK"
 # 1. Static check of the manifest.
 swift package --package-path "$ROOT" dump-package > "$WORK/manifest.json"
 if ! python3 - "$WORK/manifest.json" <<'PY'
+# manifest-rules
 import json
 import sys
 
-manifest = json.load(open(sys.argv[1]))
+try:
+    with open(sys.argv[1], encoding="utf-8") as handle:
+        manifest = json.load(handle)
+    dependencies = manifest["dependencies"]
+    targets = manifest["targets"]
+    entries = [entry for dependency in dependencies for group in dependency.values() for entry in group]
+    if not all(isinstance(entry, dict) and isinstance(entry.get("requirement", {}), dict) for entry in entries):
+        raise TypeError("a dependency is not described by an object")
+    usages = [(target["name"], usage) for target in targets for usage in target.get("pluginUsages") or []]
+except (OSError, ValueError, KeyError, TypeError, AttributeError) as error:
+    print(f"check-manifest: the manifest cannot be read: {error!r}", file=sys.stderr)
+    sys.exit(1)
 problems = []
-for dependency in manifest.get("dependencies", []):
-    for kind, entries in dependency.items():
-        for entry in entries:
-            requirement = entry.get("requirement", {})
-            for unstable in ("branch", "revision"):
-                if unstable in requirement:
-                    problems.append(
-                        f"dependency '{entry.get('identity')}' is required by {unstable} "
-                        f"{requirement[unstable]}"
-                    )
-for target in manifest.get("targets", []):
-    for usage in target.get("pluginUsages") or []:
-        problems.append(f"target '{target['name']}' uses a plugin: {json.dumps(usage)}")
+for entry in entries:
+    problems.append(
+        f"dependency '{entry.get('identity')}' is declared: a dependency needs the maintainer's "
+        "approval and a change of this check in the same pull request"
+    )
+    requirement = entry.get("requirement", {})
+    for unstable in ("branch", "revision"):
+        if unstable in requirement:
+            problems.append(
+                f"dependency '{entry.get('identity')}' is required by {unstable} "
+                f"{requirement[unstable]}"
+            )
+for name, usage in usages:
+    problems.append(f"target '{name}' uses a plugin: {json.dumps(usage)}")
 for problem in problems:
     print(f"check-manifest: {problem}", file=sys.stderr)
 sys.exit(1 if problems else 0)
@@ -174,7 +187,7 @@ PY
 then
     FAILED=1
 else
-    echo "check-manifest: no unstable requirement and no plugin in Package.swift."
+    echo "check-manifest: no dependency and no plugin in Package.swift."
 fi
 
 # 2. Resolution by version, against a throw-away copy of the working tree with a tag.
