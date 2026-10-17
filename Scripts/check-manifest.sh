@@ -110,6 +110,7 @@ self_test() {
     check "the copy alone, format 3" 0 "" "{\"version\":3,\"pins\":[$dm]}"
     check "the copy alone, format 2" 0 "" "{\"version\":2,\"pins\":[$dm]}"
     check "an extra pin is named" 1 "second (localSourceControl, 1.0.0, /x/second)" "{\"version\":3,\"pins\":[$(pin second 1.0.0),$dm]}"
+    check "an extra pin after the copy is named" 1 "second (localSourceControl, 1.0.0, /x/second)" "{\"version\":3,\"pins\":[$dm,$(pin second 1.0.0)]}"
     check "another pin only" 1 "dmvariableblurview, the tagged copy, is not among the resolved packages" "{\"version\":3,\"pins\":[$(pin second 1.0.0)]}"
     check "no pin at all" 1 "is not among the resolved packages" '{"version":3,"pins":[]}'
     check "format 1" 1 "not of format version 2 or 3" '{"object":{"pins":[{"package":"DMVariableBlurView"}]},"version":1}'
@@ -128,7 +129,12 @@ self_test() {
     manifest_case "a dependency by path is named" 1 "dependency 'local' is declared" '{"dependencies":[{"fileSystem":[{"identity":"local","path":"/x"}]}],"targets":[]}'
     manifest_case "a dependency by branch is named for its requirement" 1 "dependency 'swift-log' is required by branch" '{"dependencies":[{"sourceControl":[{"identity":"swift-log","requirement":{"branch":["main"]}}]}],"targets":[]}'
     manifest_case "a dependency by revision is named for its requirement" 1 "dependency 'swift-log' is required by revision" '{"dependencies":[{"sourceControl":[{"identity":"swift-log","requirement":{"revision":["abc"]}}]}],"targets":[]}'
+    manifest_case "a dependency from a registry is named" 1 "dependency 'scope.name' is declared" '{"dependencies":[{"registry":[{"identity":"scope.name","requirement":{"range":[{"lowerBound":"1.0.0","upperBound":"2.0.0"}]}}]}],"targets":[]}'
+    manifest_case "the second dependency is named" 1 "dependency 'local' is declared" "{\"dependencies\":[{\"sourceControl\":[$plain]},{\"fileSystem\":[{\"identity\":\"local\",\"path\":\"/x\"}]}],\"targets\":[]}"
+    manifest_case "the second dependency of a kind is named" 1 "dependency 'swift-metrics' is declared" "{\"dependencies\":[{\"sourceControl\":[$plain,{\"identity\":\"swift-metrics\",\"requirement\":{\"exact\":[\"1.0.0\"]}}]}],\"targets\":[]}"
     manifest_case "a plugin on a target" 1 "target 'Library' uses a plugin" '{"dependencies":[],"targets":[{"name":"Library","pluginUsages":[{"plugin":["Lint",null]}]}]}'
+    manifest_case "a plugin on the second target" 1 "target 'Second' uses a plugin" '{"dependencies":[],"targets":[{"name":"First","pluginUsages":null},{"name":"Second","pluginUsages":[{"plugin":["Lint",null]}]}]}'
+    manifest_case "the second plugin of a target is named" 1 '"Format"' '{"dependencies":[],"targets":[{"name":"Library","pluginUsages":[{"plugin":["Lint",null]},{"plugin":["Format",null]}]}]}'
     manifest_case "no list of dependencies" 1 "the manifest cannot be read" '{"targets":[]}'
     manifest_case "no list of targets" 1 "the manifest cannot be read" '{"dependencies":[]}'
     manifest_case "an entry that is not an object" 1 "the manifest cannot be read" '{"dependencies":[{"sourceControl":["text"]}],"targets":[]}'
