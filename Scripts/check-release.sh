@@ -22,6 +22,11 @@
 # first: the baseline is the interface of the library only while that check passes. The heading of
 # the subsection is matched in any letter case.
 #
+# Where Scripts/check-api-digester.sh exists, a release that keeps its major version is also
+# compared with the previous one by swift-api-digester, which classifies what lines cannot, such as
+# a protocol requirement added without a default: a break it reports needs a new major version too.
+# In a repository without that script this does nothing.
+#
 # Exit codes: 0 ready, 1 not ready, 2 wrong usage or the comparison could not run.
 
 set -euo pipefail
@@ -331,6 +336,15 @@ fi
 
 PROBLEMS=()
 
+# The problems found so far, as the final report prints them. A script that has to stop before the
+# end prints them first, so that the reason it stops is not the only thing the releaser learns.
+report_problems() {
+    if [ "${#PROBLEMS[@]}" -gt 0 ]; then
+        echo "check-release: $VERSION is not ready to release:" >&2
+        printf '  - %s\n' "${PROBLEMS[@]}" >&2
+    fi
+}
+
 if [ -z "$(notes)" ]; then
     PROBLEMS+=("CHANGELOG.md has no notes under a heading for $VERSION")
 fi
@@ -338,6 +352,14 @@ fi
 PODSPEC_VERSION="$(sed -n "s/^ *s\.version *= *'\([^']*\)'.*/\1/p" "$PODSPEC")"
 if [ "$PODSPEC_VERSION" != "$FROZEN_POD_VERSION" ]; then
     PROBLEMS+=("the podspec names version '$PODSPEC_VERSION'; the pod is frozen at $FROZEN_POD_VERSION")
+fi
+
+# Whether a day exists is asked of python3, and a machine without it must say so: a missing
+# interpreter is not a bad date.
+if ! python3 -c 'import datetime' > /dev/null 2>&1; then
+    report_problems
+    echo "check-release: python3 is needed to read the release date, and it does not run on this machine" >&2
+    exit 2
 fi
 
 # A release date is four digits, a dash, two digits, a dash and two digits, such as 2026-10-03.
@@ -360,8 +382,14 @@ if [ -n "$HEADING_VERSION" ]; then
         PROBLEMS+=("the newest changelog heading is for $HEADING_VERSION, not $VERSION")
     elif ! valid_date_form "$HEADING_DATE"; then
         PROBLEMS+=("the changelog heading of $VERSION has '$HEADING_DATE' where the release date belongs")
-    elif ! python3 -c 'import datetime, sys; datetime.date.fromisoformat(sys.argv[1])' "$HEADING_DATE" 2> /dev/null; then
-        PROBLEMS+=("the changelog heading of $VERSION has '$HEADING_DATE', which is not a day of the calendar")
+    elif ! DATE_CHECK="$(python3 -c 'import datetime, sys; datetime.date.fromisoformat(sys.argv[1])' "$HEADING_DATE" 2>&1)"; then
+        if [[ "$DATE_CHECK" == *ValueError* ]]; then
+            PROBLEMS+=("the changelog heading of $VERSION has '$HEADING_DATE', which is not a day of the calendar")
+        else
+            report_problems
+            echo "check-release: python3 could not check the release date: $DATE_CHECK" >&2
+            exit 2
+        fi
     fi
 else
     PROBLEMS+=("CHANGELOG.md has no heading of the form '## [version] - date'")
@@ -421,14 +449,33 @@ if [ "$HEADING_VERSION" = "$VERSION" ]; then
                         COULD_NOT_COMPARE=1
                         ;;
                 esac
+                if [ -x "$ROOT/Scripts/check-api-digester.sh" ]; then
+                    if [ "$DELTA_STATUS" -eq 4 ]; then
+                        echo "check-release: the digester was not run against $PREVIOUS: that release holds no baseline."
+                    elif [ "$RAISES_MAJOR" -eq 0 ] && [ "$COULD_NOT_COMPARE" -eq 0 ]; then
+                        DIGEST_STATUS=0
+                        DIGEST="$("$ROOT/Scripts/check-api-digester.sh" "$PREVIOUS" 2>&1)" || DIGEST_STATUS=$?
+                        case "$DIGEST_STATUS" in
+                            0)
+                                echo "check-release: the digester finds no break since $PREVIOUS."
+                                ;;
+                            1)
+                                PROBLEMS+=("the digester reports a break since $PREVIOUS (Scripts/check-api-digester.sh $PREVIOUS lists it): that needs a new major version, and $VERSION does not raise the major version of $PREVIOUS")
+                                ;;
+                            *)
+                                PROBLEMS+=("the digester could not compare with $PREVIOUS: $(printf '%s\n' "$DIGEST" | sed -n '1,2p' | tr '\n' ' ')")
+                                COULD_NOT_COMPARE=1
+                                ;;
+                        esac
+                    fi
+                fi
             fi
         fi
     fi
 fi
 
 if [ "${#PROBLEMS[@]}" -gt 0 ]; then
-    echo "check-release: $VERSION is not ready to release:" >&2
-    printf '  - %s\n' "${PROBLEMS[@]}" >&2
+    report_problems
     if [ "$COULD_NOT_COMPARE" -eq 1 ]; then
         exit 2
     fi
