@@ -478,13 +478,16 @@ if [ -n "$HEADING_VERSION" ]; then
     elif ! valid_date_form "$HEADING_DATE"; then
         PROBLEMS+=("the changelog heading of $VERSION has '$HEADING_DATE' where the release date belongs")
     elif ! DATE_CHECK="$(python3 -c 'import datetime, sys; datetime.date.fromisoformat(sys.argv[1])' "$HEADING_DATE" 2>&1)"; then
-        if [[ "$DATE_CHECK" == *ValueError* ]]; then
-            PROBLEMS+=("the changelog heading of $VERSION has '$HEADING_DATE', which is not a day of the calendar")
-        else
-            report_problems
-            echo "check-release: python3 could not check the release date: $DATE_CHECK" >&2
-            exit 2
-        fi
+        case "$DATE_CHECK" in
+            *ValueError*)
+                PROBLEMS+=("the changelog heading of $VERSION has '$HEADING_DATE', which is not a day of the calendar")
+                ;;
+            *)
+                report_problems
+                echo "check-release: python3 could not check the release date: $DATE_CHECK" >&2
+                exit 2
+                ;;
+        esac
     fi
 else
     PROBLEMS+=("CHANGELOG.md has no heading of the form '## [version] - date'")
