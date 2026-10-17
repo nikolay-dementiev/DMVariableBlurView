@@ -55,6 +55,7 @@ FROZEN_POD_VERSION="1.1.0"
 SELF_TEST_WORK=""
 self_test() {
     local total=0 failures=0 number=0 variable absent_note tool tool_path no_python broken_python
+    local real_git no_merge_base old_git
     local git_local=()
     if ! command -v python3 > /dev/null 2>&1 || ! python3 -c 'import datetime' > /dev/null 2>&1; then
         echo "check-release: self-test: python3 is needed, and it does not run on this machine" >&2
@@ -87,6 +88,19 @@ echo "python3: cannot run this program" >&2
 exit 1
 SHIM
     chmod +x "$broken_python/python3"
+    # Two gits that answer wrongly where the script asks them something: one cannot tell whether a
+    # commit is an ancestor (status 128), the other is older than the flag that tells a shallow clone
+    # (git before 2.15 prints the flag back and succeeds).
+    real_git="$(command -v git)"
+    no_merge_base="$SELF_TEST_WORK/git-without-merge-base"
+    old_git="$SELF_TEST_WORK/git-before-2-15"
+    mkdir -p "$no_merge_base" "$old_git"
+    # The single quotes write the shims as they are; their $@ and $argument are for the shim.
+    # shellcheck disable=SC2016
+    printf '#!/bin/sh\nfor argument in "$@"; do\n    if [ "$argument" = merge-base ]; then\n        echo "fatal: merge-base is out of order" >&2\n        exit 128\n    fi\ndone\nexec "%s" "$@"\n' "$real_git" > "$no_merge_base/git"
+    # shellcheck disable=SC2016
+    printf '#!/bin/sh\nfor argument in "$@"; do\n    if [ "$argument" = --is-shallow-repository ]; then\n        echo "--is-shallow-repository"\n        exit 0\n    fi\ndone\nexec "%s" "$@"\n' "$real_git" > "$old_git/git"
+    chmod +x "$no_merge_base/git" "$old_git/git"
     scratch_git() {  # <directory> <git arguments>
         local directory="$1"
         shift
@@ -109,7 +123,7 @@ SHIM
     reset_case() {
         S_VERSION="1.1.0" S_NEWEST="" S_PREVIOUS="1.0.0" S_DATE="2026-10-03" S_SUBSECTION=""
         S_PODSPEC="$FROZEN_POD_VERSION" S_OLD="keep" S_NEW="keep" S_TAG="main" S_TAG_BASELINE="yes"
-        S_API="real" S_STUB_STATUS="" S_STUB_TEXT="" S_NOTES="no" S_ABSENT="" S_PYTHON="real" S_DIGESTER="none" S_SHALLOW="no"
+        S_API="real" S_STUB_STATUS="" S_STUB_TEXT="" S_NOTES="no" S_ABSENT="" S_PYTHON="real" S_DIGESTER="none" S_SHALLOW="no" S_GIT="real"
     }
     apply() {  # <setting>=<value> ...
         local setting
@@ -133,6 +147,7 @@ SHIM
                 python=*) S_PYTHON="${setting#python=}" ;;
                 digester=*) S_DIGESTER="${setting#digester=}" ;;
                 shallow=*) S_SHALLOW="${setting#shallow=}" ;;
+                git=*) S_GIT="${setting#git=}" ;;
                 *)
                     echo "check-release: self-test: unknown setting '$setting'" >&2
                     exit 2
@@ -192,16 +207,20 @@ SHIM
         fi
         chmod +x "$directory/Scripts/check-release.sh" "$directory/Scripts/check-api.sh"
         if [ "$S_DIGESTER" != "none" ]; then
+            # shellcheck disable=SC2016
             case "$S_DIGESTER" in
                 ok) printf '#!/bin/bash\necho "no break"\nexit 0\n' ;;
                 break) printf '#!/bin/bash\necho "a break"\nexit 1\n' ;;
-                fail) printf '#!/bin/bash\necho "cannot run"\nexit 3\n' ;;
+                fail) printf '#!/bin/bash\necho "cannot run for $1"\nexit 3\n' ;;
+                noexec) printf '#!/bin/bash\necho "a break"\nexit 1\n' ;;
                 *)
                     echo "check-release: self-test: no digester named '$S_DIGESTER'" >&2
                     exit 2
                     ;;
             esac > "$directory/Scripts/check-api-digester.sh"
-            chmod +x "$directory/Scripts/check-api-digester.sh"
+            if [ "$S_DIGESTER" != "noexec" ]; then
+                chmod +x "$directory/Scripts/check-api-digester.sh"
+            fi
         fi
         # A clone that holds the last commit and the tag of the previous release, and nothing between.
         if [ "$S_SHALLOW" = "yes" ]; then
@@ -212,6 +231,10 @@ SHIM
         fi
     }
     judge() {  # <name> <expected status> <expected text> <status> <output> <text that must be absent>
+        if [ -z "$3" ]; then
+            echo "check-release: self-test: the case '$1' names no text to look for, and every output holds the empty text" >&2
+            exit 2
+        fi
         total=$((total + 1))
         if [ "$4" -eq "$2" ] && grep -q -F -- "$3" <<< "$5" && { [ -z "$6" ] || ! grep -q -F -- "$6" <<< "$5"; }; then
             echo "check-release: self-test ok   $1"
@@ -238,6 +261,15 @@ SHIM
             broken) run_path="$broken_python:$PATH" ;;
             *)
                 echo "check-release: self-test: no python named '$S_PYTHON'" >&2
+                exit 2
+                ;;
+        esac
+        case "$S_GIT" in
+            real) ;;
+            nomergebase) run_path="$no_merge_base:$run_path" ;;
+            oldgit) run_path="$old_git:$run_path" ;;
+            *)
+                echo "check-release: self-test: no git named '$S_GIT'" >&2
                 exit 2
                 ;;
         esac
@@ -285,12 +317,15 @@ SHIM
     run_case "the digester finds a break under the same major" 1 "the digester reports a break" digester=break
     run_case "the digester finds no break" 0 "the digester finds no break" digester=ok
     run_case "the digester is not asked under a new major" 0 "agrees on 2.0.0" version=2.0.0 digester=break absent=digester
-    run_case "the digester cannot compare" 2 "the digester could not compare" digester=fail
+    run_case "the digester cannot compare, and is told the previous release" 2 "cannot run for 1.0.0" digester=fail
+    run_case "a digester that is there and is not executable" 2 "is not executable" digester=noexec
     run_case "the digester is not asked after a comparison that could not run" 2 "could not be compared" api=stub status=5 text=boom digester=break absent=digester
     run_case "the digester is told that the previous release holds no baseline" 0 "the digester was not run against 1.0.0" tagbaseline=no digester=ok
     run_case "the previous release on a side branch is not an ancestor" 1 "is not an ancestor of the commit being released" tag=side
     run_case "the previous release on a side branch fails under a new major too" 1 "is not an ancestor of the commit being released" tag=side version=2.0.0
     run_case "a shallow clone cannot be checked" 2 "is shallow" shallow=yes
+    run_case "a git that cannot say whether the tag is an ancestor" 2 "it could not be checked whether the tag 1.0.0 is an ancestor" git=nomergebase
+    run_case "a git that does not know whether the clone is shallow" 2 "whether this clone is shallow" git=oldgit
 
     if [ "$total" -eq 0 ]; then
         echo "check-release: self-test: no case ran" >&2
