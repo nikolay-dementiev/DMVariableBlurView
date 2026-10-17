@@ -478,7 +478,7 @@ if [ "$HEADING_VERSION" = "$VERSION" ]; then
                         esac
                         ;;
                     3)
-                        echo "check-release: lines were added to the interface since $PREVIOUS. Review that none adds a protocol requirement or an overload that makes a call ambiguous: either needs a new major version."
+                        echo "check-release: lines were added to the interface since $PREVIOUS. Review each one: a new case of a public enum, a protocol requirement added without a default implementation and an overload that makes an existing call ambiguous are breaking and need a new major version; a requirement with a default implementation is additive only when its name is new to the protocol and to its extensions."
                         ;;
                     4)
                         echo "check-release: the interface was not compared with $PREVIOUS: that release holds no baseline."

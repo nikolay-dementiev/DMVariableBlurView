@@ -510,7 +510,7 @@ def main():
         print("Removed or changed (breaking: a new major version):")
         show("-", removed)
     if added:
-        print("Added (additive only after a review: no protocol requirement, no overload that makes a call ambiguous):")
+        print("Added (review each: a case of a public enum, a protocol requirement without a default implementation and an overload that makes an existing call ambiguous are breaking and need a new major version; a requirement with a default implementation is additive only when its name is new to the protocol and to its extensions):")
         show("+", added)
     return 1 if removed else 3 if added else 0
 
@@ -903,7 +903,8 @@ fi
 
 echo "check-api: the public interface differs from the baseline." >&2
 echo "  A '-' line was removed or changed: that breaks the public contract and needs a new major version." >&2
-echo "  A '+' line is new public API. It is additive only if it adds no protocol requirement and no overload" >&2
-echo "  that makes an existing call ambiguous. When it is additive, run Scripts/check-api.sh --update and commit the baseline." >&2
+echo "  A '+' line is new public API. A case of a public enum, a protocol requirement without a default implementation and an overload" >&2
+echo "  that makes an existing call ambiguous are breaking and need a new major version; a requirement with a default implementation is additive only" >&2
+echo "  when its name is new to the protocol and to its extensions. When the line is additive, run Scripts/check-api.sh --update and commit the baseline." >&2
 cat "$WORK/api.diff" >&2
 exit 1
