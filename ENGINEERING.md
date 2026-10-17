@@ -122,20 +122,26 @@ is a breaking change too, and needs a major version.
 - **The library does not stop its host.** Its sources contain no `fatalError`,
   `preconditionFailure`, `assertionFailure`, `precondition`, `assert`, `dispatchPrecondition`,
   `abort` or `exit`, no force unwrap, no `try!`, no `as!` and no implicitly unwrapped optional.
-  `Scripts/lint.sh` rejects, over `Sources`, a call written as one of those names followed by an
-  opening parenthesis (the custom rule `no_process_termination`), and SwiftLint's
-  `force_unwrapping`, `implicitly_unwrapped_optional`, `force_try` and `force_cast` reject force
+  `Scripts/lint.sh` rejects, over `Sources`, one of those names followed by an opening parenthesis,
+  also when a module name or a receiver stands before it (the custom rule `no_process_termination`),
+  and SwiftLint's `force_unwrapping`, `implicitly_unwrapped_optional`, `force_try` and `force_cast`
+  reject force
   unwraps, implicitly unwrapped optionals, `try!` and `as!`. The force unwrap rule has no exemption
   for a call with a literal argument, so `URL(string: "...")!` is rejected too. Another way to end
   a process, such as `_exit(` or `raise(`, stays with the reviewer. One thing stays outside the
   library's own code: an exception raised inside the private code of the system cannot be caught
   from Swift and ends the app (README, "Private API").
-- **The rules are proved.** A rule that never matches reports nothing, so
-  `Scripts/check-lint-contract.sh` lints the fixtures of `Fixtures/Lint` and proves that
-  `domain_imports`, `force_unwrapping` and `no_process_termination` fire on the lines that expect
-  them and on no other line. CI runs it right after `Scripts/lint.sh`. The fixtures sit in the
-  `Domain` folder of a scratch copy, where all three rules apply; that `domain_imports` stays off in
-  `UI` and `Adapters`, which import UIKit, is shown by `Scripts/lint.sh` on the real tree.
+- **The rules are tested.** A rule that never matches reports nothing, so
+  `Scripts/check-lint-contract.sh` lints the fixtures of `Fixtures/Lint` and checks that the rules
+  in its `RULES` (`domain_imports`, `no_process_termination`, `force_unwrapping`, `force_cast`,
+  `force_try` and `implicitly_unwrapped_optional`) fire on the lines that expect them and on no
+  other line. The fixtures sit in the `Domain` folder of a scratch copy, where every one of those
+  rules applies. They cannot show two things. That `domain_imports` stays off in `UI` and
+  `Adapters`, which import UIKit, is shown by `Scripts/lint.sh` on the real tree. That
+  `no_process_termination` reaches `Adapters` and `UI` is shown by nothing, since the library has
+  no such call there, so the reviewer applies it. `domain_imports` does not see an import that has
+  a comment inside it, that follows a block comment on its line, or that names the module in
+  backticks.
 - **Isolation.** The package builds in the Swift 6 language mode. Both views are `@MainActor`, the
   two public enums are `Sendable` and the handler of `onFailure(_:)` is `@MainActor @Sendable`.
 - **Documented limits.** What the library enforces and what it cannot promise are in the README,
