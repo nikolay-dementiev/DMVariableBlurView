@@ -173,7 +173,46 @@ let package = Package(
 EOF
 echo "import DMVariableBlurView" > "$PROBE/consumer/Sources/Probe/Probe.swift"
 if swift package --package-path "$PROBE/consumer" resolve > "$WORK/version-resolution.log" 2>&1; then
-    echo "check-manifest: a version requirement on the package resolves."
+    # What the consumer resolved, as SwiftPM pinned it: the tagged copy and nothing else.
+    if EXTRA="$(python3 - "$PROBE/consumer/Package.resolved" package <<'PY'
+# resolved-inventory
+import json
+import sys
+
+path, copy = sys.argv[1:3]
+expected = copy.lower()
+try:
+    with open(path, encoding="utf-8") as handle:
+        resolved = json.load(handle)
+except (OSError, ValueError) as error:
+    print(f"  Package.resolved cannot be read: {error}")
+    sys.exit(1)
+readable = isinstance(resolved, dict) and resolved.get("version") in (2, 3) and isinstance(resolved.get("pins"), list)
+if not readable or not all(isinstance(pin, dict) for pin in resolved["pins"]):
+    print("  Package.resolved is not of format version 2 or 3 with a list of pins, and only those are read")
+    sys.exit(1)
+identities = [pin.get("identity") for pin in resolved["pins"]]
+problems = []
+for pin in resolved["pins"]:
+    if pin.get("identity") != expected:
+        state = pin.get("state")
+        if not isinstance(state, dict):
+            state = {}
+        problems.append(f"  {pin.get('identity')} ({pin.get('kind')}, {state.get('version') or state.get('revision')}, {pin.get('location')})")
+if identities.count(expected) == 0:
+    problems.append(f"  {expected}, the tagged copy, is not among the resolved packages")
+elif identities.count(expected) > 1:
+    problems.append(f"  {expected}, the tagged copy, is pinned {identities.count(expected)} times")
+print("\n".join(problems))
+sys.exit(1 if problems else 0)
+PY
+)"; then
+        echo "check-manifest: a version requirement on the package resolves, and the consumer resolves this package only."
+    else
+        echo "check-manifest: the consumer of the package does not resolve this package only:" >&2
+        printf '%s\n' "$EXTRA" >&2
+        FAILED=1
+    fi
 else
     echo "check-manifest: a version requirement on the package does not resolve:" >&2
     grep -E "error:|cannot be used|unstable" "$WORK/version-resolution.log" | head -5 >&2 || true
