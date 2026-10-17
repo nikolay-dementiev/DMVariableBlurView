@@ -1,0 +1,6 @@
+let cast = value as! String // expect: force_cast
+let tried = try! compute() // expect: force_try
+var implicit: Int! // expect: implicitly_unwrapped_optional
+let optionalCast = value as? String
+let optionalTried = try? compute()
+var explicit: Int?

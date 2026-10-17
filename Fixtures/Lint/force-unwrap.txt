@@ -4,3 +4,16 @@ let literalData = Data(hexString: "00")! // expect: force_unwrapping
 let plain = optionalValue! // expect: force_unwrapping
 let notForced = URL(string: "https://example.com")
 let defaulted = optionalValue ?? 0
+let uuid = UUID(uuidString: "00000000-0000-0000-0000-000000000000")! // expect: force_unwrapping
+let host = URL(string: "https://example.com")!.host // expect: force_unwrapping
+let chained = optionalValue!.property // expect: force_unwrapping
+let element = list[0]! // expect: force_unwrapping
+let called = produce()! // expect: force_unwrapping
+let doubled = optionalValue!! // expect: force_unwrapping force_unwrapping
+let different = left != right
+let negated = !flag
+let message = "hello!"
+// a comment with a bang!
+let block = """
+bang!
+"""

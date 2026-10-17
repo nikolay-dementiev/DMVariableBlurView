@@ -16,3 +16,17 @@ func terminate() {
 }
 
 func assertValid() {}
+
+func terminateByName() {
+    Swift.fatalError("x") // expect: no_process_termination
+    Darwin.exit(0) // expect: no_process_termination
+    fatalError ("x") // expect: no_process_termination
+    if true { exit(1) } else { abort() } // expect: no_process_termination no_process_termination
+    app.exit(1) // expect: no_process_termination
+    _exit(1)
+    raise(9)
+    exitCode(1)
+    myexit(1)
+    exit_now(1)
+    Assert(true)
+}

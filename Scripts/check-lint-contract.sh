@@ -31,7 +31,7 @@ set -euo pipefail
 # repository root. The fixtures are linted as files of this folder.
 LIBRARY_DIR="Sources/DMVariableBlurView/Domain"
 # The rules of the contract, separated by spaces. Each one needs a fixture that expects it.
-RULES="domain_imports force_unwrapping no_process_termination"
+RULES="domain_imports force_cast force_try force_unwrapping implicitly_unwrapped_optional no_process_termination"
 # The folder of the fixtures, relative to the repository root.
 FIXTURE_DIR="Fixtures/Lint"
 
