@@ -22,8 +22,10 @@
 #    read, that holds no pin or more than one pin of the copy, or that is not of format
 #    version 2 or 3 is a failure. The build keeps its own cache, so manifests and
 #    repositories cached on the machine of whoever runs this cannot stand in for what the
-#    build resolves. The URL and the version that the README names are not compared with
-#    anything: the copy is tagged with that version, whatever it is.
+#    build resolves. The copy is tagged with the version the README names, so the README
+#    is compared with what a consumer is told elsewhere: its URL must be the podspec's
+#    :git source, character for character, and its version that of the newest dated
+#    release heading of CHANGELOG.md.
 # 3. Fixtures/Consumer builds. It uses every call shape of the released API and every
 #    declaration added since, so if it stops building, a consumer's code stops building.
 # 4. The library ships no resource bundle.
@@ -35,7 +37,9 @@
 # that the check runs, and runs them on texts that it carries: a manifest with a dependency
 # from a registry, by version, by path, by branch or by revision, a second dependency, a
 # plugin, or without its list of dependencies or of targets; a README with no package
-# manifest, two, exact: for from:, or two requirements; a Package.resolved with an extra
+# manifest, two, exact: for from:, or two requirements, a URL that is not the podspec's or
+# differs from it by .git, a version that is not the newest release's, a podspec or a changelog
+# that cannot be read or has no source or no dated release; a Package.resolved with an extra
 # pin, no pin, the copy twice, a format other than 2 and 3, or that is not a resolution at
 # all. A reader that was changed to pass one of these fails the self-test. It does not run
 # the shell around the readers, the lines that set FAILED.
@@ -351,12 +355,12 @@ probe_git() {
         "$@"
 }
 # Writes the consumer's manifest, and prints the version the README asks for and the name of the copy.
-if ! ANSWER="$(python3 - "$ROOT/README.md" "$PROBE" <<'PY'
+if ! ANSWER="$(python3 - "$ROOT/README.md" "$PROBE" "$ROOT/$MODULE.podspec" "$ROOT/CHANGELOG.md" <<'PY'
 # readme-consumer
 import re
 import sys
 
-readme, probe = sys.argv[1:3]
+readme, probe, podspec, changelog = sys.argv[1:5]
 blocks = re.findall(r"^```swift\n(.*?)^```$", open(readme, encoding="utf-8").read(), re.S | re.M)
 manifests = [block for block in blocks if "Package(" in block]
 if len(manifests) != 1:
@@ -365,6 +369,30 @@ requirements = re.findall(r'\.package\(url: "([^"]+)", from: "([^"]+)"\)', manif
 if len(requirements) != 1:
     sys.exit("check-manifest: the manifest of README.md does not ask for the package with url: and from:")
 url, version = requirements[0]
+texts = {}
+for path in (podspec, changelog):
+    try:
+        with open(path, encoding="utf-8") as handle:
+            texts[path] = handle.read()
+    except (OSError, ValueError) as error:
+        sys.exit(f"check-manifest: {path} cannot be read: {error}")
+spec_url = re.search(r":git\s*=>\s*'([^']+)'", texts[podspec])
+# The pod is frozen, so the podspec no longer follows the releases. The version is that of the
+# newest dated release heading, '## [x.y.z] - YYYY-MM-DD'. A heading without a date, such as
+# Unreleased, is passed over: it is a normal state between two releases, and a tag is not there
+# before the release, in a shallow clone, or in a pull request from a fork.
+release = re.search(r"^## \[([0-9]+\.[0-9]+\.[0-9]+)\] - [0-9]{4}-[0-9]{2}-[0-9]{2}$", texts[changelog], re.M)
+problems = []
+if not spec_url:
+    problems.append("the podspec has no source of the form :git => '<url>'")
+elif url != spec_url.group(1):
+    problems.append(f"README.md installs from {url}, the podspec's source is {spec_url.group(1)}")
+if not release:
+    problems.append("CHANGELOG.md has no release heading of the form '## [x.y.z] - YYYY-MM-DD'")
+elif version != release.group(1):
+    problems.append(f"README.md asks for version {version}, the newest release heading of CHANGELOG.md is {release.group(1)}")
+if problems:
+    sys.exit("\n".join(f"check-manifest: {problem}" for problem in problems))
 # SwiftPM names a package it fetches after the last component of its URL.
 copy = re.sub(r"\.git$", "", url.rstrip("/").split("/")[-1])
 with open(f"{probe}/consumer/Package.swift", "w", encoding="utf-8") as consumer:
