@@ -20,7 +20,15 @@
 # neither is a release that holds no baseline; the script says so. A tag that is not in the
 # repository, or a comparison that cannot run, is exit 2, never a pass. Run Scripts/check-api.sh
 # first: the baseline is the interface of the library only while that check passes. The heading of
-# the subsection is matched in any letter case.
+# the subsection is matched in any letter case. The tag of the release before it must also be an
+# ancestor of the commit being released: a tag on a side branch is a problem, and a shallow clone,
+# where that cannot be asked, is exit 2. The reminder for added lines names an added case of a
+# public enum, a protocol requirement without a default implementation and an overload that makes
+# an existing call ambiguous as breaking; it cannot see which of them an added line is.
+#
+# --self-test builds a scratch repository for each decision and runs a copy of this script in it,
+# with the real Scripts/check-api.sh --since, a python3 that is missing or fails, and a digester
+# that finds a break or cannot run. It needs git and python3, and no compiler.
 #
 # Where Scripts/check-api-digester.sh exists, a release that keeps its major version is also
 # compared with the previous one by swift-api-digester, which classifies what lines cannot, such as
