@@ -32,6 +32,9 @@ jobs:
           persist-credentials: false
       - name: Lint
         run: Scripts/lint.sh
+      # A rule that never matches reports nothing, so the fixtures prove that each one fires.
+      - name: Check that the lint rules fire
+        run: Scripts/check-lint-contract.sh
 
   test:
     name: test (${{ matrix.name }})
