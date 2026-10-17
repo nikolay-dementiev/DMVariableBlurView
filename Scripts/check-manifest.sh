@@ -143,7 +143,7 @@ self_test() {
     expect "a file that is not there" 1 "cannot be read"
     # The manifest as `swift package dump-package` prints it, cut down to the keys the reader looks at.
     plain='{"identity":"swift-log","requirement":{"range":[{"lowerBound":"1.0.0","upperBound":"2.0.0"}]}}'
-    manifest_case "no dependency and no plugin" 0 "" '{"dependencies":[],"targets":[{"name":"Library","pluginUsages":null}]}'
+    manifest_case "no dependency and no plugin" 0 "" '{"dependencies":[],"targets":[{"name":"Library","type":"regular","pluginUsages":null}]}'
     manifest_case "a dependency by version is named" 1 "dependency 'swift-log' is declared: a dependency needs the maintainer's approval" "{\"dependencies\":[{\"sourceControl\":[$plain]}],\"targets\":[]}"
     manifest_case "a dependency by path is named" 1 "dependency 'local' is declared" '{"dependencies":[{"fileSystem":[{"identity":"local","path":"/x"}]}],"targets":[]}'
     manifest_case "a dependency by branch is named for its requirement" 1 "dependency 'swift-log' is required by branch" '{"dependencies":[{"sourceControl":[{"identity":"swift-log","requirement":{"branch":["main"]}}]}],"targets":[]}'
@@ -151,9 +151,19 @@ self_test() {
     manifest_case "a dependency from a registry is named" 1 "dependency 'scope.name' is declared" '{"dependencies":[{"registry":[{"identity":"scope.name","requirement":{"range":[{"lowerBound":"1.0.0","upperBound":"2.0.0"}]}}]}],"targets":[]}'
     manifest_case "the second dependency is named" 1 "dependency 'local' is declared" "{\"dependencies\":[{\"sourceControl\":[$plain]},{\"fileSystem\":[{\"identity\":\"local\",\"path\":\"/x\"}]}],\"targets\":[]}"
     manifest_case "the second dependency of a kind is named" 1 "dependency 'swift-metrics' is declared" "{\"dependencies\":[{\"sourceControl\":[$plain,{\"identity\":\"swift-metrics\",\"requirement\":{\"exact\":[\"1.0.0\"]}}]}],\"targets\":[]}"
-    manifest_case "a plugin on a target" 1 "target 'Library' uses a plugin" '{"dependencies":[],"targets":[{"name":"Library","pluginUsages":[{"plugin":["Lint",null]}]}]}'
-    manifest_case "a plugin on the second target" 1 "target 'Second' uses a plugin" '{"dependencies":[],"targets":[{"name":"First","pluginUsages":null},{"name":"Second","pluginUsages":[{"plugin":["Lint",null]}]}]}'
-    manifest_case "the second plugin of a target is named" 1 '"Format"' '{"dependencies":[],"targets":[{"name":"Library","pluginUsages":[{"plugin":["Lint",null]},{"plugin":["Format",null]}]}]}'
+    manifest_case "a plugin on a target" 1 "target 'Library' uses a plugin" '{"dependencies":[],"targets":[{"name":"Library","type":"regular","pluginUsages":[{"plugin":["Lint",null]}]}]}'
+    manifest_case "a plugin on the second target" 1 "target 'Second' uses a plugin" '{"dependencies":[],"targets":[{"name":"First","type":"regular","pluginUsages":null},{"name":"Second","type":"regular","pluginUsages":[{"plugin":["Lint",null]}]}]}'
+    manifest_case "the second plugin of a target is named" 1 '"Format"' '{"dependencies":[],"targets":[{"name":"Library","type":"regular","pluginUsages":[{"plugin":["Lint",null]},{"plugin":["Format",null]}]}]}'
+    # A plugin is a target of its own, and a binary target with a url is code that is downloaded when the
+    # package is resolved. A binary target with a path is a binary the repository carries.
+    manifest_case "a plugin target is named" 1 "target 'Lint' is a plugin: a plugin needs the maintainer's approval" '{"dependencies":[],"targets":[{"name":"Lint","type":"plugin"}]}'
+    manifest_case "the second target is a plugin" 1 "target 'Second' is a plugin" '{"dependencies":[],"targets":[{"name":"First","type":"regular"},{"name":"Second","type":"plugin"}]}'
+    manifest_case "a remote binary target is named" 1 "target 'Remote' is a binary fetched from https://example.invalid/r.zip: " '{"dependencies":[],"targets":[{"name":"Remote","type":"binary","url":"https://example.invalid/r.zip","checksum":"abc"}]}'
+    manifest_case "a plugin and a remote binary are named together" 1 "target 'Remote' is a binary fetched from" '{"dependencies":[],"targets":[{"name":"Lint","type":"plugin"},{"name":"Remote","type":"binary","url":"https://example.invalid/r.zip"}]}'
+    manifest_case "a local binary target is not named" 0 "" '{"dependencies":[],"targets":[{"name":"Local","type":"binary","path":"Local.xcframework"}]}'
+    manifest_case "a target of every other type is not named" 0 "" '{"dependencies":[],"targets":[{"name":"A","type":"regular"},{"name":"B","type":"executable"},{"name":"C","type":"test"},{"name":"D","type":"system"},{"name":"E","type":"macro"}]}'
+    manifest_case "a binary target with neither a url nor a path" 1 "the manifest cannot be read" '{"dependencies":[],"targets":[{"name":"Odd","type":"binary"}]}'
+    manifest_case "a target without a type" 1 "the manifest cannot be read" '{"dependencies":[],"targets":[{"name":"Library","pluginUsages":null}]}'
     manifest_case "no list of dependencies" 1 "the manifest cannot be read" '{"targets":[]}'
     manifest_case "no list of targets" 1 "the manifest cannot be read" '{"dependencies":[]}'
     manifest_case "an entry that is not an object" 1 "the manifest cannot be read" '{"dependencies":[{"sourceControl":["text"]}],"targets":[]}'
