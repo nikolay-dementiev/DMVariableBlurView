@@ -235,6 +235,7 @@ probe_git() {
     git -C "$PROBE/$COPY" \
         -c user.name=probe -c user.email=probe@example.invalid \
         -c commit.gpgsign=false -c tag.gpgSign=false -c core.hooksPath=/dev/null \
+        -c core.excludesFile=/dev/null \
         "$@"
 }
 # Writes the consumer's manifest, and prints the version the README asks for and the name of the copy.
@@ -273,6 +274,9 @@ else
         probe_git add -A
         probe_git commit -q -m probe
         probe_git tag "$VERSION"
+        # What the tag holds, not what was copied: a file that git leaves out of the commit would
+        # make the build below pass on a package that is not the tracked one.
+        COPIED="$(probe_git ls-tree -r --name-only HEAD | wc -l | tr -d ' ')"
     fi
     if [ "$COPIED" -ne "$TRACKED" ]; then
         echo "check-manifest: the tagged copy holds $COPIED of the $TRACKED tracked files of the package" >&2
