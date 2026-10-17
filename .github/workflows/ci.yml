@@ -254,6 +254,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # A check that never fails looks the same as a clean tree, so its readers are tried on texts
+      # that must fail before they are trusted with the real ones.
+      - name: Check the readers of the manifest and of Package.resolved
+        run: Scripts/check-manifest.sh --self-test
       - name: Check what a consumer gets
         run: Scripts/check-manifest.sh
 
