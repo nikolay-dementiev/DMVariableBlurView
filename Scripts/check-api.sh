@@ -82,6 +82,7 @@ normalize() {
     # byte that is no UTF-8 sequence, and the reader would never see that line. Exit 1 is a file
     # without lines; any other failure, such as a file it cannot read, stops the normalisation.
     # The single quotes hand the Python program to python3 unexpanded. skipcq: SH-2016
+    # shellcheck disable=SC2016
     { LC_ALL=C grep -n '^' "$1" || [ $? -eq 1 ]; } | python3 -c '
 import re
 import sys
