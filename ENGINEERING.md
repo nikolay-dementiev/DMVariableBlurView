@@ -135,13 +135,19 @@ is a breaking change too, and needs a major version.
   `Scripts/check-lint-contract.sh` lints the fixtures of `Fixtures/Lint` and checks that the rules
   in its `RULES` (`domain_imports`, `no_process_termination`, `force_unwrapping`, `force_cast`,
   `force_try` and `implicitly_unwrapped_optional`) fire on the lines that expect them and on no
-  other line. The fixtures sit in the `Domain` folder of a scratch copy, where every one of those
-  rules applies. They cannot show two things. That `domain_imports` stays off in `UI` and
-  `Adapters`, which import UIKit, is shown by `Scripts/lint.sh` on the real tree. That
-  `no_process_termination` reaches `Adapters` and `UI` is shown by nothing, since the library has
-  no such call there, so the reviewer applies it. `domain_imports` does not see an import that has
-  a comment inside it, that follows a block comment on its line, or that names the module in
-  backticks.
+  other line. A fixture is linted where its folder says: one in the root of `Fixtures/Lint` as a
+  file of the library, one in `Domain`, `UI` or `Adapters` in that folder of the library, and one
+  under `Outside` outside the library, where it expects nothing. So the contract shows where a
+  rule reaches. `domain_imports` fires in `Domain` and in no other folder of the library, and not in
+  the `Domain` folder of another module. `no_process_termination` reaches `Domain`, `UI`,
+  `Adapters` and the root of the library, and not another module, the consumer fixture or the
+  example app. A rule that is widened, narrowed or aimed at a module whose name starts like the
+  library's fails it. It does not notice that `Domain` was renamed while the include of
+  `domain_imports` was left alone, so the reviewer applies that. `domain_imports` does not see an
+  import that has a comment inside it, that follows a block comment on its line, or that names the
+  module in backticks. The helper that fetches SwiftLint, `Scripts/swiftlint-tool.sh`, is tested
+  too: `Scripts/check-lint-tool.sh` proves, with a fake archive and no network, that two runs on
+  one checkout at once do not break each other and that a failed fetch leaves nothing behind.
 - **Isolation.** The package builds in the Swift 6 language mode. Both views are `@MainActor`, the
   two public enums are `Sendable` and the handler of `onFailure(_:)` is `@MainActor @Sendable`.
 - **Documented limits.** What the library enforces and what it cannot promise are in the README,
