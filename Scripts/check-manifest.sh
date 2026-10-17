@@ -536,19 +536,29 @@ for path in (podspec, changelog):
             texts[path] = handle.read()
     except (OSError, ValueError) as error:
         sys.exit(f"check-manifest: {path} cannot be read: {error}")
-spec_url = re.search(r":git\s*=>\s*'([^']+)'", texts[podspec])
+# The source of the pod is the one :git on a line that is not a comment: an old source that was
+# commented out after the repository moved says nothing about where the pod is.
+spec_lines = [line for line in texts[podspec].splitlines() if not line.lstrip().startswith("#")]
+spec_urls = re.findall(r":git\s*=>\s*'([^']+)'", "\n".join(spec_lines))
 # The pod is frozen, so the podspec no longer follows the releases. The version is that of the
-# newest dated release heading, '## [x.y.z] - YYYY-MM-DD'. A heading without a date, such as
-# Unreleased, is passed over: it is a normal state between two releases, and a tag is not there
-# before the release, in a shallow clone, or in a pull request from a fork.
-release = re.search(r"^## \[([0-9]+\.[0-9]+\.[0-9]+)\] - [0-9]{4}-[0-9]{2}-[0-9]{2}$", texts[changelog], re.M)
+# newest release heading, '## [x.y.z] - YYYY-MM-DD'. A heading with nothing after its bracket,
+# such as Unreleased, is passed over: it is a normal state between two releases, and a tag is not
+# there before the release, in a shallow clone, or in a pull request from a fork. Any other
+# heading is a release heading and must have that form: one that is passed over for a space or a
+# note after its date would let an older release stand in for the newest.
+headings = re.findall(r"^ {0,3}## \[[^\]\n]*\][ \t]*[^ \t\n].*$", texts[changelog], re.M)
+release = re.fullmatch(r"## \[([0-9]+\.[0-9]+\.[0-9]+)\] - [0-9]{4}-[0-9]{2}-[0-9]{2}", headings[0]) if headings else None
 problems = []
-if not spec_url:
+if not spec_urls:
     problems.append("the podspec has no source of the form :git => '<url>'")
-elif url != spec_url.group(1):
-    problems.append(f"README.md installs from {url}, the podspec's source is {spec_url.group(1)}")
-if not release:
+elif len(spec_urls) > 1:
+    problems.append(f"the podspec has {len(spec_urls)} sources of the form :git => '<url>'; it must have one")
+elif url != spec_urls[0]:
+    problems.append(f"README.md installs from {url}, the podspec's source is {spec_urls[0]}")
+if not headings:
     problems.append("CHANGELOG.md has no release heading of the form '## [x.y.z] - YYYY-MM-DD'")
+elif not release:
+    problems.append(f"the newest release heading of CHANGELOG.md is not of the form '## [x.y.z] - YYYY-MM-DD': '{headings[0]}'")
 elif version != release.group(1):
     problems.append(f"README.md asks for version {version}, the newest release heading of CHANGELOG.md is {release.group(1)}")
 if problems:
