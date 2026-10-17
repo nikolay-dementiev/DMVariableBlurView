@@ -5,14 +5,41 @@
 #   Scripts/check-manifest.sh              run the checks below
 #   Scripts/check-manifest.sh --self-test  run the readers of the checks on built-in texts
 #
-# 1. The manifest has no dependency by branch or revision and uses no plugin. SwiftPM
-#    refuses a version requirement on a package that has an unstable dependency, and a
-#    build plugin of a dependency runs in every consumer's build.
-# 2. A consumer that asks for the package by version resolves it.
+# 1. The manifest declares no dependency and uses no plugin. A dependency needs the
+#    maintainer's approval and a change of this check in the same pull request. Item 2
+#    sees only a dependency that a target of a product uses: SwiftPM leaves one that
+#    nothing uses out of what a consumer resolves, so only the manifest shows it. A
+#    dependency by branch or revision is named for its requirement as well: SwiftPM
+#    refuses a version requirement on a package that has an unstable dependency. A build
+#    plugin of a dependency runs in every consumer's build.
+# 2. The installation manifest of README.md works. With only its URL pointed at a
+#    throw-away tagged copy of the tracked manifest and sources, it resolves and builds
+#    for the iOS simulator: a consumer that depends on the checkout by path cannot show a
+#    failure of a version requirement, and only a build shows a wrong product or package
+#    name, or a platform below the package's. The Package.resolved of that build pins the
+#    copy and nothing else, so a consumer of the package resolves this package only: any
+#    other pin is named with its kind, version and location, and a file that cannot be
+#    read, that holds no pin or more than one pin of the copy, or that is not of format
+#    version 2 or 3 is a failure. The build keeps its own cache, so manifests and
+#    repositories cached on the machine of whoever runs this cannot stand in for what the
+#    build resolves.
 # 3. Fixtures/Consumer builds. It uses every call shape of the released API and every
 #    declaration added since, so if it stops building, a consumer's code stops building.
 # 4. The library ships no resource bundle.
 # 5. Every Swift block of README.md compiles as written.
+#
+# --self-test needs no network, no build and no swift. A reader that never fails looks the
+# same as a clean tree, so it takes the python block of item 1 (marked manifest-rules) and
+# the one of item 2 (marked resolved-inventory) out of this very file, the text that the
+# check runs, and runs them on texts that it carries: a manifest with a dependency by
+# version, by path, by branch or by revision, a plugin, or without its list of dependencies
+# or of targets; a Package.resolved with an extra pin, no pin, the copy twice, a format
+# other than 2 and 3, or that is not a resolution at all. A reader that was changed to pass
+# one of these fails the self-test.
+#
+# Exit codes: 0 every check passed, 1 a check failed, 2 wrong usage, or the self-test could
+# not be made (python3 is missing, or a marked block is not where it expects), or the
+# search of the build products failed.
 
 set -euo pipefail
 
