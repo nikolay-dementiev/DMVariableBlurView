@@ -57,6 +57,12 @@ self_test() {
     local total=0 failures=0 number=0 variable absent_note tool tool_path no_python broken_python
     local real_git no_merge_base old_git
     local git_local=()
+    # The cases run copies of this script, which carry the same PODSPEC line: a name that is wrong
+    # would be wrong in every copy and pass. The file it names has to be in this repository.
+    if [ ! -f "$PODSPEC" ]; then
+        echo "check-release: self-test: the podspec ${PODSPEC#"$ROOT"/} does not exist; PODSPEC at the top of this script names it" >&2
+        exit 2
+    fi
     if ! command -v python3 > /dev/null 2>&1 || ! python3 -c 'import datetime' > /dev/null 2>&1; then
         echo "check-release: self-test: python3 is needed, and it does not run on this machine" >&2
         exit 2
@@ -415,6 +421,14 @@ if [ "$NOTES" -eq 1 ]; then
     exit 0
 fi
 
+# The one line of this script that differs between the repositories that share it names the
+# podspec. A name that is wrong makes the script read a file that is not there, which is not a
+# release that is not ready.
+if [ ! -f "$PODSPEC" ]; then
+    echo "check-release: the podspec ${PODSPEC#"$ROOT"/} does not exist; PODSPEC at the top of this script names it" >&2
+    exit 2
+fi
+
 PROBLEMS=()
 
 # The problems found so far, as the final report prints them. A script that has to stop before the
@@ -504,7 +518,9 @@ if [ "$HEADING_VERSION" = "$VERSION" ]; then
                 # branch compares the interface with a release that this commit does not follow. In a
                 # shallow clone git merge-base --is-ancestor says no for a tag that is an ancestor, so
                 # that case is asked about first and is never a pass.
-                SHALLOW="$(git -C "$ROOT" rev-parse --is-shallow-repository 2>&1)" || SHALLOW="an error"
+                # Only true and false are answers. Whatever else git prints, its error included, is
+                # kept for the message below, so the status of the command is not needed.
+                SHALLOW="$(git -C "$ROOT" rev-parse --is-shallow-repository 2>&1)" || true
                 if [ "$SHALLOW" = "true" ]; then
                     PROBLEMS+=("this clone is shallow, so it cannot be checked that $PREVIOUS is an ancestor of the commit being released: git fetch --unshallow --tags")
                     COULD_NOT_COMPARE=1
