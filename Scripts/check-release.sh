@@ -143,7 +143,7 @@ SHIM
         S_VERSION="1.1.0" S_NEWEST="" S_PREVIOUS="1.0.0" S_DATE="2026-10-03" S_SUBSECTION=""
         S_PODSPEC="$FROZEN_POD_VERSION" S_OLD="keep" S_NEW="keep" S_TAG="main" S_TAG_BASELINE="yes"
         S_API="real" S_STUB_STATUS="" S_STUB_TEXT="" S_NOTES="no" S_ABSENT="" S_PYTHON="real" S_DIGESTER="none" S_SHALLOW="no" S_GIT="real"
-        S_NODATE="no" S_EMPTY="no" S_NOPODSPEC="no" S_TAGS="" S_BELOW="" S_HEADTAG="no" S_ACTIONS="no"
+        S_NODATE="no" S_EMPTY="no" S_NOPODSPEC="no" S_TAGS="" S_BELOW="" S_HEADTAG="no" S_ACTIONS="no" S_SIDETAG=""
     }
     apply() {  # <setting>=<value> ...
         local setting
@@ -175,6 +175,7 @@ SHIM
                 below=*) S_BELOW="${setting#below=}" ;;
                 headtag=*) S_HEADTAG="${setting#headtag=}" ;;
                 actions=*) S_ACTIONS="${setting#actions=}" ;;
+                sidetag=*) S_SIDETAG="${setting#sidetag=}" ;;
                 *)
                     echo "check-release: self-test: unknown setting '$setting'" >&2
                     exit 2
@@ -207,6 +208,15 @@ SHIM
                 scratch_git "$directory" commit -q -m "release $tag_name"
                 scratch_git "$directory" tag "$tag_name"
             done
+        fi
+        # A release tag on a branch that main does not contain, such as a release that was never merged.
+        if [ -n "$S_SIDETAG" ]; then
+            scratch_git "$directory" switch -q -c unmerged
+            printf 'unmerged\n' > "$directory/unmerged"
+            scratch_git "$directory" add unmerged
+            scratch_git "$directory" commit -q -m "a release that was not merged"
+            scratch_git "$directory" tag "$S_SIDETAG"
+            scratch_git "$directory" switch -q main
         fi
         if [ -n "$S_PREVIOUS" ] && [ -z "$S_TAGS" ]; then
             if [ "$S_TAG" = "side" ]; then
@@ -389,6 +399,9 @@ SHIM
     run_case "a heading that says there are no breaking changes passes" 0 "agrees on 1.1.0" "subsection=### No breaking changes"
     run_case "a heading about changes that do not break passes" 0 "agrees on 1.1.0" "subsection=### Non-breaking changes"
     run_case "a list item that names breaking changes passes" 0 "agrees on 1.1.0" "subsection=- Breaking changes"
+    run_case "a bold line with underscores fails" 1 "'### Breaking changes' subsection" "subsection=__Breaking changes__"
+    run_case "a heading indented by three blanks fails" 1 "'### Breaking changes' subsection" "subsection=   ### Breaking changes"
+    run_case "a heading whose first word only starts like breaking passes" 0 "agrees on 1.1.0" "subsection=### Breakingnews"
     run_case "a heading with no date" 1 "has no heading of the form" nodate=yes
     run_case "a heading with nothing under it" 1 "has no notes under a heading for 1.1.0" empty=yes
     run_case "a version with two groups of digits" 2 "usage: Scripts/check-release.sh" version=1.1
@@ -441,6 +454,7 @@ SHIM
     run_case "a reachable release tag and no heading below" 1 "has no heading below 1.1.0, and the release tag 1.0.0 is reachable" below=none
     run_case "a shallow clone of the first release cannot be checked" 2 "git fetch --unshallow" previous= shallow=yes
     run_case "a release tag above the version is not the previous release" 0 "agrees on 1.1.0" tags=1.0.0:keep,1.5.0:keep
+    run_case "a release tag on a branch that main does not contain does not count" 0 "agrees on 1.2.0" version=1.2.0 sidetag=1.1.0 "below=## [1.0.0] - 2025-10-11\n\n- earlier"
     run_case "the tags are compared as numbers" 0 "agrees on 1.11.0" version=1.11.0 tags=1.2.0:keep,1.10.0:keep "below=## [1.10.0] - 2025-10-11\n\n- earlier"
 
     if [ "$total" -eq 0 ]; then
