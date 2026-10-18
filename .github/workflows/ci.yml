@@ -277,6 +277,11 @@ jobs:
           persist-credentials: false
       - name: Check the normalisation of the interface
         run: Scripts/check-api.sh --self-test
+      # The release check refuses a release on what it reads in the changelog, the tags and the
+      # baselines. A check that never refuses looks the same as a clean tree, so its decisions are
+      # tried on scratch repositories first.
+      - name: Check the decisions of the release check
+        run: Scripts/check-release.sh --self-test
       - name: Compare the public interface with the baseline
         run: Scripts/check-api.sh
       # What the pull request removes, changes or adds in the baseline, for the reviewer. The

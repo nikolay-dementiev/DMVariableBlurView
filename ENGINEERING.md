@@ -58,11 +58,16 @@ request it also writes to the job summary the delta against the base of the pull
 `Scripts/check-release.sh` runs on the version tag, and before it by whoever releases: it refuses a
 version that keeps the major version of the previous release when the baseline lost or changed a
 line since that release, or when the notes of the version have a `### Breaking changes`
-subsection, in any letter case. The lines show an added case of a public enum, an added protocol
-requirement or an added overload only as an added line, which passes the script with a reminder to
-review it. The reminder names only a requirement and an overload, and says that either needs a
-major version; it does not tell a requirement with a default implementation from one without, and
-the review above decides. The script cannot tell a line that a new compiler reworded
+subsection, in any letter case. It also refuses a release whose previous release is not an ancestor
+of the commit being released, and stops with exit 2 where that cannot be asked, as in a shallow
+clone. The lines show an added case of a public enum, an added protocol requirement or an added
+overload only as an added line, which passes the script with a reminder to review it. The reminder
+names an added case of a public enum, a protocol requirement added without a default
+implementation and an overload that makes an existing call ambiguous as breaking, and says that a
+requirement with a default implementation is additive only when its name is new to the protocol
+and to its extensions; it cannot see which of them an added line is, and the review above decides.
+`Scripts/check-release.sh --self-test`, which the `api` job runs, tries the decisions of the script
+on scratch repositories. The script cannot tell a line that a new compiler reworded
 from a line that the code changed, so both count. It does not see the order of the cases of an enum
 or the statements in the body of an inlinable function (the package has no inlinable function
 today), and it cannot see behaviour. The pull request template asks for the class, the changes of
@@ -171,14 +176,19 @@ is a breaking change too, and needs a major version.
   version is a promise: the platform the manifest declares. The tested runtime is evidence: the
   oldest runtime a test has run on. That is iOS 17.5 against a promise of iOS 17.0.
 - No third-party dependency without the maintainer's approval. `Scripts/check-manifest.sh` fails on
-  any dependency in `Package.swift` and on a plugin on any target, and names the dependency: it
-  keeps failing until the maintainer approves the dependency and the check changes in the same pull
-  request. It also checks that the installation manifest of the README, with its URL pointed at a
-  tagged copy of the tracked manifest and sources, resolves and builds for the iOS simulator and
-  that its consumer resolves this package only, that `Fixtures/Consumer` builds, that no resource
-  bundle ships and that every Swift block of the README compiles, a manifest block being
-  evaluated. The URL and the version the README names are not compared with the podspec or with a
-  release: the copy is tagged with that version, whatever it is. Its `--self-test` runs the readers
+  any dependency, on a plugin used by any target, on a plugin target and on a binary target with a
+  url (code that is downloaded when the package is resolved), in `Package.swift` and in every
+  `Package@swift-*.swift`, which SwiftPM reads in place of it when a consumer's tools are newer,
+  and names the problem after its file: it keeps failing until the maintainer approves the
+  dependency and the check changes in the same pull request. A binary target with a path is
+  carried by the repository and is not refused. The script also checks that the installation
+  manifest of the README, with its URL pointed at a tagged copy of the tracked manifest and
+  sources, resolves and builds for the iOS simulator and that its consumer resolves this package
+  only, that `Fixtures/Consumer` builds, that no resource bundle ships and that every Swift block
+  of the README compiles, a manifest block being evaluated. The URL the README names must be the
+  `:git` source of the podspec, character for character, and its version that of the newest dated
+  release heading of `CHANGELOG.md`: the podspec is frozen, and a tag is not there before a
+  release, in a shallow clone or in a pull request from a fork. Its `--self-test` runs the readers
   of the manifest, of the README and of `Package.resolved` on built-in texts, and not the shell
   around them. The approval itself is a rule the reviewer applies.
 - XCTest is the test framework. A test goes through the public API and through the `package`
