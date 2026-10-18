@@ -165,6 +165,14 @@ is a breaking change too, and needs a major version.
   locally before a release (CONTRIBUTING.md, "Releases"). The `floor` job compiles the library with
   Swift 6.0, the oldest compiler line the manifest allows, with warnings as errors, and runs no
   test.
+- Each gate of CI was tried with the failure it advertises, on Xcode 26.6 and iOS 26.5. The `test`
+  job counts the test methods of `Tests` and fails unless every one ran and passed and none
+  skipped: a lost class and a test that skips itself passed the coverage floor alone. A race fails
+  the `thread-sanitizer` job with `halt_on_error=1` and without it: the sanitizer aborts the test
+  process and the run fails. A snapshot reference that is missing in the newest cell of the
+  `example` job fails the test and is not written. A warning in code that only a Release build
+  compiles fails three routes, the Release step of the `test` job, the `floor` job and the
+  `podspec` job, and none of the Debug routes sees it.
 - "Oldest tested runtime" and "oldest supported version" are different statements. The supported
   version is a promise: the platform the manifest declares. The tested runtime is evidence: the
   oldest runtime a test has run on. That is iOS 17.5 against a promise of iOS 17.0.
