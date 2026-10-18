@@ -86,6 +86,30 @@ jobs:
             -resultBundlePath .build/results/ci/package.xcresult \
             SWIFT_TREAT_WARNINGS_AS_ERRORS=YES \
             | tee .build/results/ci/package.log
+      # A run that lost a test class, or has a test that skips itself, passes the build above: the
+      # bundle feeds the coverage floor only, which runs in one cell, and the tests it loses may not
+      # move the coverage. So every test method of Tests must be in the bundle, run and passed. The
+      # pattern allows an attribute before func, such as @MainActor. Two tests skip themselves when
+      # Reduce Transparency is on, which is a device that is not the default one, and that fails here.
+      - name: Check the test count
+        run: |
+          EXPECTED="$(git grep -hcE '^[[:space:]]*(@[[:alnum:]_]+[[:space:]]+)*func test[[:alnum:]_]*\(\)' -- 'Tests/*.swift' \
+            | awk '{ total += $1 } END { print total + 0 }')"
+          xcrun xcresulttool get test-results summary --path .build/results/ci/package.xcresult \
+            > "$RUNNER_TEMP/package-summary.json"
+          python3 - "$RUNNER_TEMP/package-summary.json" "$EXPECTED" <<'PY'
+          import json
+          import sys
+
+          summary = json.load(open(sys.argv[1]))
+          expected = int(sys.argv[2])
+          wanted = {"totalTestCount": expected, "passedTests": expected, "failedTests": 0, "skippedTests": 0}
+          actual = {key: summary.get(key) for key in wanted}
+          if expected == 0 or actual != wanted:
+              print(f"package: the tests that ran are not the {expected} test methods of Tests: expected {wanted}, got {actual}")
+              sys.exit(1)
+          print(f"package: all {expected} tests ran and passed.")
+          PY
       # The rule that finds unused imports needs the compiler commands of a clean build.
       - name: Find unused imports
         if: matrix.newest
