@@ -543,113 +543,152 @@ else
     PROBLEMS+=("CHANGELOG.md has no heading of the form '## [version] - date'")
 fi
 
-# The release before this one is the version of the second release heading. It has no meaning when
-# the newest heading is for another version, which is a problem already.
+# The release before this one. It has no meaning when the newest heading is for another version,
+# which is a problem already. It comes from the tags: the highest release tag below the version that
+# this commit reaches, and the heading below the newest one has to name it. A history that is cut
+# short cannot say which tags are below the version, so a shallow clone is never a pass.
+version_less() {  # <a> <b>: whether version a is lower than version b, group by group
+    local a_major a_minor a_patch b_major b_minor b_patch
+    IFS=. read -r a_major a_minor a_patch <<< "$1"
+    IFS=. read -r b_major b_minor b_patch <<< "$2"
+    [ "$a_major" -lt "$b_major" ] && return 0
+    [ "$a_major" -gt "$b_major" ] && return 1
+    [ "$a_minor" -lt "$b_minor" ] && return 0
+    [ "$a_minor" -gt "$b_minor" ] && return 1
+    [ "$a_patch" -lt "$b_patch" ]
+}
+
 COULD_NOT_COMPARE=0
+PREVIOUS=""
 if [ "$HEADING_VERSION" = "$VERSION" ]; then
-    PREVIOUS_HEADING="$(LC_ALL=C awk '/^## \[/ { count++ } count == 2 { print; exit }' "$CHANGELOG")"
-    if [ -z "$PREVIOUS_HEADING" ]; then
-        echo "check-release: CHANGELOG.md has no release below $VERSION, so the interface was not compared."
+    # Only true and false are answers. Whatever else git prints, its error included, is kept for
+    # the message below, so the status of the command is not needed. A git before 2.15 does not
+    # know the flag and prints it back: that is no answer.
+    SHALLOW="$(git -C "$ROOT" rev-parse --is-shallow-repository 2>&1)" || true
+    if [ "$SHALLOW" = "true" ]; then
+        PROBLEMS+=("this clone is shallow, so it cannot be told from the tags which release is below $VERSION, nor checked that it is an ancestor of the commit being released: git fetch --unshallow --tags")
+        COULD_NOT_COMPARE=1
+    elif [ "$SHALLOW" != "false" ]; then
+        PROBLEMS+=("it could not be asked whether this clone is shallow, so it cannot be told from the tags which release is below $VERSION (git said '$SHALLOW'; git 2.15 or later is needed)")
+        COULD_NOT_COMPARE=1
+    elif ! MERGED_TAGS="$(git -C "$ROOT" tag --merged HEAD 2>&1)"; then
+        PROBLEMS+=("the tags that this commit reaches could not be listed (git said '$(printf '%s\n' "$MERGED_TAGS" | sed -n '1p')')")
+        COULD_NOT_COMPARE=1
     else
-        PREVIOUS="$(printf '%s\n' "$PREVIOUS_HEADING" | LC_ALL=C sed -n 's/^## \[\([^]]*\)\].*$/\1/p')"
-        if ! valid_version "$PREVIOUS"; then
-            PROBLEMS+=("the changelog heading below $VERSION is not a release version: '$PREVIOUS_HEADING'")
-        else
-            RAISES_MAJOR=0
-            if [ "${VERSION%%.*}" -gt "${PREVIOUS%%.*}" ]; then
-                RAISES_MAJOR=1
-            fi
-            BREAKING="$(notes | grep -c -i -E '^### Breaking changes[[:space:]]*$' || true)"
-            if [ "$BREAKING" -gt 0 ] && [ "$RAISES_MAJOR" -eq 0 ]; then
-                PROBLEMS+=("the notes of $VERSION have a '### Breaking changes' subsection: that needs a new major version, and $VERSION does not raise the major version of $PREVIOUS")
-            fi
-            if ! git -C "$ROOT" rev-parse --verify --quiet "refs/tags/$PREVIOUS^{commit}" > /dev/null; then
-                PROBLEMS+=("the tag $PREVIOUS of the release below $VERSION is not in this repository, so the interface cannot be compared: git fetch --tags")
-                COULD_NOT_COMPARE=1
-            else
-                # The release before this one has to be part of the history of this one. A tag on a side
-                # branch compares the interface with a release that this commit does not follow. In a
-                # shallow clone git merge-base --is-ancestor says no for a tag that is an ancestor, so
-                # that case is asked about first and is never a pass.
-                # Only true and false are answers. Whatever else git prints, its error included, is
-                # kept for the message below, so the status of the command is not needed.
-                SHALLOW="$(git -C "$ROOT" rev-parse --is-shallow-repository 2>&1)" || true
-                if [ "$SHALLOW" = "true" ]; then
-                    PROBLEMS+=("this clone is shallow, so it cannot be checked that $PREVIOUS is an ancestor of the commit being released: git fetch --unshallow --tags")
-                    COULD_NOT_COMPARE=1
-                elif [ "$SHALLOW" != "false" ]; then
-                    # A git before 2.15 does not know the flag and prints it back: that is no answer.
-                    PROBLEMS+=("it could not be asked whether this clone is shallow, so it cannot be checked that $PREVIOUS is an ancestor of the commit being released (git said '$SHALLOW'; git 2.15 or later is needed)")
-                    COULD_NOT_COMPARE=1
-                else
-                    ANCESTOR_STATUS=0
-                    git -C "$ROOT" merge-base --is-ancestor "refs/tags/$PREVIOUS^{commit}" HEAD || ANCESTOR_STATUS=$?
-                    case "$ANCESTOR_STATUS" in
-                        0) ;;
-                        1)
-                            PROBLEMS+=("the tag $PREVIOUS of the release below $VERSION is not an ancestor of the commit being released: $VERSION does not follow $PREVIOUS, so the comparison of the interface does not say what changed since it")
-                            ;;
-                        *)
-                            PROBLEMS+=("it could not be checked whether the tag $PREVIOUS is an ancestor of the commit being released (git merge-base exit status $ANCESTOR_STATUS)")
-                            COULD_NOT_COMPARE=1
-                            ;;
-                    esac
+        TAG_BELOW=""
+        while IFS= read -r TAG; do
+            if valid_version "$TAG" && version_less "$TAG" "$VERSION"; then
+                if [ -z "$TAG_BELOW" ] || version_less "$TAG_BELOW" "$TAG"; then
+                    TAG_BELOW="$TAG"
                 fi
-                DELTA_STATUS=0
-                DELTA="$("$ROOT/Scripts/check-api.sh" --since "$PREVIOUS" 2>&1)" || DELTA_STATUS=$?
-                case "$DELTA_STATUS" in
-                    0) ;;
-                    1)
-                        # A script that stops on an error exits with 1 as well, so the exit code
-                        # counts only with the heading of the lines that were removed or changed.
-                        case "$DELTA" in
-                            *"Removed or changed"*)
-                                if [ "$RAISES_MAJOR" -eq 0 ]; then
-                                    PROBLEMS+=("the interface lost or changed lines since $PREVIOUS (Scripts/check-api.sh --since $PREVIOUS lists them): that needs a new major version, and $VERSION does not raise the major version of $PREVIOUS")
-                                fi
-                                ;;
-                            *)
-                                PROBLEMS+=("the interface could not be compared with $PREVIOUS: $(printf '%s\n' "$DELTA" | sed -n '1p')")
-                                COULD_NOT_COMPARE=1
-                                ;;
-                        esac
-                        ;;
-                    3)
-                        echo "check-release: lines were added to the interface since $PREVIOUS. Review each one: a new case of a public enum, a protocol requirement added without a default implementation and an overload that makes an existing call ambiguous are breaking and need a new major version; a requirement with a default implementation is additive only when its name is new to the protocol and to its extensions."
-                        ;;
-                    4)
-                        echo "check-release: the interface was not compared with $PREVIOUS: that release holds no baseline."
+            fi
+        done <<< "$MERGED_TAGS"
+        # The heading right below the newest release heading. A release heading opens with a version
+        # in brackets or without them, with or without a v; another level-2 heading is part of the notes.
+        PREVIOUS_HEADING="$(LC_ALL=C awk '/^## \[/ && !seen { seen = 1; next } seen && /^## (\[|v?[0-9])/ { print; exit }' "$CHANGELOG")"
+        if [ -z "$PREVIOUS_HEADING" ]; then
+            if [ -z "$TAG_BELOW" ]; then
+                echo "check-release: CHANGELOG.md has no release below $VERSION, so the interface was not compared."
+            else
+                PROBLEMS+=("CHANGELOG.md has no heading below $VERSION, and the release tag $TAG_BELOW is reachable: the changelog skips $TAG_BELOW")
+            fi
+        else
+            HEADING_BELOW="$(printf '%s\n' "$PREVIOUS_HEADING" | LC_ALL=C sed -n 's/^## \[\([^]]*\)\].*$/\1/p')"
+            if ! valid_version "$HEADING_BELOW"; then
+                PROBLEMS+=("the changelog heading below $VERSION is not a release version: '$PREVIOUS_HEADING'")
+            elif ! version_less "$HEADING_BELOW" "$VERSION"; then
+                PROBLEMS+=("the changelog heading below $VERSION is for $HEADING_BELOW, which is not lower than $VERSION")
+            elif [ -n "$TAG_BELOW" ] && version_less "$HEADING_BELOW" "$TAG_BELOW"; then
+                PROBLEMS+=("the highest release tag below $VERSION that this commit reaches is $TAG_BELOW, but the heading below is for $HEADING_BELOW: the changelog skips $TAG_BELOW")
+            else
+                PREVIOUS="$HEADING_BELOW"
+            fi
+        fi
+    fi
+fi
+
+if [ -n "$PREVIOUS" ]; then
+    RAISES_MAJOR=0
+    if [ "${VERSION%%.*}" -gt "${PREVIOUS%%.*}" ]; then
+        RAISES_MAJOR=1
+    fi
+    BREAKING="$(notes | grep -c -i -E '^### Breaking changes[[:space:]]*$' || true)"
+    if [ "$BREAKING" -gt 0 ] && [ "$RAISES_MAJOR" -eq 0 ]; then
+        PROBLEMS+=("the notes of $VERSION have a '### Breaking changes' subsection: that needs a new major version, and $VERSION does not raise the major version of $PREVIOUS")
+    fi
+    if ! git -C "$ROOT" rev-parse --verify --quiet "refs/tags/$PREVIOUS^{commit}" > /dev/null; then
+        PROBLEMS+=("the tag $PREVIOUS of the release below $VERSION is not in this repository, so the interface cannot be compared: git fetch --tags")
+        COULD_NOT_COMPARE=1
+    else
+        # The release before this one has to be part of the history of this one. A tag on a side
+        # branch compares the interface with a release that this commit does not follow. The clone is
+        # known to be whole at this point, which git merge-base --is-ancestor needs: in a shallow clone
+        # it says no for a tag that is an ancestor.
+        ANCESTOR_STATUS=0
+        git -C "$ROOT" merge-base --is-ancestor "refs/tags/$PREVIOUS^{commit}" HEAD || ANCESTOR_STATUS=$?
+        case "$ANCESTOR_STATUS" in
+            0) ;;
+            1)
+                PROBLEMS+=("the tag $PREVIOUS of the release below $VERSION is not an ancestor of the commit being released: $VERSION does not follow $PREVIOUS, so the comparison of the interface does not say what changed since it")
+                ;;
+            *)
+                PROBLEMS+=("it could not be checked whether the tag $PREVIOUS is an ancestor of the commit being released (git merge-base exit status $ANCESTOR_STATUS)")
+                COULD_NOT_COMPARE=1
+                ;;
+        esac
+        DELTA_STATUS=0
+        DELTA="$("$ROOT/Scripts/check-api.sh" --since "$PREVIOUS" 2>&1)" || DELTA_STATUS=$?
+        case "$DELTA_STATUS" in
+            0) ;;
+            1)
+                # A script that stops on an error exits with 1 as well, so the exit code
+                # counts only with the heading of the lines that were removed or changed.
+                case "$DELTA" in
+                    *"Removed or changed"*)
+                        if [ "$RAISES_MAJOR" -eq 0 ]; then
+                            PROBLEMS+=("the interface lost or changed lines since $PREVIOUS (Scripts/check-api.sh --since $PREVIOUS lists them): that needs a new major version, and $VERSION does not raise the major version of $PREVIOUS")
+                        fi
                         ;;
                     *)
                         PROBLEMS+=("the interface could not be compared with $PREVIOUS: $(printf '%s\n' "$DELTA" | sed -n '1p')")
                         COULD_NOT_COMPARE=1
                         ;;
                 esac
-                if [ -e "$ROOT/Scripts/check-api-digester.sh" ] && [ ! -x "$ROOT/Scripts/check-api-digester.sh" ]; then
-                    # A digester that cannot start is not a reason to pass: the hook would be dead and
-                    # the release would say nothing about it.
-                    PROBLEMS+=("Scripts/check-api-digester.sh is there and is not executable, so the digester did not run: chmod +x Scripts/check-api-digester.sh")
-                    COULD_NOT_COMPARE=1
-                elif [ -x "$ROOT/Scripts/check-api-digester.sh" ]; then
-                    if [ "$DELTA_STATUS" -eq 4 ]; then
-                        echo "check-release: the digester was not run against $PREVIOUS: that release holds no baseline."
-                    elif [ "$RAISES_MAJOR" -eq 0 ] && [ "$COULD_NOT_COMPARE" -eq 0 ]; then
-                        DIGEST_STATUS=0
-                        DIGEST="$("$ROOT/Scripts/check-api-digester.sh" "$PREVIOUS" 2>&1)" || DIGEST_STATUS=$?
-                        case "$DIGEST_STATUS" in
-                            0)
-                                echo "check-release: the digester finds no break since $PREVIOUS."
-                                ;;
-                            1)
-                                PROBLEMS+=("the digester reports a break since $PREVIOUS (Scripts/check-api-digester.sh $PREVIOUS lists it): that needs a new major version, and $VERSION does not raise the major version of $PREVIOUS")
-                                ;;
-                            *)
-                                PROBLEMS+=("the digester could not compare with $PREVIOUS: $(printf '%s\n' "$DIGEST" | sed -n '1,2p' | tr '\n' ' ')")
-                                COULD_NOT_COMPARE=1
-                                ;;
-                        esac
-                    fi
-                fi
+                ;;
+            3)
+                echo "check-release: lines were added to the interface since $PREVIOUS. Review each one: a new case of a public enum, a protocol requirement added without a default implementation and an overload that makes an existing call ambiguous are breaking and need a new major version; a requirement with a default implementation is additive only when its name is new to the protocol and to its extensions."
+                ;;
+            4)
+                echo "check-release: the interface was not compared with $PREVIOUS: that release holds no baseline."
+                ;;
+            *)
+                PROBLEMS+=("the interface could not be compared with $PREVIOUS: $(printf '%s\n' "$DELTA" | sed -n '1p')")
+                COULD_NOT_COMPARE=1
+                ;;
+        esac
+        if [ -e "$ROOT/Scripts/check-api-digester.sh" ] && [ ! -x "$ROOT/Scripts/check-api-digester.sh" ]; then
+            # A digester that cannot start is not a reason to pass: the hook would be dead and
+            # the release would say nothing about it.
+            PROBLEMS+=("Scripts/check-api-digester.sh is there and is not executable, so the digester did not run: chmod +x Scripts/check-api-digester.sh")
+            COULD_NOT_COMPARE=1
+        elif [ -x "$ROOT/Scripts/check-api-digester.sh" ]; then
+            if [ "$DELTA_STATUS" -eq 4 ]; then
+                echo "check-release: the digester was not run against $PREVIOUS: that release holds no baseline."
+            elif [ "$RAISES_MAJOR" -eq 0 ] && [ "$COULD_NOT_COMPARE" -eq 0 ]; then
+                DIGEST_STATUS=0
+                DIGEST="$("$ROOT/Scripts/check-api-digester.sh" "$PREVIOUS" 2>&1)" || DIGEST_STATUS=$?
+                case "$DIGEST_STATUS" in
+                    0)
+                        echo "check-release: the digester finds no break since $PREVIOUS."
+                        ;;
+                    1)
+                        PROBLEMS+=("the digester reports a break since $PREVIOUS (Scripts/check-api-digester.sh $PREVIOUS lists it): that needs a new major version, and $VERSION does not raise the major version of $PREVIOUS")
+                        ;;
+                    *)
+                        PROBLEMS+=("the digester could not compare with $PREVIOUS: $(printf '%s\n' "$DIGEST" | sed -n '1,2p' | tr '\n' ' ')")
+                        COULD_NOT_COMPARE=1
+                        ;;
+                esac
             fi
         fi
     fi
