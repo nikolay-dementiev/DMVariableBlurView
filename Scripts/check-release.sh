@@ -516,6 +516,12 @@ if ! valid_version "$VERSION"; then
     exit 2
 fi
 
+# A file that is not there says nothing about the release: the comparison could not be made.
+if [ ! -f "$CHANGELOG" ]; then
+    echo "check-release: ${CHANGELOG#"$ROOT"/} does not exist" >&2
+    exit 2
+fi
+
 # The lines between the version's heading and the next release heading, without the blank lines
 # at either end. Empty when the version has no heading or nothing under it.
 notes() {
