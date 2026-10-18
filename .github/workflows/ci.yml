@@ -89,11 +89,14 @@ jobs:
       # A run that lost a test class, or has a test that skips itself, passes the build above: the
       # bundle feeds the coverage floor only, which runs in one cell, and the tests it loses may not
       # move the coverage. So every test method of Tests must be in the bundle, run and passed. The
-      # pattern allows an attribute before func, such as @MainActor. Two tests skip themselves when
-      # Reduce Transparency is on, which is a device that is not the default one, and that fails here.
+      # pattern allows attributes (also with arguments, such as @available(iOS 18, *)) and the
+      # modifiers public, open, internal, final, override and nonisolated before func, and a test
+      # that returns nothing. Two tests skip themselves when Reduce Transparency is on, a setting
+      # that a default simulator does not have, and that fails here. The shell of a step has no
+      # pipefail, so a git grep that fails gives 0, which the check below refuses.
       - name: Check the test count
         run: |
-          EXPECTED="$(git grep -hcE '^[[:space:]]*(@[[:alnum:]_]+[[:space:]]+)*func test[[:alnum:]_]*\(\)' -- 'Tests/*.swift' \
+          EXPECTED="$(git grep -hcE '^[[:space:]]*((@[[:alnum:]_]+(\([^)]*\))?|public|open|internal|final|override|nonisolated)[[:space:]]+)*func[[:space:]]+test[[:alnum:]_]*[[:space:]]*\(\)[[:space:]]*(async[[:space:]]*)?(throws[[:space:]]*)?(\{.*|//.*)?$' -- 'Tests/*.swift' \
             | awk '{ total += $1 } END { print total + 0 }')"
           xcrun xcresulttool get test-results summary --path .build/results/ci/package.xcresult \
             > "$RUNNER_TEMP/package-summary.json"
@@ -103,7 +106,7 @@ jobs:
 
           summary = json.load(open(sys.argv[1]))
           expected = int(sys.argv[2])
-          wanted = {"totalTestCount": expected, "passedTests": expected, "failedTests": 0, "skippedTests": 0}
+          wanted = {"passedTests": expected, "failedTests": 0, "skippedTests": 0}
           actual = {key: summary.get(key) for key in wanted}
           if expected == 0 or actual != wanted:
               print(f"package: the tests that ran are not the {expected} test methods of Tests: expected {wanted}, got {actual}")
