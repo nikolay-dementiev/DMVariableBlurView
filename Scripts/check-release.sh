@@ -67,7 +67,7 @@ FROZEN_POD_VERSION="1.1.0"
 SELF_TEST_WORK=""
 self_test() {
     local total=0 failures=0 number=0 variable absent_note tool tool_path no_python broken_python
-    local real_git no_merge_base old_git
+    local real_git no_merge_base old_git no_tag_list
     local git_local=()
     # The cases run copies of this script, which carry the same PODSPEC line: a name that is wrong
     # would be wrong in every copy and pass. The file it names has to be in this repository.
@@ -112,13 +112,16 @@ SHIM
     real_git="$(command -v git)"
     no_merge_base="$SELF_TEST_WORK/git-without-merge-base"
     old_git="$SELF_TEST_WORK/git-before-2-15"
-    mkdir -p "$no_merge_base" "$old_git"
+    no_tag_list="$SELF_TEST_WORK/git-without-tag-list"
+    mkdir -p "$no_merge_base" "$old_git" "$no_tag_list"
     # The single quotes write the shims as they are; their $@ and $argument are for the shim.
     # shellcheck disable=SC2016
     printf '#!/bin/sh\nfor argument in "$@"; do\n    if [ "$argument" = merge-base ]; then\n        echo "fatal: merge-base is out of order" >&2\n        exit 128\n    fi\ndone\nexec "%s" "$@"\n' "$real_git" > "$no_merge_base/git"
     # shellcheck disable=SC2016
     printf '#!/bin/sh\nfor argument in "$@"; do\n    if [ "$argument" = --is-shallow-repository ]; then\n        echo "--is-shallow-repository"\n        exit 0\n    fi\ndone\nexec "%s" "$@"\n' "$real_git" > "$old_git/git"
-    chmod +x "$no_merge_base/git" "$old_git/git"
+    # shellcheck disable=SC2016
+    printf '#!/bin/sh\nfor argument in "$@"; do\n    if [ "$argument" = --merged ]; then\n        echo "fatal: the tags are out of order" >&2\n        exit 128\n    fi\ndone\nexec "%s" "$@"\n' "$real_git" > "$no_tag_list/git"
+    chmod +x "$no_merge_base/git" "$old_git/git" "$no_tag_list/git"
     scratch_git() {  # <directory> <git arguments>
         local directory="$1"
         shift
@@ -290,6 +293,8 @@ SHIM
                 breaksingular) printf '#!/bin/bash\necho "1 breaking change detected in Lib:"\necho "  - removed func keep()"\nexit 1\n' ;;
                 breakplural) printf '#!/bin/bash\necho "2 breaking changes detected in Lib:"\necho "  - removed func keep()"\nexit 1\n' ;;
                 breakbare) printf '#!/bin/bash\necho "swift: command not found"\nexit 1\n' ;;
+                breakstatus2) printf '#!/bin/bash\necho "check-api-digester: 1 breaking change detected in Lib since $1"\nexit 2\n' ;;
+                breakmid) printf '#!/bin/bash\necho "note: 1 breaking change detected in Lib"\nexit 1\n' ;;
                 fail) printf '#!/bin/bash\necho "cannot run for $1"\nexit 3\n' ;;
                 noexec) printf '#!/bin/bash\necho "a break"\nexit 1\n' ;;
                 *)
@@ -349,6 +354,7 @@ SHIM
             real) ;;
             nomergebase) run_path="$no_merge_base:$run_path" ;;
             oldgit) run_path="$old_git:$run_path" ;;
+            notags) run_path="$no_tag_list:$run_path" ;;
             *)
                 echo "check-release: self-test: no git named '$S_GIT'" >&2
                 exit 2
@@ -406,6 +412,8 @@ SHIM
     run_case "a bold line with underscores fails" 1 "'### Breaking changes' subsection" "subsection=__Breaking changes__"
     run_case "a heading indented by three blanks fails" 1 "'### Breaking changes' subsection" "subsection=   ### Breaking changes"
     run_case "a heading whose first word only starts like breaking passes" 0 "agrees on 1.1.0" "subsection=### Breakingnews"
+    run_case "a line that mentions a breaking heading in a list item passes" 0 "agrees on 1.1.0" "subsection=- Fixed the ### Breaking changes heading of the docs"
+    run_case "a heading indented by four blanks is code and passes" 0 "agrees on 1.1.0" "subsection=    ### Breaking changes"
     run_case "a heading with no date" 1 "has no heading of the form" nodate=yes
     run_case "a heading with nothing under it" 1 "has no notes under a heading for 1.1.0" empty=yes
     run_case "a version with two groups of digits" 2 "usage: Scripts/check-release.sh" version=1.1
@@ -442,6 +450,8 @@ SHIM
     run_case "the output of the digester is printed with a break" 1 "removed func keep()" digester=break
     run_case "a digester that ends with status 1 and no break line could not compare" 2 "the digester could not compare with 1.0.0" digester=breakbare "absent=reports a break"
     run_case "the output of a digester that could not compare is quoted" 2 "swift: command not found" digester=breakbare
+    run_case "a break line with status 2 is not a break" 2 "the digester could not compare with 1.0.0" digester=breakstatus2 "absent=reports a break"
+    run_case "a break line in the middle of a line is not a break" 2 "the digester could not compare with 1.0.0" digester=breakmid "absent=reports a break"
     run_case "the digester is not asked under a new major" 0 "agrees on 2.0.0" version=2.0.0 digester=break absent=digester
     run_case "the digester cannot compare, and is told the previous release" 2 "cannot run for 1.0.0" digester=fail
     run_case "a digester that is there and is not executable" 2 "is not executable" digester=noexec
@@ -468,6 +478,9 @@ SHIM
     run_case "a shallow clone of the first release cannot be checked" 2 "git fetch --unshallow" previous= shallow=yes
     run_case "a release tag above the version is not the previous release" 0 "agrees on 1.1.0" tags=1.0.0:keep,1.5.0:keep
     run_case "a release tag on a branch that main does not contain does not count" 0 "agrees on 1.2.0" version=1.2.0 sidetag=1.1.0 "below=## [1.0.0] - 2025-10-11\n\n- earlier"
+    run_case "the tags are compared as numbers across a major version" 0 "agrees on 2.0.0" version=2.0.0 tags=1.2.0:keep,1.10.0:keep "below=## [1.10.0] - 2025-10-11\n\n- earlier"
+    run_case "tags that are no release tags are ignored" 0 "no release below" tags=v1.0.0:keep,1.5.0-rc.1:keep,latest:keep,1.0:keep,1.0.0.1:keep below=none
+    run_case "a git that cannot list the tags is exit 2" 2 "could not be listed" git=notags
     run_case "the tags are compared as numbers" 0 "agrees on 1.11.0" version=1.11.0 tags=1.2.0:keep,1.10.0:keep "below=## [1.10.0] - 2025-10-11\n\n- earlier"
 
     if [ "$total" -eq 0 ]; then
