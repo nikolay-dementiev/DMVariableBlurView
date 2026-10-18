@@ -407,6 +407,8 @@ SHIM
     run_case "a version with two groups of digits" 2 "usage: Scripts/check-release.sh" version=1.1
     run_case "a version with four groups of digits" 2 "usage: Scripts/check-release.sh" version=1.1.0.1
     run_case "a version that starts with a dot" 2 "usage: Scripts/check-release.sh" version=.1.0
+    run_case "a version with a group of ten digits" 2 "usage: Scripts/check-release.sh" version=1.1234567890.0
+    run_case "a tag with a group that overflows a comparison is not a release tag" 1 "the changelog skips 1.5.0" version=1.6.1 tags=1.4.0:keep,1.5.0:keep,1.10000000000000000000.0:keep "below=## [1.4.0] - 2025-10-11\n\n- earlier"
     run_case "a podspec that is not there is exit 2, not a release that is not ready" 2 "does not exist" nopodspec=yes
     run_case "the first release is not compared" 0 "no release below" previous=
     run_case "the newest heading is for another version" 1 "the newest changelog heading is for 1.2.0, not 1.1.0" newest=1.2.0
