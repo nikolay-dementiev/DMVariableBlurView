@@ -356,6 +356,21 @@ SHIM
     run_case "a breaking subsection in upper case under the same major fails" 1 "'### Breaking changes' subsection" "subsection=### BREAKING CHANGES"
     run_case "a breaking subsection with blanks after it still fails" 1 "'### Breaking changes' subsection" "subsection=### Breaking changes   "
     run_case "a breaking subsection under a new major passes" 0 "agrees on 2.0.0" version=2.0.0 "subsection=### Breaking changes"
+    # A declaration of breaking changes is a heading of any level, or a line that opens with bold text,
+    # whose first word is "breaking": the rule refuses more than the one literal heading.
+    run_case "a breaking heading with a colon fails and is quoted" 1 "the heading found: '### Breaking Changes:'" "subsection=### Breaking Changes:"
+    run_case "a singular breaking heading fails" 1 "'### Breaking changes' subsection" "subsection=### Breaking change"
+    run_case "a bare breaking heading fails" 1 "'### Breaking changes' subsection" "subsection=### Breaking"
+    run_case "a deeper breaking heading fails" 1 "'### Breaking changes' subsection" "subsection=#### Breaking changes"
+    run_case "a shallower breaking heading fails" 1 "'### Breaking changes' subsection" "subsection=## Breaking changes"
+    run_case "a bold breaking line fails" 1 "'### Breaking changes' subsection" "subsection=**Breaking changes**"
+    run_case "a breaking heading with a note fails" 1 "'### Breaking changes' subsection" "subsection=### Breaking changes (API)"
+    run_case "a breaking heading with two blanks after the hashes fails" 1 "'### Breaking changes' subsection" "subsection=###  Breaking changes"
+    run_case "a breaking heading with two blanks inside fails" 1 "'### Breaking changes' subsection" "subsection=### Breaking  changes"
+    run_case "a breaking heading with an emoji in front fails" 1 "'### Breaking changes' subsection" "subsection=### $(printf '\360\237\222\245') Breaking changes"
+    run_case "a heading that says there are no breaking changes passes" 0 "agrees on 1.1.0" "subsection=### No breaking changes"
+    run_case "a heading about changes that do not break passes" 0 "agrees on 1.1.0" "subsection=### Non-breaking changes"
+    run_case "a list item that names breaking changes passes" 0 "agrees on 1.1.0" "subsection=- Breaking changes"
     run_case "a heading with no date" 1 "has no heading of the form" nodate=yes
     run_case "a heading with nothing under it" 1 "has no notes under a heading for 1.1.0" empty=yes
     run_case "a version with two groups of digits" 2 "usage: Scripts/check-release.sh" version=1.1
