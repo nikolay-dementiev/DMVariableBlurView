@@ -260,7 +260,10 @@ SHIM
             # shellcheck disable=SC2016
             case "$S_DIGESTER" in
                 ok) printf '#!/bin/bash\necho "no break"\nexit 0\n' ;;
-                break) printf '#!/bin/bash\necho "a break"\nexit 1\n' ;;
+                break) printf '#!/bin/bash\necho "check-api-digester: 1 breaking change detected in Lib since $1"\necho "  - removed func keep()"\nexit 1\n' ;;
+                breaksingular) printf '#!/bin/bash\necho "1 breaking change detected in Lib:"\necho "  - removed func keep()"\nexit 1\n' ;;
+                breakplural) printf '#!/bin/bash\necho "2 breaking changes detected in Lib:"\necho "  - removed func keep()"\nexit 1\n' ;;
+                breakbare) printf '#!/bin/bash\necho "swift: command not found"\nexit 1\n' ;;
                 fail) printf '#!/bin/bash\necho "cannot run for $1"\nexit 3\n' ;;
                 noexec) printf '#!/bin/bash\necho "a break"\nexit 1\n' ;;
                 *)
@@ -399,6 +402,13 @@ SHIM
     run_case "a python3 that fails: the script says what it said" 2 "python3 could not check the release date" python=broken
     run_case "the digester finds a break under the same major" 1 "the digester reports a break" digester=break
     run_case "the digester finds no break" 0 "the digester finds no break" digester=ok
+    # The digester is believed on status 1 only with the line that reports a break, which the tool
+    # prints in the singular and in the plural, with the name of the script in front of it or not.
+    run_case "the break line of the tool in the singular is a break" 1 "the digester reports a break" digester=breaksingular
+    run_case "the break line of the tool in the plural is a break" 1 "the digester reports a break" digester=breakplural
+    run_case "the output of the digester is printed with a break" 1 "removed func keep()" digester=break
+    run_case "a digester that ends with status 1 and no break line could not compare" 2 "the digester could not compare with 1.0.0" digester=breakbare "absent=reports a break"
+    run_case "the output of a digester that could not compare is quoted" 2 "swift: command not found" digester=breakbare
     run_case "the digester is not asked under a new major" 0 "agrees on 2.0.0" version=2.0.0 digester=break absent=digester
     run_case "the digester cannot compare, and is told the previous release" 2 "cannot run for 1.0.0" digester=fail
     run_case "a digester that is there and is not executable" 2 "is not executable" digester=noexec
