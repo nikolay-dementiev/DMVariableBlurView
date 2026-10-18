@@ -627,9 +627,13 @@ if [ -n "$PREVIOUS" ]; then
     if [ "${VERSION%%.*}" -gt "${PREVIOUS%%.*}" ]; then
         RAISES_MAJOR=1
     fi
-    BREAKING="$(notes | grep -c -i -E '^### Breaking changes[[:space:]]*$' || true)"
-    if [ "$BREAKING" -gt 0 ] && [ "$RAISES_MAJOR" -eq 0 ]; then
-        PROBLEMS+=("the notes of $VERSION have a '### Breaking changes' subsection: that needs a new major version, and $VERSION does not raise the major version of $PREVIOUS")
+    # A declaration of breaking changes is a heading of any level, or a line that opens with bold text,
+    # whose first word is "breaking": blanks, punctuation and an emoji may stand before it, and
+    # whatever follows is free. A heading that says there are none, such as "No breaking changes", and
+    # a list item do not open with that word. A rule that refuses more is the safe direction here.
+    BREAKING_LINE="$(notes | LC_ALL=C grep -i -E -m 1 '^ {0,3}(#{1,6}|\*\*|__)[^[:alnum:]]*breaking([^[:alnum:]]|$)' || true)"
+    if [ -n "$BREAKING_LINE" ] && [ "$RAISES_MAJOR" -eq 0 ]; then
+        PROBLEMS+=("the notes of $VERSION have a '### Breaking changes' subsection (the heading found: '$BREAKING_LINE'): that needs a new major version, and $VERSION does not raise the major version of $PREVIOUS")
     fi
     if ! git -C "$ROOT" rev-parse --verify --quiet "refs/tags/$PREVIOUS^{commit}" > /dev/null; then
         PROBLEMS+=("the tag $PREVIOUS of the release below $VERSION is not in this repository, so the interface cannot be compared: git fetch --tags")
