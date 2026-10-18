@@ -454,6 +454,11 @@ SHIM
     run_case "a duplicate heading is not lower than the version" 1 "which is not lower than 1.1.0" headtag=yes "below=## [1.1.0] - 2026-10-03\n\n- a change\n\n## [1.0.0] - 2025-10-11\n\n- earlier" new=removed
     run_case "a heading below that is higher than the version" 1 "which is not lower than 1.1.0" "below=## [1.2.0] - 2026-11-01\n\n- later"
     run_case "a reachable release tag and no heading below" 1 "has no heading below 1.1.0, and the release tag 1.0.0 is reachable" below=none
+    run_case "a heading that looks like a release but is of another form is named" 1 "looks like a release heading" previous= "below=## Version 1.0.0 - 2025-10-11\n\n- earlier"
+    run_case "a release heading with two blanks after the hashes is named" 1 "looks like a release heading" previous= "below=##  [1.0.0] - 2025-10-11\n\n- earlier"
+    run_case "a release heading one level deeper is named" 1 "looks like a release heading" previous= "below=### [1.0.0] - 2025-10-11\n\n- earlier"
+    run_case "a release heading with a capital V is named" 1 "looks like a release heading" previous= "below=## V1.0.0 - 2025-10-11\n\n- earlier"
+    run_case "a level-2 heading that names no version is not a release" 0 "no release below" previous= "below=## Notes\n\n- x"
     run_case "a shallow clone of the first release cannot be checked" 2 "git fetch --unshallow" previous= shallow=yes
     run_case "a release tag above the version is not the previous release" 0 "agrees on 1.1.0" tags=1.0.0:keep,1.5.0:keep
     run_case "a release tag on a branch that main does not contain does not count" 0 "agrees on 1.2.0" version=1.2.0 sidetag=1.1.0 "below=## [1.0.0] - 2025-10-11\n\n- earlier"
