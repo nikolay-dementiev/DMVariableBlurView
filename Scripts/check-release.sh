@@ -628,6 +628,14 @@ version_less() {  # <a> <b>: whether version a is lower than version b, group by
     [ "$a_patch" -lt "$b_patch" ]
 }
 
+# The forms of a release heading that this script reads: '## [1.0.0]', '## v1.0.0' and '## 1.0.0'.
+release_heading_form() {
+    case "$1" in
+        "## ["* | "## v"[0123456789]* | "## "[0123456789]*) return 0 ;;
+    esac
+    return 1
+}
+
 COULD_NOT_COMPARE=0
 PREVIOUS=""
 if [ "$HEADING_VERSION" = "$VERSION" ]; then
@@ -653,15 +661,20 @@ if [ "$HEADING_VERSION" = "$VERSION" ]; then
                 fi
             fi
         done <<< "$MERGED_TAGS"
-        # The heading right below the newest release heading. A release heading opens with a version
-        # in brackets or without them, with or without a v; another level-2 heading is part of the notes.
-        PREVIOUS_HEADING="$(LC_ALL=C awk '/^## \[/ && !seen { seen = 1; next } seen && /^## (\[|v?[0-9])/ { print; exit }' "$CHANGELOG")"
+        # The heading right below the newest release heading, if it is one or looks like one: any
+        # '## [' heading, or a heading of level 2 or more that opens with a version, in brackets or not
+        # and with or without a v, or with the word Version or Release in front of it. Another heading
+        # is part of the notes. Only '## [', '## v1' and '## 1' are forms that this script reads, and a
+        # heading of the others is named below instead of being taken for the notes of a first release.
+        PREVIOUS_HEADING="$(LC_ALL=C awk '/^## \[/ && !seen { seen = 1; next } seen && (/^## \[/ || /^##+[ \t]*(\[|[vV])?[0-9]+\.[0-9]/ || /^##+[ \t]+([Vv]ersion|[Rr]elease)[ \t]+[vV]?[0-9]/) { print; exit }' "$CHANGELOG")"
         if [ -z "$PREVIOUS_HEADING" ]; then
             if [ -z "$TAG_BELOW" ]; then
                 echo "check-release: CHANGELOG.md has no release below $VERSION, so the interface was not compared."
             else
                 PROBLEMS+=("CHANGELOG.md has no heading below $VERSION, and the release tag $TAG_BELOW is reachable: the changelog skips $TAG_BELOW")
             fi
+        elif ! release_heading_form "$PREVIOUS_HEADING"; then
+            PROBLEMS+=("the changelog has a heading below $VERSION that looks like a release heading and is not of a form this script reads, '## [x.y.z] - date': '$PREVIOUS_HEADING'")
         else
             HEADING_BELOW="$(printf '%s\n' "$PREVIOUS_HEADING" | LC_ALL=C sed -n 's/^## \[\([^]]*\)\].*$/\1/p')"
             if ! valid_version "$HEADING_BELOW"; then
