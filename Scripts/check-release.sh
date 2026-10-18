@@ -516,6 +516,12 @@ report_problems() {
         echo "check-release: $VERSION is not ready to release:" >&2
         printf '  - %s\n' "${PROBLEMS[@]}" >&2
     fi
+    # What the digester printed when it found a break, so that the break is read here and not looked
+    # up in another run.
+    if [ -n "${DIGEST_DETAIL:-}" ]; then
+        echo "check-release: the digester said:" >&2
+        printf '%s\n' "$DIGEST_DETAIL" | sed -n '1,20p' | sed 's/^/    /' >&2
+    fi
 }
 
 if [ -z "$(notes)" ]; then
@@ -715,18 +721,20 @@ if [ -n "$PREVIOUS" ]; then
             elif [ "$RAISES_MAJOR" -eq 0 ] && [ "$COULD_NOT_COMPARE" -eq 0 ]; then
                 DIGEST_STATUS=0
                 DIGEST="$("$ROOT/Scripts/check-api-digester.sh" "$PREVIOUS" 2>&1)" || DIGEST_STATUS=$?
-                case "$DIGEST_STATUS" in
-                    0)
-                        echo "check-release: the digester finds no break since $PREVIOUS."
-                        ;;
-                    1)
-                        PROBLEMS+=("the digester reports a break since $PREVIOUS (Scripts/check-api-digester.sh $PREVIOUS lists it): that needs a new major version, and $VERSION does not raise the major version of $PREVIOUS")
-                        ;;
-                    *)
-                        PROBLEMS+=("the digester could not compare with $PREVIOUS: $(printf '%s\n' "$DIGEST" | sed -n '1,2p' | tr '\n' ' ')")
-                        COULD_NOT_COMPARE=1
-                        ;;
-                esac
+                # The contract of the digester: status 0 is no break, and status 1 is a break only with a
+                # line 'N breaking change(s) detected in <module>', which the wrapper in DMAction prints
+                # behind the name of the script and the tool prints without it. Anything else, such as a
+                # tool that is missing and ends with status 1 too, is a comparison that could not be made.
+                DIGEST_BREAK="$(printf '%s\n' "$DIGEST" | LC_ALL=C grep -E -m 1 '^(check-api-digester: )?[0-9]+ breaking changes? detected in ' || true)"
+                if [ "$DIGEST_STATUS" -eq 0 ]; then
+                    echo "check-release: the digester finds no break since $PREVIOUS."
+                elif [ "$DIGEST_STATUS" -eq 1 ] && [ -n "$DIGEST_BREAK" ]; then
+                    PROBLEMS+=("the digester reports a break since $PREVIOUS (Scripts/check-api-digester.sh $PREVIOUS lists it): that needs a new major version, and $VERSION does not raise the major version of $PREVIOUS")
+                    DIGEST_DETAIL="$DIGEST"
+                else
+                    PROBLEMS+=("the digester could not compare with $PREVIOUS (it ended with status $DIGEST_STATUS; a break is status 1 and a line 'N breaking changes detected in <module>'): $(printf '%s\n' "$DIGEST" | sed -n '1,2p' | tr '\n' ' ')")
+                    COULD_NOT_COMPARE=1
+                fi
             fi
         fi
     fi
