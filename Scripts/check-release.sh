@@ -143,7 +143,7 @@ SHIM
         S_VERSION="1.1.0" S_NEWEST="" S_PREVIOUS="1.0.0" S_DATE="2026-10-03" S_SUBSECTION=""
         S_PODSPEC="$FROZEN_POD_VERSION" S_OLD="keep" S_NEW="keep" S_TAG="main" S_TAG_BASELINE="yes"
         S_API="real" S_STUB_STATUS="" S_STUB_TEXT="" S_NOTES="no" S_ABSENT="" S_PYTHON="real" S_DIGESTER="none" S_SHALLOW="no" S_GIT="real"
-        S_NODATE="no" S_EMPTY="no" S_NOPODSPEC="no" S_TAGS="" S_BELOW="" S_HEADTAG="no" S_ACTIONS="no" S_SIDETAG=""
+        S_NODATE="no" S_EMPTY="no" S_NOPODSPEC="no" S_TAGS="" S_BELOW="" S_HEADTAG="no" S_ACTIONS="no" S_SIDETAG="" S_NOCHANGELOG="no"
     }
     apply() {  # <setting>=<value> ...
         local setting
@@ -176,6 +176,7 @@ SHIM
                 headtag=*) S_HEADTAG="${setting#headtag=}" ;;
                 actions=*) S_ACTIONS="${setting#actions=}" ;;
                 sidetag=*) S_SIDETAG="${setting#sidetag=}" ;;
+                nochangelog=*) S_NOCHANGELOG="${setting#nochangelog=}" ;;
                 *)
                     echo "check-release: self-test: unknown setting '$setting'" >&2
                     exit 2
@@ -270,6 +271,9 @@ SHIM
         fi
         if [ "$S_NOPODSPEC" = "yes" ]; then
             rm -f "$directory/$podspec_name"
+        fi
+        if [ "$S_NOCHANGELOG" = "yes" ]; then
+            rm -f "$directory/CHANGELOG.md"
         fi
         cp "${BASH_SOURCE[0]}" "$directory/Scripts/check-release.sh"
         if [ "$S_API" = "stub" ]; then
@@ -410,6 +414,8 @@ SHIM
     run_case "a version with a group of ten digits" 2 "usage: Scripts/check-release.sh" version=1.1234567890.0
     run_case "a tag with a group that overflows a comparison is not a release tag" 1 "the changelog skips 1.5.0" version=1.6.1 tags=1.4.0:keep,1.5.0:keep,1.10000000000000000000.0:keep "below=## [1.4.0] - 2025-10-11\n\n- earlier"
     run_case "a podspec that is not there is exit 2, not a release that is not ready" 2 "does not exist" nopodspec=yes
+    run_case "a changelog that is not there is exit 2" 2 "CHANGELOG.md does not exist" nochangelog=yes
+    run_case "the notes of a changelog that is not there are exit 2" 2 "CHANGELOG.md does not exist" notes=yes nochangelog=yes
     run_case "the first release is not compared" 0 "no release below" previous=
     run_case "the newest heading is for another version" 1 "the newest changelog heading is for 1.2.0, not 1.1.0" newest=1.2.0
     run_case "an impossible date" 1 "not a day of the calendar" date=2026-02-30
