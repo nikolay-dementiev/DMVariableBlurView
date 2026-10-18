@@ -483,6 +483,10 @@ SHIM
     run_case "a release tag above the version is not the previous release" 0 "agrees on 1.1.0" tags=1.0.0:keep,1.5.0:keep
     run_case "a release tag on a branch that main does not contain does not count" 0 "agrees on 1.2.0" version=1.2.0 sidetag=1.1.0 "below=## [1.0.0] - 2025-10-11\n\n- earlier"
     run_case "the tags are compared as numbers across a major version" 0 "agrees on 2.0.0" version=2.0.0 tags=1.2.0:keep,1.10.0:keep "below=## [1.10.0] - 2025-10-11\n\n- earlier"
+    run_case "a major version of two digits is above one of one digit" 0 "agrees on 2.0.0" version=2.0.0 tags=1.0.0:keep,10.0.0:keep
+    run_case "a patch version of two digits is above one of one digit" 0 "agrees on 1.0.3" version=1.0.3 tags=1.0.1:keep,1.0.10:keep "below=## [1.0.1] - 2025-10-11\n\n- earlier"
+    run_case "a higher minor with a lower patch is above" 0 "agrees on 1.1.5" version=1.1.5 tags=1.0.0:keep,1.2.0:keep
+    run_case "a higher major with a lower minor is above" 0 "agrees on 1.5.0" version=1.5.0 tags=1.0.0:keep,2.0.0:keep
     run_case "tags that are no release tags are ignored" 0 "no release below" tags=v1.0.0:keep,1.5.0-rc.1:keep,latest:keep,1.0:keep,1.0.0.1:keep below=none
     run_case "a git that cannot list the tags is exit 2" 2 "could not be listed" git=notags
     run_case "the tags are compared as numbers" 0 "agrees on 1.11.0" version=1.11.0 tags=1.2.0:keep,1.10.0:keep "below=## [1.10.0] - 2025-10-11\n\n- earlier"
