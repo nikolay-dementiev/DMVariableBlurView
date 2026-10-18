@@ -12,19 +12,27 @@
 # published to the trunk, FROZEN_POD_VERSION below, whatever the release version is. The release
 # workflow runs this script on the tag; run it before you push one.
 #
-# The release is also compared with the one before it, the heading below the newest. It must raise
+# The release is also compared with the one before it. That release comes from the tags: it is the
+# highest release tag (three groups of digits) below the version that the commit reaches, and the
+# heading right below the newest one in the changelog has to name it. A heading of another form, one
+# that is not lower than the version, one that skips a reachable release tag, and a changelog with
+# no heading below although a release tag is reachable are each a problem. The release must raise
 # the major version when the baseline lost or changed a line since the tag of that release
-# (Scripts/check-api.sh --since), or when its notes have a `### Breaking changes` subsection, where
-# a change of behaviour is declared because no script can see one. Lines that were only added pass
-# with a reminder to review them. The first release has none before it and is not compared, and
-# neither is a release that holds no baseline; the script says so. A tag that is not in the
-# repository, or a comparison that cannot run, is exit 2, never a pass. Run Scripts/check-api.sh
-# first: the baseline is the interface of the library only while that check passes. The heading of
-# the subsection is matched in any letter case. The tag of the release before it must also be an
-# ancestor of the commit being released: a tag on a side branch is a problem, and a shallow clone,
-# where that cannot be asked, is exit 2. The reminder for added lines names an added case of a
-# public enum, a protocol requirement without a default implementation and an overload that makes
-# an existing call ambiguous as breaking; it cannot see which of them an added line is.
+# (Scripts/check-api.sh --since), or when its notes have a heading of breaking changes, where a
+# change of behaviour is declared because no script can see one: a heading of any level, or a line
+# that opens with bold text, whose first word is "breaking", in any letter case, with blanks,
+# punctuation or an emoji in front of it. A heading that says there are none ("No breaking
+# changes") does not count. Lines that were only added pass with a reminder to review them, which is
+# also a warning annotation under GitHub Actions. The first release has none before it and is not
+# compared, and neither is a release that holds no baseline; the script says so. A clone with no
+# tags and a changelog with a single release heading is read as the first release. A tag that is
+# not in the repository, or a comparison that cannot run, is exit 2, never a pass. Run
+# Scripts/check-api.sh first: the baseline is the interface of the library only while that check
+# passes. The tag of the release before it must also be an ancestor of the commit being released: a
+# tag on a side branch is a problem. A shallow clone cannot say which release is below the version,
+# so it is exit 2 in every case. The reminder for added lines names an added case of a public enum,
+# a protocol requirement without a default implementation and an overload that makes an existing
+# call ambiguous as breaking; it cannot see which of them an added line is.
 #
 # --self-test builds a scratch repository for each decision and runs a copy of this script in it,
 # with the real Scripts/check-api.sh --since, a python3 that is missing or fails, and a digester
@@ -33,6 +41,10 @@
 # Where Scripts/check-api-digester.sh exists, a release that keeps its major version is also
 # compared with the previous one by swift-api-digester, which classifies what lines cannot, such as
 # a protocol requirement added without a default: a break it reports needs a new major version too.
+# The script is called with the previous version. It ends with status 0 for no break; with status 1
+# for a break, and then prints a line of the form 'N breaking change(s) detected in <module>' (behind
+# the name of the script or not) and what broke, which is printed here; any other status, or
+# status 1 without that line, is a comparison that could not be made and is exit 2.
 # In a repository without that script this does nothing.
 #
 # Exit codes: 0 ready, 1 not ready, 2 wrong usage or the comparison could not run.

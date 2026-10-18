@@ -27,7 +27,7 @@ The checks below are scripts in `Scripts/`, and CI runs them as you do, except
 | `Scripts/check-lint-contract.sh` | that each rule in the `RULES` of the script fires on the lines of `Fixtures/Lint` that expect it and on no other line. It lints the fixtures in a scratch copy with the `.swiftlint.yml` of the repository, unchanged |
 | `Scripts/check-podspec.sh` | `pod lib lint` in Swift 5.0 and 6.0 mode, and that the pod links no test framework |
 | `Scripts/coverage-gate.sh <result bundle>` | the line coverage of the library against its floor |
-| `Scripts/check-release.sh <version>` | that the newest heading of `CHANGELOG.md` is that version, with a release date that is a day of the calendar and notes under it, and that the podspec still names 1.1.0, the version the pod is frozen at; it also compares the release with the one below it in the changelog and refuses a version that keeps its major version after a removed or changed line of the interface, or after a `### Breaking changes` subsection; it refuses a release whose previous release is not an ancestor of the commit, and stops with exit 2 in a shallow clone. `--self-test` runs these decisions on scratch repositories |
+| `Scripts/check-release.sh <version>` | that the newest heading of `CHANGELOG.md` is that version, with a release date that is a day of the calendar and notes under it, and that the podspec still names 1.1.0, the version the pod is frozen at; it also takes the previous release from the tags (the highest release tag below the version that the commit reaches) and refuses a changelog whose heading below the newest does not name it, is not lower than the version or skips a reachable tag; it compares the release with it and refuses a version that keeps its major version after a removed or changed line of the interface, a breaking-changes heading in the notes (a heading of any level, or a bold line, whose first word is "breaking") or a break reported by the digester where there is one; it refuses a release whose previous release is not an ancestor of the commit, and stops with exit 2 in a shallow clone. Under GitHub Actions the reminder for added lines is also a warning annotation. `--self-test` runs these decisions on scratch repositories |
 | `Scripts/check-example-project.sh` | that the Xcode project of the example matches its XcodeGen spec |
 
 The checks run code that the branch contains: `Package.swift` and the manifest blocks of the README
@@ -95,11 +95,14 @@ merge first, then tag. Before the tag is pushed:
 2. Every breaking change, as ENGINEERING.md defines it, needs a new major version, with no
    exception for a small one. A removed or changed line of the interface is one:
    `Scripts/check-api.sh --since <previous version>` lists them. A change of behaviour is another,
-   and the notes of the release declare it in a `### Breaking changes` subsection, in any letter
-   case, because no script can see behaviour: a change listed under `### Changed` alone does not
-   count.
-   `Scripts/check-release.sh` refuses a version that keeps the major version of the previous one
-   when it finds either. Lines that were only added pass the script. A new case in a public enum
+   and the notes of the release declare it in a `### Breaking changes` heading, because no script
+   can see behaviour: a heading of any level, or a line in bold, in any letter case, whose first
+   word is "breaking" (`#### Breaking changes (API)` counts, `### No breaking changes` does not). A
+   change listed under `### Changed` alone does not count.
+   `Scripts/check-release.sh` takes the previous release from the tags, not from the changelog: the
+   heading below the newest one has to name the highest release tag below the version that the
+   commit reaches, so a release that the changelog skips is named. It refuses a version that keeps
+   the major version of the previous one when it finds either. Lines that were only added pass the script. A new case in a public enum
    is breaking and needs a major version; a requirement added to a protocol or an overload is
    additive only after a review that it makes no existing call ambiguous and asks nothing of a
    conformer, under the conditions of ENGINEERING.md. The script cannot classify an added line, and

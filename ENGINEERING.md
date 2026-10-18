@@ -55,14 +55,24 @@ The package has no dependency today.
 Who checks. The `api` job of CI runs `Scripts/check-api.sh --self-test` and `Scripts/check-api.sh`
 on every pull request and fails it when the public interface differs from the baseline; on a pull
 request it also writes to the job summary the delta against the base of the pull request.
-`Scripts/check-release.sh` runs on the version tag, and before it by whoever releases: it refuses a
+`Scripts/check-release.sh` runs on the version tag, and before it by whoever releases. The previous
+release comes from the tags: it is the highest release tag below the version that the commit
+reaches, and the heading right below the newest one in `CHANGELOG.md` has to name it. A heading of
+another form, one that is not lower than the version, one that skips a reachable release tag, and
+no heading below although a release tag is reachable are each a problem. The script refuses a
 version that keeps the major version of the previous release when the baseline lost or changed a
-line since that release, or when the notes of the version have a `### Breaking changes`
-subsection, in any letter case. It also refuses a release whose previous release is not an ancestor
-of the commit being released, and stops with exit 2 where that cannot be asked, as in a shallow
-clone. The lines show an added case of a public enum, an added protocol requirement or an added
-overload only as an added line, which passes the script with a reminder to review it. The reminder
-names an added case of a public enum, a protocol requirement added without a default
+line since that release, when the notes of the version have a breaking-changes heading (a heading
+of any level, or a line in bold, whose first word is "breaking", in any letter case; `No breaking
+changes` does not count), or when the digester reports a break where there is one. The digester,
+`Scripts/check-api-digester.sh <previous>`, ends with status 0 for no break and with status 1 and a
+line `N breaking change(s) detected in <module>` for a break, which the script prints; status 1
+without that line, or any other status, is a comparison that could not be made, exit 2. The script
+also refuses a release whose previous release is not an ancestor of the commit being released, and
+stops with exit 2 where the history cannot say which release is below the version, as in a shallow
+clone. A clone with no tags and a changelog with a single release heading is read as the first
+release, and the script says so. The lines show an added case of a public enum, an added protocol
+requirement or an added overload only as an added line, which passes the script with a reminder to
+review it, also as a warning annotation under GitHub Actions. The reminder names an added case of a public enum, a protocol requirement added without a default
 implementation and an overload that makes an existing call ambiguous as breaking, and says that a
 requirement with a default implementation is additive only when its name is new to the protocol
 and to its extensions; it cannot see which of them an added line is, and the review above decides.
