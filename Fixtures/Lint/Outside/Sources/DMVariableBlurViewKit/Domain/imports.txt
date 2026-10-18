@@ -1,0 +1,4 @@
+// Linted in the Domain folder of a module whose name starts like the library's. The Domain rule
+// names the Domain folder of the library itself, so it does not apply. No line expects a diagnostic.
+import UIKit
+import SwiftUI

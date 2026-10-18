@@ -1,0 +1,4 @@
+// Linted in a subfolder of the Domain folder: domain_imports reaches it as it reaches Domain itself,
+// so a rule that names only the files directly in Domain fails here.
+import Foundation
+import UIKit // expect: domain_imports

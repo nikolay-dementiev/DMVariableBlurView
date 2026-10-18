@@ -1,0 +1,7 @@
+// Linted outside the library, among the tests. The termination rule names the library, so it does not
+// apply there. No line expects a diagnostic.
+func terminate() {
+    fatalError("x")
+    preconditionFailure("x")
+    exit(1)
+}

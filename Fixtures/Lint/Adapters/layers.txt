@@ -1,0 +1,9 @@
+// Linted as a file of the Adapters folder: the termination rule reaches the whole library, and the
+// Domain import rule does not, so a framework import is fine here.
+import Foundation
+import UIKit
+import SwiftUI
+import os
+func terminate() {
+    fatalError("x") // expect: no_process_termination
+}
