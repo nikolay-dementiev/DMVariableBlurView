@@ -492,6 +492,9 @@ VERSION="${1:-}"
 valid_version() {
     case "$1" in
         '' | .* | *. | *..* | *[!0123456789.]* | *.*.*.*) return 1 ;;
+        # Ten digits in a row: a group too long for the integer test that compares versions, which
+        # fails with a status of its own and lets the comparison go on to the next group.
+        *[0123456789][0123456789][0123456789][0123456789][0123456789][0123456789][0123456789][0123456789][0123456789][0123456789]*) return 1 ;;
         *.*.*) return 0 ;;
     esac
     return 1
