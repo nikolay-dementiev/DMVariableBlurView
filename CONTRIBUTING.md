@@ -101,10 +101,14 @@ merge first, then tag. Before the tag is pushed:
    change listed under `### Changed` alone does not count.
    `Scripts/check-release.sh` takes the previous release from the tags, not from the changelog: the
    heading below the newest one has to name the highest release tag below the version that the
-   commit reaches, so a release that the changelog skips is named. It refuses a version that keeps
-   the major version of the previous one when it finds either. Lines that were only added pass the script. A new case in a public enum
-   is breaking and needs a major version; a requirement added to a protocol or an overload is
-   additive only after a review that it makes no existing call ambiguous and asks nothing of a
+   commit reaches, so a release that the changelog skips is named. A run before the tag needs the
+   whole history and the tags: in a shallow clone it stops (`git fetch --unshallow --tags`). The
+   script refuses a version that keeps the major version of the previous one when the baseline
+   lost or changed a line, when the notes have a heading of breaking changes, or when the digester
+   reports a break. Lines that were only added pass the script, with a reminder that is also a
+   warning annotation in the log of the release run. A new case in a public enum is breaking and
+   needs a major version; a requirement added to a protocol or an overload is additive only after
+   a review that it makes no existing call ambiguous and asks nothing of a
    conformer, under the conditions of ENGINEERING.md. The script cannot classify an added line, and
    it cannot see the order of the cases of an enum or of the statements in the body of an
    inlinable function.

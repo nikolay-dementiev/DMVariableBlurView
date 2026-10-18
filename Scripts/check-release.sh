@@ -22,17 +22,21 @@
 # change of behaviour is declared because no script can see one: a heading of any level, or a line
 # that opens with bold text, whose first word is "breaking", in any letter case, with blanks,
 # punctuation or an emoji in front of it. A heading that says there are none ("No breaking
-# changes") does not count. Lines that were only added pass with a reminder to review them, which is
-# also a warning annotation under GitHub Actions. The first release has none before it and is not
-# compared, and neither is a release that holds no baseline; the script says so. A clone with no
-# tags and a changelog with a single release heading is read as the first release. A tag that is
-# not in the repository, or a comparison that cannot run, is exit 2, never a pass. Run
-# Scripts/check-api.sh first: the baseline is the interface of the library only while that check
-# passes. The tag of the release before it must also be an ancestor of the commit being released: a
-# tag on a side branch is a problem. A shallow clone cannot say which release is below the version,
-# so it is exit 2 in every case. The reminder for added lines names an added case of a public enum,
-# a protocol requirement without a default implementation and an overload that makes an existing
-# call ambiguous as breaking; it cannot see which of them an added line is.
+# changes") does not count. Only headings written with # are seen. Lines that were only added pass
+# with a reminder to review them, which is also a warning annotation under GitHub Actions, in the
+# log of the run. The first release has none before it and is not compared, and neither is a
+# release that holds no baseline; the script says so. A clone with no tags and a changelog with a
+# single release heading is read as the first release; a heading below the newest that looks like
+# a release but is not of a form read here ('## Version 1.0.0', '### [1.0.0]') is a problem. A
+# tag that is not in the repository, or a comparison that cannot run, is exit 2, never a pass, and
+# so is a CHANGELOG.md that is not there. Run Scripts/check-api.sh first: the baseline is the
+# interface of the library only while that check passes. The tag of the release before it must
+# also be an ancestor of the commit being released: a tag on a side branch is a problem. When the
+# newest heading is for the version, a shallow clone, which cannot say which release is below the
+# version, is exit 2. A version has no group of ten digits or more: the groups are compared as
+# integers. The reminder for added lines names an added case of a public enum, a protocol
+# requirement without a default implementation and an overload that makes an existing call
+# ambiguous as breaking; it cannot see which of them an added line is.
 #
 # --self-test builds a scratch repository for each decision and runs a copy of this script in it,
 # with the real Scripts/check-api.sh --since, a python3 that is missing or fails, and a digester
