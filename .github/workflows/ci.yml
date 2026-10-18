@@ -139,8 +139,10 @@ jobs:
     timeout-minutes: 30
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
-      # Without it a race is reported and the tests still pass: the sanitizer stops the
-      # test process at the first report, and the run fails.
+      # Measured on Xcode 26.6 and iOS 26.5, with a test that races on a global: with or without
+      # this setting the sanitizer aborts the test process at the first report, the run starts it
+      # again, and the job fails (exit 65, the racing test failed, the others passed). The setting
+      # states what the job wants, so that it does not depend on what another Xcode does by default.
       TEST_RUNNER_TSAN_OPTIONS: halt_on_error=1
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
