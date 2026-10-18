@@ -349,7 +349,7 @@ SHIM
     run_case "the reminder is also an annotation under GitHub Actions" 0 "::warning::check-release: lines were added to the interface" new=added actions=yes
     run_case "the reminder is no annotation outside GitHub Actions" 0 "lines were added to the interface" new=added absent=::warning::
     run_case "no annotation is made under GitHub Actions when no line was added" 0 "agrees on 1.1.0" actions=yes absent=::warning::
-    run_case "the reminder names an added case of a public enum" 0 "case of a public enum" new=added
+    run_case "the reminder names an added case of a public enum" 0 "Review each one: a new case of a public enum" new=added
     run_case "the reminder names a protocol requirement added without a default" 0 "without a default implementation" new=added
     run_case "the reminder says when a requirement with a default is additive" 0 "its name is new to the protocol" new=added
     run_case "a removed line under the same major fails" 1 "needs a new major version" new=removed
@@ -678,7 +678,13 @@ if [ -n "$PREVIOUS" ]; then
                 esac
                 ;;
             3)
-                echo "check-release: lines were added to the interface since $PREVIOUS. Review each one: a new case of a public enum, a protocol requirement added without a default implementation and an overload that makes an existing call ambiguous are breaking and need a new major version; a requirement with a default implementation is additive only when its name is new to the protocol and to its extensions."
+                # The reminder is a line of the log that nobody may read. Under GitHub Actions it is
+                # also a warning annotation, which a pull request shows.
+                REMINDER="check-release: lines were added to the interface since $PREVIOUS. Review each one: a new case of a public enum, a protocol requirement added without a default implementation and an overload that makes an existing call ambiguous are breaking and need a new major version; a requirement with a default implementation is additive only when its name is new to the protocol and to its extensions."
+                echo "$REMINDER"
+                if [ "${GITHUB_ACTIONS:-}" = "true" ]; then
+                    echo "::warning::$REMINDER"
+                fi
                 ;;
             4)
                 echo "check-release: the interface was not compared with $PREVIOUS: that release holds no baseline."
