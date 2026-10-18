@@ -120,6 +120,7 @@ SHIM
             keep) printf 'public struct First {\n  public func keep()\n}\n' ;;
             added) printf 'public struct First {\n  public func keep()\n  public func more()\n}\n' ;;
             removed) printf 'public struct First {\n}\n' ;;
+            gone) printf 'public struct Other {\n}\n' ;;
             *)
                 echo "check-release: self-test: no baseline named '$1'" >&2
                 exit 2
@@ -130,7 +131,7 @@ SHIM
         S_VERSION="1.1.0" S_NEWEST="" S_PREVIOUS="1.0.0" S_DATE="2026-10-03" S_SUBSECTION=""
         S_PODSPEC="$FROZEN_POD_VERSION" S_OLD="keep" S_NEW="keep" S_TAG="main" S_TAG_BASELINE="yes"
         S_API="real" S_STUB_STATUS="" S_STUB_TEXT="" S_NOTES="no" S_ABSENT="" S_PYTHON="real" S_DIGESTER="none" S_SHALLOW="no" S_GIT="real"
-        S_NODATE="no" S_EMPTY="no" S_NOPODSPEC="no"
+        S_NODATE="no" S_EMPTY="no" S_NOPODSPEC="no" S_TAGS="" S_BELOW="" S_HEADTAG="no" S_ACTIONS="no"
     }
     apply() {  # <setting>=<value> ...
         local setting
@@ -158,6 +159,10 @@ SHIM
                 nodate=*) S_NODATE="${setting#nodate=}" ;;
                 empty=*) S_EMPTY="${setting#empty=}" ;;
                 nopodspec=*) S_NOPODSPEC="${setting#nopodspec=}" ;;
+                tags=*) S_TAGS="${setting#tags=}" ;;
+                below=*) S_BELOW="${setting#below=}" ;;
+                headtag=*) S_HEADTAG="${setting#headtag=}" ;;
+                actions=*) S_ACTIONS="${setting#actions=}" ;;
                 *)
                     echo "check-release: self-test: unknown setting '$setting'" >&2
                     exit 2
@@ -168,14 +173,30 @@ SHIM
     # The repository a case describes. The release before this one is committed, with its baseline,
     # and tagged: on the line of main, on a side branch that main does not contain, or not at all.
     build_repo() {  # <directory>
-        local directory="$1" podspec_name
+        local directory="$1" podspec_name tag_spec tag_name tag_baseline
+        local tag_specs=()
         podspec_name="$(basename "$PODSPEC")"
         mkdir -p "$directory/Scripts" "$directory/Fixtures/API"
         scratch_git "$directory" init -q
         printf 'base\n' > "$directory/README"
         scratch_git "$directory" add README
         scratch_git "$directory" commit -q -m base
-        if [ -n "$S_PREVIOUS" ]; then
+        # Several release tags in order, each with its baseline: tags=1.0.0:keep,2.0.0:removed. They take
+        # the place of the one tag of the previous release below.
+        if [ -n "$S_TAGS" ]; then
+            IFS=, read -r -a tag_specs <<< "$S_TAGS"
+            for tag_spec in "${tag_specs[@]}"; do
+                tag_name="${tag_spec%%:*}"
+                tag_baseline="${tag_spec#*:}"
+                baseline_text "$tag_baseline" > "$directory/Fixtures/API/public-interface.txt"
+                scratch_git "$directory" add -f Fixtures/API/public-interface.txt
+                printf '%s\n' "$tag_name" > "$directory/marker"
+                scratch_git "$directory" add marker
+                scratch_git "$directory" commit -q -m "release $tag_name"
+                scratch_git "$directory" tag "$tag_name"
+            done
+        fi
+        if [ -n "$S_PREVIOUS" ] && [ -z "$S_TAGS" ]; then
             if [ "$S_TAG" = "side" ]; then
                 scratch_git "$directory" switch -q -c side
             fi
@@ -206,7 +227,13 @@ SHIM
             if [ "$S_EMPTY" != "yes" ]; then
                 printf -- '- a change\n'
             fi
-            if [ -n "$S_PREVIOUS" ]; then
+            # What lies below the newest section: the heading of the previous release, the text of the
+            # case with its escapes (below=), or nothing at all (below=none).
+            if [ "$S_BELOW" = "none" ]; then
+                :
+            elif [ -n "$S_BELOW" ]; then
+                printf '\n%b\n' "$S_BELOW"
+            elif [ -n "$S_PREVIOUS" ]; then
                 printf '\n## [%s] - 2025-10-11\n\n- earlier\n' "$S_PREVIOUS"
             fi
         } > "$directory/CHANGELOG.md"
@@ -215,6 +242,10 @@ SHIM
         baseline_text "$S_NEW" > "$directory/Fixtures/API/public-interface.txt"
         scratch_git "$directory" add -f CHANGELOG.md "$podspec_name" Fixtures/API/public-interface.txt
         scratch_git "$directory" commit -q -m "the release"
+        # The release job runs on the tag of the release itself.
+        if [ "$S_HEADTAG" = "yes" ]; then
+            scratch_git "$directory" tag "$S_VERSION"
+        fi
         if [ "$S_NOPODSPEC" = "yes" ]; then
             rm -f "$directory/$podspec_name"
         fi
@@ -245,7 +276,9 @@ SHIM
         if [ "$S_SHALLOW" = "yes" ]; then
             env ${git_local[@]+"${git_local[@]}"} GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null \
                 git clone -q --depth 1 --no-tags "file://$directory" "$directory-shallow"
-            scratch_git "$directory-shallow" fetch -q --depth 1 origin "refs/tags/$S_PREVIOUS:refs/tags/$S_PREVIOUS"
+            if [ -n "$S_PREVIOUS" ]; then
+                scratch_git "$directory-shallow" fetch -q --depth 1 origin "refs/tags/$S_PREVIOUS:refs/tags/$S_PREVIOUS"
+            fi
             cp -R "$directory/Scripts" "$directory-shallow/Scripts"
         fi
     }
@@ -269,7 +302,7 @@ SHIM
     }
     run_case() {  # <name> <expected status> <expected text> [<setting>=<value> ...]
         local name="$1" expected_status="$2" expected_text="$3" directory output status=0 run_path="$PATH"
-        local arguments=()
+        local arguments=() actions_env=()
         shift 3
         number=$((number + 1))
         reset_case
@@ -302,7 +335,13 @@ SHIM
         else
             arguments=("$S_VERSION")
         fi
-        output="$(env ${git_local[@]+"${git_local[@]}"} PATH="$run_path" /bin/bash "$directory/Scripts/check-release.sh" "${arguments[@]}" 2>&1)" || status=$?
+        # The self-test may itself run under GitHub Actions, and a case that does not ask for the
+        # annotations must not get them.
+        if [ "$S_ACTIONS" = "yes" ]; then
+            actions_env=(GITHUB_ACTIONS=true)
+        fi
+        output="$(env ${git_local[@]+"${git_local[@]}"} -u GITHUB_ACTIONS ${actions_env[@]+"${actions_env[@]}"} \
+            PATH="$run_path" /bin/bash "$directory/Scripts/check-release.sh" "${arguments[@]}" 2>&1)" || status=$?
         judge "$name" "$expected_status" "$expected_text" "$status" "$output" "$S_ABSENT"
     }
 
@@ -352,6 +391,17 @@ SHIM
     run_case "a shallow clone cannot be checked" 2 "git fetch --unshallow" shallow=yes
     run_case "a git that cannot say whether the tag is an ancestor" 2 "it could not be checked whether the tag 1.0.0 is an ancestor" git=nomergebase
     run_case "a git that does not know whether the clone is shallow" 2 "whether this clone is shallow" git=oldgit
+    # The release before this one comes from the tags: the highest release tag below the version that
+    # this commit reaches, and the heading below the newest one has to name it.
+    run_case "a heading below that is not a release heading is named" 1 "is not a release version" "below=## 1.0.0 - 2025-10-11\n\n- earlier" new=removed
+    run_case "a heading below with a v in front is named" 1 "is not a release version" "below=## v1.0.0 - 2025-10-11\n\n- earlier" new=removed
+    run_case "a release tag that the changelog skips is named" 1 "the changelog skips 2.0.0" version=2.1.0 tags=1.0.0:keep,2.0.0:removed "below=## [1.0.0] - 2025-10-11\n\n- earlier" new=gone
+    run_case "a duplicate heading is not lower than the version" 1 "which is not lower than 1.1.0" headtag=yes "below=## [1.1.0] - 2026-10-03\n\n- a change\n\n## [1.0.0] - 2025-10-11\n\n- earlier" new=removed
+    run_case "a heading below that is higher than the version" 1 "which is not lower than 1.1.0" "below=## [1.2.0] - 2026-11-01\n\n- later"
+    run_case "a reachable release tag and no heading below" 1 "has no heading below 1.1.0, and the release tag 1.0.0 is reachable" below=none
+    run_case "a shallow clone of the first release cannot be checked" 2 "git fetch --unshallow" previous= shallow=yes
+    run_case "a release tag above the version is not the previous release" 0 "agrees on 1.1.0" tags=1.0.0:keep,1.5.0:keep
+    run_case "the tags are compared as numbers" 0 "agrees on 1.11.0" version=1.11.0 tags=1.2.0:keep,1.10.0:keep "below=## [1.10.0] - 2025-10-11\n\n- earlier"
 
     if [ "$total" -eq 0 ]; then
         echo "check-release: self-test: no case ran" >&2
