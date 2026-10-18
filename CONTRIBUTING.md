@@ -55,6 +55,16 @@ fail. A new test of the example changes them, and so does recording the snapshot
 runtime that had none, since its snapshot tests were skipped and now run. Change the numbers in the
 same commit.
 
+CI checks the tests of the package in the same way in every cell of the `test` job: the step "Check
+the test count" counts the test methods of `Tests` (a `func test...()` on one line, with attributes
+and the modifiers `public`, `open`, `internal`, `final`, `override` and `nonisolated` allowed
+before `func`) and fails unless the result bundle holds exactly that many tests passed, none failed
+and none skipped. A test that you add needs no number to change, but it has to be written in a
+shape the pattern in `.github/workflows/ci.yml` counts: one that it does not count makes the step
+fail, which is how you find out. A class that a run leaves out, and a test that skips itself, fail
+it; the coverage floor does not see either. Two tests of `ReduceTransparencyTests` skip themselves
+when Reduce Transparency is on, so a simulator that has it on fails the step by design.
+
 The Xcode project is generated with XcodeGen 2.45.3 from `Examples/DMVariableBlurViewExample/project.yml`,
 and both are committed. Change the spec, not the project:
 `Scripts/check-example-project.sh --update` regenerates the project, and
