@@ -1,5 +1,4 @@
 import DMVariableBlurView
-import UIKit
 import XCTest
 
 /// What one update of the SwiftUI view asks of the collaborators of its UIKit view. The view is
