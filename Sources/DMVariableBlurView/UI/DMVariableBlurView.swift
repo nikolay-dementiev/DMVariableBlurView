@@ -17,6 +17,7 @@ public struct DMVariableBlurView: UIViewRepresentable {
     var startOffset: CGFloat
     private var failureHandler: (@MainActor (DMVariableBlurError) -> Void)?
     private var followsReduceTransparency = false
+    private var makeCollaborators: @MainActor () -> VariableBlurCollaborators = { .system }
 
     /// Creates a blur view.
     ///
@@ -68,6 +69,14 @@ public struct DMVariableBlurView: UIViewRepresentable {
         return view
     }
 
+    /// Replaces the collaborators of the UIKit views this view makes. A test passes spies, to see
+    /// what one update of this view asks of them; the library never calls it.
+    package func collaborators(_ make: @escaping @MainActor () -> VariableBlurCollaborators) -> DMVariableBlurView {
+        var view = self
+        view.makeCollaborators = make
+        return view
+    }
+
     /// Sets whether the view follows the Reduce Transparency setting of the device.
     ///
     /// By default, as in release 1.0.0, the view ignores the setting and shows the variable
@@ -89,7 +98,7 @@ public struct DMVariableBlurView: UIViewRepresentable {
     /// Creates the UIKit view that draws the blur. SwiftUI calls this method.
     public func makeUIView(context: Context) -> DMVariableBlurUIView {
         // The handler is in place before the first configuration is applied.
-        let view = DMVariableBlurUIView(.system)
+        let view = DMVariableBlurUIView(makeCollaborators())
         view.apply(configuration, respectsReduceTransparency: followsReduceTransparency, failureHandler: failureHandler)
         return view
     }

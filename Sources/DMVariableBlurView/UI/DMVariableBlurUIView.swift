@@ -170,14 +170,11 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
     /// cannot be shown, the view shows the plain blur of the system, records the reason in
     /// ``failure`` and writes it to the log once. A configuration equal to the last one, or
     /// rejected with an equal error, the same case and value, changes nothing.
-    package func apply(_ configuration: VariableBlurConfiguration) {
-        accept(configuration)
-    }
-
-    /// Takes the request in and shows it. Returns whether it differed from the last one: an
-    /// equal request changes nothing and shows nothing.
+    ///
+    /// - Returns: Whether the request differed from the last one and was shown. An equal request
+    ///   shows nothing.
     @discardableResult
-    private func accept(_ configuration: VariableBlurConfiguration) -> Bool {
+    package func apply(_ configuration: VariableBlurConfiguration) -> Bool {
         let request: Request
         do throws(DMVariableBlurError) {
             request = .valid(configuration, try configuration.maskProfile())
@@ -213,7 +210,7 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
         self.failureHandler = failureHandler
         let optionChanged = respects != followsReduceTransparency
         followsReduceTransparency = respects
-        let requestChanged = accept(configuration)
+        let requestChanged = apply(configuration)
         if optionChanged && !requestChanged {
             settingChanged()
         }
