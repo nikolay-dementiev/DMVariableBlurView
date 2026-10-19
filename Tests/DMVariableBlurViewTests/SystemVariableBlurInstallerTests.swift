@@ -210,25 +210,57 @@ final class SystemVariableBlurInstallerTests: XCTestCase {
         let mask = try makeMaskImage()
         let sut = makeSUT()
         XCTAssertEqual(sut.install(maxBlurRadius: 7, mask: mask, on: effectView), .installed, "precondition")
-        let foreign = KeyReadRecorder()
-        try XCTUnwrap(effectView.subviews.first).layer.filters = [foreign]
+        let foreign = KeyAccessRecorder()
+        let backdrop = try XCTUnwrap(effectView.subviews.first)
+        // Holds the filter the installer created, so that it is still alive when the foreign one
+        // stands in its place and only its identity can tell the two apart.
+        let installedFilters = backdrop.layer.filters
+        backdrop.layer.filters = [foreign]
 
-        let found = sut.isInstalled(maxBlurRadius: 7, mask: mask, on: effectView)
+        let found = withExtendedLifetime(installedFilters) {
+            sut.isInstalled(maxBlurRadius: 7, mask: mask, on: effectView)
+        }
 
         XCTAssertFalse(found, "a filter the installer did not create is not its blur")
         XCTAssertEqual(foreign.readKeys, [], "no key is read from a filter the installer did not create")
+        XCTAssertEqual(foreign.writtenKeys, [], "no key is set on a filter the installer did not create")
     }
 
     @MainActor
     func test_isInstalled_unrecognisedFilterOnAnEffectViewTheInstallerNeverUsed_returnsFalseWithoutReadingPrivateKeys() throws {
         let effectView = makeEffectView()
-        let foreign = KeyReadRecorder()
+        let foreign = KeyAccessRecorder()
         try XCTUnwrap(effectView.subviews.first).layer.filters = [foreign]
 
         let found = makeSUT().isInstalled(maxBlurRadius: 7, mask: try makeMaskImage(), on: effectView)
 
         XCTAssertFalse(found, "a filter on a view the installer never touched is not its blur")
         XCTAssertEqual(foreign.readKeys, [], "no key is read from a filter on a view the installer never touched")
+        XCTAssertEqual(foreign.writtenKeys, [], "no key is set on a filter on a view the installer never touched")
+    }
+
+    /// A reinstallation that fails leaves the layer with the blur it had, and the installer must
+    /// still name that blur and not the filter of the attempt that failed.
+    @MainActor
+    func test_isInstalled_afterAReinstallationThatFailed_stillFindsTheFirstBlur() throws {
+        let effectView = makeEffectView()
+        let mask = try makeMaskImage()
+        let sut = makeSUT(filterClassName: "DMFilterClassWithRadiusDroppingFilters")
+        XCTAssertEqual(
+            sut.install(maxBlurRadius: 7, mask: mask, on: effectView),
+            .installed,
+            "precondition: the first filter keeps its values"
+        )
+        XCTAssertEqual(
+            sut.install(maxBlurRadius: 8, mask: mask, on: effectView),
+            .unavailable(.notApplied),
+            "precondition: the second filter drops its radius"
+        )
+
+        XCTAssertTrue(
+            sut.isInstalled(maxBlurRadius: 7, mask: mask, on: effectView),
+            "the layer has the first blur back, and the installer still finds it"
+        )
     }
 
     @MainActor
@@ -361,6 +393,33 @@ private final class FilterClassThatLosesMasks: NSObject {
     @objc(filterWithType:)
     static func filter(withType type: String) -> NSObject? {
         MaskLosingFilter()
+    }
+}
+
+/// A filter class whose filters keep their values, except a radius of 8, which they drop.
+@objc(DMFilterClassWithRadiusDroppingFilters)
+private final class FilterClassWithRadiusDroppingFilters: NSObject {
+    @objc
+    static func filterTypes() -> [String] {
+        ["variableBlur"]
+    }
+
+    @objc(filterWithType:)
+    static func filter(withType type: String) -> NSObject? {
+        RadiusEightDroppingFilter()
+    }
+}
+
+private final class RadiusEightDroppingFilter: NSObject {
+    private var values: [String: Any] = [:]
+
+    override func setValue(_ value: Any?, forUndefinedKey key: String) {
+        guard !(key == "inputRadius" && (value as? NSNumber)?.doubleValue == 8) else { return }
+        values[key] = value
+    }
+
+    override func value(forUndefinedKey key: String) -> Any? {
+        values[key]
     }
 }
 

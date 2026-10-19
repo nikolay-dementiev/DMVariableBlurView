@@ -124,7 +124,7 @@ final class BlurViewReinstallationTests: XCTestCase {
     func test_blurUIView_unrecognisedFilterOnTheBackdrop_installsTheVariableBlurAndReadsNoPrivateKeys() throws {
         let sut = makeSUT()
         defer { sut.hosted.hide() }
-        let foreign = KeyReadRecorder()
+        let foreign = KeyAccessRecorder()
         let backdrop = try XCTUnwrap(sut.view.subviews.first)
         // Holds the filter the view installed, so that it is still alive when the foreign one
         // stands in its place and only its identity can tell the two apart.
@@ -138,8 +138,10 @@ final class BlurViewReinstallationTests: XCTestCase {
         }
         // Read before anything else looks at the filters: the hosting helper reads keys too.
         let keysRead = foreign.readKeys
+        let keysWritten = foreign.writtenKeys
 
         XCTAssertEqual(keysRead, [], "no key is read from a filter the view did not install")
+        XCTAssertEqual(keysWritten, [], "no key is set on a filter the view did not install")
         XCTAssertEqual(sut.installer.installCount, installsBefore + 1, "the blur is installed over the foreign filter")
         XCTAssertEqual(sut.installer.answers.last, false, "the view learned that its blur was not on the backdrop")
         XCTAssertEqual(sut.hosted.filterTypes, ["variableBlur"], "the backdrop carries the variable blur and nothing else")
