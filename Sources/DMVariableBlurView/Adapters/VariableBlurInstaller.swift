@@ -54,6 +54,10 @@ package protocol VariableBlurInstaller {
 /// call, a missing filter type and an empty result each end in
 /// ``VariableBlurInstallation/unavailable(_:)``. An exception that the system raises inside
 /// one of these calls cannot be caught from Swift.
+///
+/// An installer remembers the filters it put on effect views. Copies of it share that memory;
+/// another installer knows nothing of what this one installed.
+@MainActor
 package struct SystemVariableBlurInstaller: VariableBlurInstaller {
     private let filterClassName: String
     private let filterType: String
@@ -63,7 +67,10 @@ package struct SystemVariableBlurInstaller: VariableBlurInstaller {
     /// a host or a later system, may not define them, and the exception that raises cannot be
     /// caught. Both sides are weak: the layer owns the filter, so the entry goes when the
     /// system lets the filter go, and it does not keep the effect view alive.
-    private let installedFilters = NSMapTable<UIVisualEffectView, NSObject>.weakToWeakObjects()
+    private let installedFilters = NSMapTable<UIVisualEffectView, NSObject>(
+        keyOptions: [.weakMemory, .objectPointerPersonality],
+        valueOptions: [.weakMemory, .objectPointerPersonality]
+    )
 
     /// - Parameters:
     ///   - filterClassName: The name of the filter class of the system.
@@ -113,7 +120,7 @@ package struct SystemVariableBlurInstaller: VariableBlurInstaller {
         // uniform blur and the saturation.
         let standardFilters = backdrop.layer.filters
         backdrop.layer.filters = [filter]
-        guard carriesOnly(filter, withRadius: maxBlurRadius, mask: mask, on: backdrop.layer) else {
+        guard backdrop.layer.carriesOnly(filter, withRadius: maxBlurRadius, mask: mask) else {
             backdrop.layer.filters = standardFilters
             return .unavailable(.notApplied)
         }
@@ -133,7 +140,7 @@ package struct SystemVariableBlurInstaller: VariableBlurInstaller {
     package func isInstalled(maxBlurRadius: CGFloat, mask: CGImage, on effectView: UIVisualEffectView) -> Bool {
         guard let backdrop = backdropView(of: effectView),
               let filter = installedFilters.object(forKey: effectView),
-              carriesOnly(filter, withRadius: maxBlurRadius, mask: mask, on: backdrop.layer) else {
+              backdrop.layer.carriesOnly(filter, withRadius: maxBlurRadius, mask: mask) else {
             return false
         }
         let contentView = effectView.contentView
@@ -149,12 +156,14 @@ package struct SystemVariableBlurInstaller: VariableBlurInstaller {
     private func backdropView(of effectView: UIVisualEffectView) -> UIView? {
         effectView.subviews.first { $0.layer.filters?.isEmpty == false }
     }
+}
 
+private extension CALayer {
     /// The layer took the filter when it carries that filter and nothing else, and the filter
-    /// holds the radius and the mask it was given. The filter is the object this installer
+    /// holds the radius and the mask it was given. The filter is the object the installer
     /// created, found by identity before any key is read from it.
-    private func carriesOnly(_ filter: NSObject, withRadius radius: CGFloat, mask: CGImage, on layer: CALayer) -> Bool {
-        guard let filters = layer.filters, filters.count == 1, filters.first as AnyObject? === filter else {
+    func carriesOnly(_ filter: NSObject, withRadius radius: CGFloat, mask: CGImage) -> Bool {
+        guard let carried = filters, carried.count == 1, carried[0] as AnyObject === filter else {
             return false
         }
         guard filter.value(forKey: "inputMaskImage") as AnyObject === mask else {
