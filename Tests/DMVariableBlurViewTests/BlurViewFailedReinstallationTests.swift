@@ -40,7 +40,7 @@ final class BlurViewFailedReinstallationTests: XCTestCase {
     /// The plain blur is the state the view leaves, so a host that removes the effect and gives one
     /// back finds nothing to put back: the view installs nothing.
     @MainActor
-    func test_layout_afterTheRestoredPlainBlur_effectRemovedAndGivenBack_installsNothing() throws {
+    func test_layout_effectRemovedAndGivenBackAfterTheFailure_installsNothing() throws {
         let sut = makeSUT()
         defer { sut.hosted.hide() }
         refuseReinstallation(of: sut)
@@ -95,6 +95,6 @@ final class BlurViewFailedReinstallationTests: XCTestCase {
     @MainActor
     private func refuseReinstallation(of sut: SUT) {
         sut.view.subviews.first?.layer.filters = sut.standardFilters
-        sut.installer.refuseInstallations(with: .unavailable(.notApplied))
+        sut.installer.refuseInstallations(because: .notApplied)
     }
 }
