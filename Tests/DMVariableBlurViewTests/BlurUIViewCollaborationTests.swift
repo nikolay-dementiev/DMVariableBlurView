@@ -441,6 +441,23 @@ final class BlurUIViewCollaborationTests: XCTestCase {
         XCTAssertEqual(collaborators.installer.installations.count, 2, "one installation, one attempt, no third")
     }
 
+    /// The system refused the blur and the layer holds what it held before. The view leaves the
+    /// plain blur: the effect is rebuilt, which brings the standard filters and the tint back.
+    @MainActor
+    func test_layout_reinstallationUnavailable_showsThePlainBlurOfTheSystem() throws {
+        let (sut, collaborators) = try makeSUT()
+        sut.apply(validConfiguration)
+        let effectBefore = sut.effect
+        collaborators.installer.blurIsStillInstalled = false
+        collaborators.installer.outcome = .unavailable(.notApplied)
+
+        layOut(sut)
+
+        XCTAssertFalse(sut.effect === effectBefore, "the view rebuilt the plain blur: its effect is a new one")
+        XCTAssertNotNil(sut.effect, "the effect is not removed")
+        XCTAssertEqual(collaborators.log.entries.count, 1, "the failure is logged once")
+    }
+
     @MainActor
     func test_layout_afterARejectedConfiguration_installsNothing() throws {
         let (sut, collaborators) = try makeSUT()

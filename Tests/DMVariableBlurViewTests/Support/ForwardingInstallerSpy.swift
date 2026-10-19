@@ -14,9 +14,20 @@ final class ForwardingInstallerSpy: VariableBlurInstaller {
     private(set) var installCount = 0
     /// What the real installer answered each time the view asked whether its blur is still on.
     private(set) var answers: [Bool] = []
+    /// When set, every installation is answered with it and the layer is left as it is.
+    private var refusal: VariableBlurInstallation?
+
+    /// Makes the system refuse the blur from now on, as the installer does when the layer does
+    /// not take the filter: it answers `outcome` and touches nothing.
+    func refuseInstallations(with outcome: VariableBlurInstallation) {
+        refusal = outcome
+    }
 
     func install(maxBlurRadius: CGFloat, mask: CGImage, on effectView: UIVisualEffectView) -> VariableBlurInstallation {
         installCount += 1
+        if let refusal {
+            return refusal
+        }
         return installer.install(maxBlurRadius: maxBlurRadius, mask: mask, on: effectView)
     }
 
