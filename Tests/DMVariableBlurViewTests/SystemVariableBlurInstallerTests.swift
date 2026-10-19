@@ -181,6 +181,27 @@ final class SystemVariableBlurInstallerTests: XCTestCase {
         XCTAssertTrue(sut.isInstalled(maxBlurRadius: 7, mask: mask, on: effectView), "visible content is no rebuild")
     }
 
+    /// One installer may serve more than one effect view: each finds the blur it was given.
+    @MainActor
+    func test_isInstalled_twoEffectViewsOfOneInstaller_eachFindsItsOwnBlur() throws {
+        let first = makeEffectView()
+        let second = makeEffectView()
+        let mask = try makeMaskImage()
+        let sut = makeSUT()
+        XCTAssertEqual(sut.install(maxBlurRadius: 7, mask: mask, on: first), .installed, "precondition: the first view")
+        XCTAssertEqual(sut.install(maxBlurRadius: 7, mask: mask, on: second), .installed, "precondition: the second view")
+        XCTAssertTrue(sut.isInstalled(maxBlurRadius: 7, mask: mask, on: first), "the first view carries its blur")
+        XCTAssertTrue(sut.isInstalled(maxBlurRadius: 7, mask: mask, on: second), "the second view carries its blur")
+
+        first.effect = UIBlurEffect(style: .dark)
+
+        XCTAssertFalse(
+            sut.isInstalled(maxBlurRadius: 7, mask: mask, on: first),
+            "the rebuilt effect of the first view is not the blur"
+        )
+        XCTAssertTrue(sut.isInstalled(maxBlurRadius: 7, mask: mask, on: second), "the second view still carries its blur")
+    }
+
     @MainActor
     func test_setBackdropScale_onAnEffectView_setsTheScaleOfTheBackdropLayer() {
         let effectView = makeEffectView()
