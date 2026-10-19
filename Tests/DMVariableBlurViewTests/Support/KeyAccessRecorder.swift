@@ -1,4 +1,4 @@
-import Foundation
+import ObjectiveC
 
 /// A harmless stand-in for a filter that a host, or a later system, could leave alone on the
 /// backdrop of a blur view.
