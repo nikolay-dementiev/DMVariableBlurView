@@ -118,6 +118,17 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
         }
     }
 
+    /// A view that shows the plain blur of the system until a configuration is applied, with
+    /// the collaborators given.
+    package convenience init(_ collaborators: VariableBlurCollaborators) {
+        self.init(
+            maskRenderer: collaborators.maskRenderer,
+            installer: collaborators.installer,
+            failureLog: collaborators.failureLog,
+            reduceTransparency: collaborators.reduceTransparency
+        )
+    }
+
     /// Creates a blur view for a UIKit hierarchy.
     ///
     /// The view always exists after this call. When the values are not valid, or the
@@ -136,12 +147,7 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
         direction: DMVariableBlurDirection = .blurredCenterClearTopBottom(),
         startOffset: CGFloat = 0
     ) {
-        self.init(
-            maskRenderer: CoreGraphicsMaskImageRenderer(),
-            installer: SystemVariableBlurInstaller(),
-            failureLog: SystemFailureLog(),
-            reduceTransparency: SystemReduceTransparencySetting()
-        )
+        self.init(.system)
         apply(VariableBlurConfiguration(maxBlurRadius: maxBlurRadius, direction: direction, startOffset: startOffset))
     }
 
