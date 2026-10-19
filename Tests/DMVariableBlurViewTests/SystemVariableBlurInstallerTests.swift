@@ -202,6 +202,35 @@ final class SystemVariableBlurInstallerTests: XCTestCase {
         XCTAssertTrue(sut.isInstalled(maxBlurRadius: 7, mask: mask, on: second), "the second view still carries its blur")
     }
 
+    /// A key read on an object that does not define the key raises an exception that Swift
+    /// cannot catch. The installer reads keys only from the filter it created itself.
+    @MainActor
+    func test_isInstalled_unrecognisedFilter_returnsFalseWithoutReadingPrivateKeys() throws {
+        let effectView = makeEffectView()
+        let mask = try makeMaskImage()
+        let sut = makeSUT()
+        XCTAssertEqual(sut.install(maxBlurRadius: 7, mask: mask, on: effectView), .installed, "precondition")
+        let foreign = KeyReadRecorder()
+        try XCTUnwrap(effectView.subviews.first).layer.filters = [foreign]
+
+        let found = sut.isInstalled(maxBlurRadius: 7, mask: mask, on: effectView)
+
+        XCTAssertFalse(found, "a filter the installer did not create is not its blur")
+        XCTAssertEqual(foreign.readKeys, [], "no key is read from a filter the installer did not create")
+    }
+
+    @MainActor
+    func test_isInstalled_unrecognisedFilterOnAnEffectViewTheInstallerNeverUsed_returnsFalseWithoutReadingPrivateKeys() throws {
+        let effectView = makeEffectView()
+        let foreign = KeyReadRecorder()
+        try XCTUnwrap(effectView.subviews.first).layer.filters = [foreign]
+
+        let found = makeSUT().isInstalled(maxBlurRadius: 7, mask: try makeMaskImage(), on: effectView)
+
+        XCTAssertFalse(found, "a filter on a view the installer never touched is not its blur")
+        XCTAssertEqual(foreign.readKeys, [], "no key is read from a filter on a view the installer never touched")
+    }
+
     @MainActor
     func test_setBackdropScale_onAnEffectView_setsTheScaleOfTheBackdropLayer() {
         let effectView = makeEffectView()

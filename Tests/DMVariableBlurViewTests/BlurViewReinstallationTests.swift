@@ -117,6 +117,27 @@ final class BlurViewReinstallationTests: XCTestCase {
         XCTAssertEqual(sut.installer.answers.last, true, "the pass after the return finds the blur that was put back")
     }
 
+    /// A filter the view did not install is no part of its blur: the view puts the variable blur
+    /// over it and asks it for nothing.
+    @MainActor
+    func test_blurUIView_unrecognisedFilterOnTheBackdrop_installsTheVariableBlurAndReadsNoPrivateKeys() throws {
+        let sut = makeSUT()
+        defer { sut.hosted.hide() }
+        let foreign = KeyReadRecorder()
+        try XCTUnwrap(sut.view.subviews.first).layer.filters = [foreign]
+        let installsBefore = sut.installer.installCount
+
+        sut.view.setNeedsLayout()
+        sut.hosted.window.layoutIfNeeded()
+        // Read before anything else looks at the filters: the hosting helper reads keys too.
+        let keysRead = foreign.readKeys
+
+        XCTAssertEqual(keysRead, [], "no key is read from a filter the view did not install")
+        XCTAssertEqual(sut.installer.installCount, installsBefore + 1, "the blur is installed over the foreign filter")
+        XCTAssertEqual(sut.installer.answers.last, false, "the view learned that its blur was not on the backdrop")
+        XCTAssertEqual(sut.hosted.filterTypes, ["variableBlur"], "the backdrop carries the variable blur and nothing else")
+    }
+
     // MARK: - Helpers
 
     private struct SUT {
