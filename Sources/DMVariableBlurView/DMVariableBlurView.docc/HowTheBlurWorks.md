@@ -34,8 +34,10 @@ these strings. Weigh that risk for your app before you ship the view.
 
 Before it installs the filter, the view checks that the class exists, that it answers
 both selectors, that the system lists the filter type, that a filter is created, and that
-the effect has a backdrop. After installing it, the view reads the filter back. When a
-step fails, the view keeps the plain blur of the system and reports
+the effect has a backdrop. After installing it, the view reads the filter back. It reads
+the keys of a filter only on the filter it installed itself: any other filter it finds
+on the backdrop counts as a rebuilt effect, and the view replaces it. When a step
+fails, the view keeps the plain blur of the system and reports
 ``DMVariableBlurError/effectUnavailable``.
 
 The view also relies on how the effect view is built, which is not documented: the

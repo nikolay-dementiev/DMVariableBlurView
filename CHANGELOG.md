@@ -3,6 +3,20 @@
 All notable changes to DMVariableBlurView are recorded in this file. The format follows Keep a
 Changelog 1.1.0, and versions follow Semantic Versioning 2.0.0.
 
+## [Unreleased]
+
+### Breaking changes
+
+- The view finds its own filter on the backdrop by identity and reads the radius and the mask
+  from that filter only. A filter that the view did not install, left alone on the backdrop by
+  a host or by a later system, counts as a rebuilt effect: at the next layout pass the view
+  installs the variable blur, and the other filter is gone. In 1.1.0 the view asked any single
+  filter for `inputMaskImage` and `inputRadius`, and an object that does not define those keys
+  raised an exception that Swift cannot catch and ended the app. Migration: an app that puts
+  its own filter on the backdrop layer of the view has to move it to a view of its own, since
+  the view replaces it. Nothing else changes: the filter that the view installed is found as
+  before.
+
 ## [1.1.0] - 2026-10-03
 
 ### Added

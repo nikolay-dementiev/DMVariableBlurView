@@ -72,9 +72,10 @@ not hide it from a scan.
   ([issue 8](https://github.com/nikstar/VariableBlur/issues/8)).
 - Before it installs the filter, the view checks that the class exists, that it answers both
   selectors, that the system lists the filter type, that a filter is created, and that the
-  effect has a backdrop. After installing it, the view reads the filter back. When a check
-  fails, the view shows the plain blur of the system and reports
-  `DMVariableBlurError.effectUnavailable`.
+  effect has a backdrop. After installing it, the view reads the filter back. It reads the
+  keys of a filter only on the filter it installed itself: any other filter it finds on
+  the backdrop counts as a rebuilt effect, and the view replaces it. When a check fails, the
+  view shows the plain blur of the system and reports `DMVariableBlurError.effectUnavailable`.
 - The view also relies on how the effect view is built, which is not documented: the backdrop
   is the first subview whose layer carries filters, and the other subviews, except
   `contentView`, are the tint, which the view hides.
