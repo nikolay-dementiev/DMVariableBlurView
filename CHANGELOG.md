@@ -16,6 +16,18 @@ Changelog 1.1.0, and versions follow Semantic Versioning 2.0.0.
   exception that Swift cannot catch and ended the app. Migration: an app that puts its own
   filter on the backdrop layer of the view has to move it to a view of its own, since the view
   replaces it. Nothing else changes: the filter that the view installed is found as before.
+- A SwiftUI update is applied as one request. When one update turned the Reduce Transparency
+  option off and changed the values together, the option reached the view first, so the view
+  installed the previous values, which it had never shown while it followed the setting. If
+  the system rejected them, the failure went to the new `onFailure(_:)` handler, and the plain
+  blur was rebuilt twice when the option went on. Now the view shows the new values under the
+  new option once, and the handler hears only about them. Migration: nothing to change; a
+  handler that counted on the failure of the values an update replaced no longer receives it.
+- A layout pass that cannot install the blur again leaves the plain blur of the system, with
+  its tint, and reports the failure once, as before. In 1.1.0 the view could keep the standard
+  filters with the tint that the earlier installation had hidden, until the host assigned
+  `effect` again. Migration: nothing to change; a view that showed no tint after such a
+  failure now shows the plain blur.
 
 ## [1.1.0] - 2026-10-03
 
