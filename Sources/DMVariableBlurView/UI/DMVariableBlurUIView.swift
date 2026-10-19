@@ -241,8 +241,11 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
         else { return }
         let installation = installer.install(maxBlurRadius: installedBlur.maxBlurRadius, mask: installedBlur.mask, on: self)
         if case .unavailable(let reason) = installation {
-            // Trying again in every layout pass would not change the answer of the system.
-            self.installedBlur = nil
+            // Trying again in every layout pass would not change the answer of the system. The
+            // layer holds what it held before the attempt, which can be the standard filters
+            // without their tint, so the plain blur is rebuilt, as for any other failure. That
+            // also stops the attempts.
+            showPlainBlur()
             record(.effectUnavailable, detail: String(describing: reason))
             return
         }
