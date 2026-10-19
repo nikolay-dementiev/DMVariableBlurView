@@ -73,12 +73,14 @@ not hide it from a scan.
 - Before it installs the filter, the view checks that the class exists, that it answers both
   selectors, that the system lists the filter type, that a filter is created, and that the
   effect has a backdrop. After installing it, the view reads the filter back. It reads the
-  keys of a filter only on the filter it installed itself: any other filter it finds on
-  the backdrop counts as a rebuilt effect, and the view replaces it. When a check fails, the
-  view shows the plain blur of the system and reports `DMVariableBlurError.effectUnavailable`.
+  keys of a filter only on the filter it installed itself. When the backdrop carries another
+  filter in its place, the view installs the blur again at its next layout pass, which
+  replaces that filter. When a check fails, the view shows the plain blur of the system and
+  reports `DMVariableBlurError.effectUnavailable`.
 - The view also relies on how the effect view is built, which is not documented: the backdrop
   is the first subview whose layer carries filters, and the other subviews, except
-  `contentView`, are the tint, which the view hides.
+  `contentView`, are the tint, which the view hides. It also relies on the layer returning, from
+  `filters`, the filter object it was given: the view finds its own filter by that identity.
 - These checks contain the risk of a system that changed; they cannot remove it. An exception
   raised inside the private code cannot be caught from Swift, so it ends the app.
 
