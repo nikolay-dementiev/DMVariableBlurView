@@ -40,7 +40,8 @@ step fails, the view keeps the plain blur of the system and reports
 
 The view also relies on how the effect view is built, which is not documented: the
 backdrop is the first subview whose layer carries filters, and the other subviews, except
-`contentView`, are the tint, which the view hides.
+`contentView`, are the tint, which the view hides. It also relies on the layer returning, from
+`filters`, the filter object it was given: the view finds its own filter by that identity.
 
 These checks contain the risk of a system that changed; they cannot remove it. An
 exception raised inside the private code cannot be caught from Swift, so it ends the app.
@@ -51,3 +52,7 @@ UIKit puts the standard filters and the tint back when the appearance changes be
 light and dark, and when the `effect` of the view is assigned. The view puts the
 variable blur back in the same layout pass, before the frame reaches the screen. While
 the `effect` is `nil`, the view waits, and the blur returns with the effect.
+
+The view reads the keys of the filter it installed itself and of no other. When the
+backdrop carries another filter in the place of its own, the view installs the blur again
+in the next layout pass, and that replaces the other filter.

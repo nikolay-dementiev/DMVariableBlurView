@@ -181,6 +181,88 @@ final class SystemVariableBlurInstallerTests: XCTestCase {
         XCTAssertTrue(sut.isInstalled(maxBlurRadius: 7, mask: mask, on: effectView), "visible content is no rebuild")
     }
 
+    /// One installer may serve more than one effect view: each finds the blur it was given.
+    @MainActor
+    func test_isInstalled_twoEffectViewsOfOneInstaller_eachFindsItsOwnBlur() throws {
+        let first = makeEffectView()
+        let second = makeEffectView()
+        let mask = try makeMaskImage()
+        let sut = makeSUT()
+        XCTAssertEqual(sut.install(maxBlurRadius: 7, mask: mask, on: first), .installed, "precondition: the first view")
+        XCTAssertEqual(sut.install(maxBlurRadius: 7, mask: mask, on: second), .installed, "precondition: the second view")
+        XCTAssertTrue(sut.isInstalled(maxBlurRadius: 7, mask: mask, on: first), "the first view carries its blur")
+        XCTAssertTrue(sut.isInstalled(maxBlurRadius: 7, mask: mask, on: second), "the second view carries its blur")
+
+        first.effect = UIBlurEffect(style: .dark)
+
+        XCTAssertFalse(
+            sut.isInstalled(maxBlurRadius: 7, mask: mask, on: first),
+            "the rebuilt effect of the first view is not the blur"
+        )
+        XCTAssertTrue(sut.isInstalled(maxBlurRadius: 7, mask: mask, on: second), "the second view still carries its blur")
+    }
+
+    /// A key read on an object that does not define the key raises an exception that Swift
+    /// cannot catch. The installer reads keys only from the filter it created itself.
+    @MainActor
+    func test_isInstalled_unrecognisedFilter_returnsFalseWithoutReadingPrivateKeys() throws {
+        let effectView = makeEffectView()
+        let mask = try makeMaskImage()
+        let sut = makeSUT()
+        XCTAssertEqual(sut.install(maxBlurRadius: 7, mask: mask, on: effectView), .installed, "precondition")
+        let foreign = KeyAccessRecorder()
+        let backdrop = try XCTUnwrap(effectView.subviews.first)
+        // Holds the filter the installer created, so that it is still alive when the foreign one
+        // stands in its place and only its identity can tell the two apart.
+        let installedFilters = backdrop.layer.filters
+        backdrop.layer.filters = [foreign]
+
+        let found = withExtendedLifetime(installedFilters) {
+            sut.isInstalled(maxBlurRadius: 7, mask: mask, on: effectView)
+        }
+
+        XCTAssertFalse(found, "a filter the installer did not create is not its blur")
+        XCTAssertEqual(foreign.readKeys, [], "no key is read from a filter the installer did not create")
+        XCTAssertEqual(foreign.writtenKeys, [], "no key is set on a filter the installer did not create")
+    }
+
+    @MainActor
+    func test_isInstalled_unrecognisedFilterOnAnEffectViewTheInstallerNeverUsed_returnsFalseWithoutReadingPrivateKeys() throws {
+        let effectView = makeEffectView()
+        let foreign = KeyAccessRecorder()
+        try XCTUnwrap(effectView.subviews.first).layer.filters = [foreign]
+
+        let found = makeSUT().isInstalled(maxBlurRadius: 7, mask: try makeMaskImage(), on: effectView)
+
+        XCTAssertFalse(found, "a filter on a view the installer never touched is not its blur")
+        XCTAssertEqual(foreign.readKeys, [], "no key is read from a filter on a view the installer never touched")
+        XCTAssertEqual(foreign.writtenKeys, [], "no key is set on a filter on a view the installer never touched")
+    }
+
+    /// A reinstallation that fails leaves the layer with the blur it had, and the installer must
+    /// still name that blur and not the filter of the attempt that failed.
+    @MainActor
+    func test_isInstalled_afterAReinstallationThatFailed_stillFindsTheFirstBlur() throws {
+        let effectView = makeEffectView()
+        let mask = try makeMaskImage()
+        let sut = makeSUT(filterClassName: "DMFilterClassWithRadiusDroppingFilters")
+        XCTAssertEqual(
+            sut.install(maxBlurRadius: 7, mask: mask, on: effectView),
+            .installed,
+            "precondition: the first filter keeps its values"
+        )
+        XCTAssertEqual(
+            sut.install(maxBlurRadius: 8, mask: mask, on: effectView),
+            .unavailable(.notApplied),
+            "precondition: the second filter drops its radius"
+        )
+
+        XCTAssertTrue(
+            sut.isInstalled(maxBlurRadius: 7, mask: mask, on: effectView),
+            "the layer has the first blur back, and the installer still finds it"
+        )
+    }
+
     @MainActor
     func test_setBackdropScale_onAnEffectView_setsTheScaleOfTheBackdropLayer() {
         let effectView = makeEffectView()
@@ -311,6 +393,33 @@ private final class FilterClassThatLosesMasks: NSObject {
     @objc(filterWithType:)
     static func filter(withType type: String) -> NSObject? {
         MaskLosingFilter()
+    }
+}
+
+/// A filter class whose filters keep their values, except a radius of 8, which they drop.
+@objc(DMFilterClassWithRadiusDroppingFilters)
+private final class FilterClassWithRadiusDroppingFilters: NSObject {
+    @objc
+    static func filterTypes() -> [String] {
+        ["variableBlur"]
+    }
+
+    @objc(filterWithType:)
+    static func filter(withType type: String) -> NSObject? {
+        RadiusEightDroppingFilter()
+    }
+}
+
+private final class RadiusEightDroppingFilter: NSObject {
+    private var values: [String: Any] = [:]
+
+    override func setValue(_ value: Any?, forUndefinedKey key: String) {
+        guard !(key == "inputRadius" && (value as? NSNumber)?.doubleValue == 8) else { return }
+        values[key] = value
+    }
+
+    override func value(forUndefinedKey key: String) -> Any? {
+        values[key]
     }
 }
 

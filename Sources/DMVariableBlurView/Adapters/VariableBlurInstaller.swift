@@ -37,7 +37,9 @@ package protocol VariableBlurInstaller {
     func install(maxBlurRadius: CGFloat, mask: CGImage, on effectView: UIVisualEffectView) -> VariableBlurInstallation
 
     /// Whether the effect view still shows the blur that ``install(maxBlurRadius:mask:on:)``
-    /// put on it: the one filter with this radius and mask, and the tint hidden.
+    /// put on it: the filter that call created, alone on the backdrop, with this radius and
+    /// mask, and the tint hidden. A filter that call did not create is not asked for its
+    /// radius or its mask.
     func isInstalled(maxBlurRadius: CGFloat, mask: CGImage, on effectView: UIVisualEffectView) -> Bool
 
     /// Tells the backdrop of the effect view the scale it renders at.
@@ -52,9 +54,23 @@ package protocol VariableBlurInstaller {
 /// call, a missing filter type and an empty result each end in
 /// ``VariableBlurInstallation/unavailable(_:)``. An exception that the system raises inside
 /// one of these calls cannot be caught from Swift.
+///
+/// An installer remembers the filters it put on effect views. Copies of it share that memory;
+/// another installer knows nothing of what this one installed.
+@MainActor
 package struct SystemVariableBlurInstaller: VariableBlurInstaller {
     private let filterClassName: String
     private let filterType: String
+
+    /// The filter that ``install(maxBlurRadius:mask:on:)`` last put on each effect view. It is
+    /// the only filter whose keys the installer reads: another filter, left on the backdrop by
+    /// a host or a later system, may not define them, and the exception that raises cannot be
+    /// caught. Both sides are weak: the layer owns the filter, so the entry goes when the
+    /// system lets the filter go, and it does not keep the effect view alive.
+    private let installedFilters = NSMapTable<UIVisualEffectView, NSObject>(
+        keyOptions: [.weakMemory, .objectPointerPersonality],
+        valueOptions: [.weakMemory, .objectPointerPersonality]
+    )
 
     /// - Parameters:
     ///   - filterClassName: The name of the filter class of the system.
@@ -104,10 +120,13 @@ package struct SystemVariableBlurInstaller: VariableBlurInstaller {
         // uniform blur and the saturation.
         let standardFilters = backdrop.layer.filters
         backdrop.layer.filters = [filter]
-        guard carriesOneFilter(withRadius: maxBlurRadius, mask: mask, on: backdrop.layer) else {
+        guard backdrop.layer.carriesOnly(filter, withRadius: maxBlurRadius, mask: mask) else {
             backdrop.layer.filters = standardFilters
             return .unavailable(.notApplied)
         }
+        // Only a blur that took is remembered. After a failure the layer has what it had, and
+        // so has the entry.
+        installedFilters.setObject(filter, forKey: effectView)
 
         // Without its tint the effect view shows no hard line where the blur ends. The content
         // view holds what a host puts over the blur and stays as the host left it.
@@ -120,7 +139,8 @@ package struct SystemVariableBlurInstaller: VariableBlurInstaller {
 
     package func isInstalled(maxBlurRadius: CGFloat, mask: CGImage, on effectView: UIVisualEffectView) -> Bool {
         guard let backdrop = backdropView(of: effectView),
-              carriesOneFilter(withRadius: maxBlurRadius, mask: mask, on: backdrop.layer) else {
+              let filter = installedFilters.object(forKey: effectView),
+              backdrop.layer.carriesOnly(filter, withRadius: maxBlurRadius, mask: mask) else {
             return false
         }
         let contentView = effectView.contentView
@@ -136,11 +156,14 @@ package struct SystemVariableBlurInstaller: VariableBlurInstaller {
     private func backdropView(of effectView: UIVisualEffectView) -> UIView? {
         effectView.subviews.first { $0.layer.filters?.isEmpty == false }
     }
+}
 
-    /// The layer took the filter when it carries one filter and nothing else, and that
-    /// filter holds the radius and the mask it was given.
-    private func carriesOneFilter(withRadius radius: CGFloat, mask: CGImage, on layer: CALayer) -> Bool {
-        guard let filters = layer.filters, filters.count == 1, let filter = filters.first as? NSObject else {
+private extension CALayer {
+    /// The layer took the filter when it carries that filter and nothing else, and the filter
+    /// holds the radius and the mask it was given. The filter is the object the installer
+    /// created, found by identity before any key is read from it.
+    func carriesOnly(_ filter: NSObject, withRadius radius: CGFloat, mask: CGImage) -> Bool {
+        guard let carried = filters, carried.count == 1, carried[0] as AnyObject === filter else {
             return false
         }
         guard filter.value(forKey: "inputMaskImage") as AnyObject === mask else {
