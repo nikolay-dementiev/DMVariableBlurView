@@ -182,6 +182,18 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
         present()
     }
 
+    /// Applies what one update of the SwiftUI wrapper asks for: the handler of the update, the
+    /// Reduce Transparency option and the values.
+    package func apply(
+        _ configuration: VariableBlurConfiguration,
+        respectsReduceTransparency respects: Bool,
+        failureHandler: (@MainActor (DMVariableBlurError) -> Void)?
+    ) {
+        self.failureHandler = failureHandler
+        respectsReduceTransparency = respects
+        apply(configuration)
+    }
+
     /// Replaces the values of the view and applies them.
     ///
     /// A call with the values the view already has does nothing. After the call ``failure``

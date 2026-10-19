@@ -88,20 +88,16 @@ public struct DMVariableBlurView: UIViewRepresentable {
 
     /// Creates the UIKit view that draws the blur. SwiftUI calls this method.
     public func makeUIView(context: Context) -> DMVariableBlurUIView {
-        // The handler must be in place before the first configuration is applied.
+        // The handler is in place before the first configuration is applied.
         let view = DMVariableBlurUIView(.system)
-        view.failureHandler = failureHandler
-        view.respectsReduceTransparency = followsReduceTransparency
-        view.apply(configuration)
+        view.apply(configuration, respectsReduceTransparency: followsReduceTransparency, failureHandler: failureHandler)
         return view
     }
 
     /// Applies the values of this view to the UIKit view. SwiftUI calls this method when
     /// the values change; values equal to the applied ones change nothing.
     public func updateUIView(_ uiView: DMVariableBlurUIView, context: Context) {
-        uiView.failureHandler = failureHandler
-        uiView.respectsReduceTransparency = followsReduceTransparency
-        uiView.apply(configuration)
+        uiView.apply(configuration, respectsReduceTransparency: followsReduceTransparency, failureHandler: failureHandler)
     }
 
     private var configuration: VariableBlurConfiguration {
