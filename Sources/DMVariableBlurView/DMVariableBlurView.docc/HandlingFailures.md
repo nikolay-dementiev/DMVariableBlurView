@@ -46,7 +46,8 @@ Read ``DMVariableBlurUIView/failure`` after you create the view, after
 of appearance: it holds the reason, or `nil` when nothing prevents the blur. Each
 recorded reason also writes one line to the unified log. When the view cannot install the
 blur again after the system rebuilt the effect, it shows the plain blur of the system, as
-for any other failure.
+for any other failure: the regular style, also when the host had given the view another
+one.
 
 ### Reduce Transparency
 

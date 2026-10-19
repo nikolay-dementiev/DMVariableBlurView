@@ -24,10 +24,11 @@ Changelog 1.1.0, and versions follow Semantic Versioning 2.0.0.
   new option once, and the handler hears only about them. Migration: nothing to change; a
   handler that counted on the failure of the values an update replaced no longer receives it.
 - A layout pass that cannot install the blur again leaves the plain blur of the system, with
-  its tint, and reports the failure once, as before. In 1.1.0 the view could keep the standard
-  filters with the tint that the earlier installation had hidden, until the host assigned
-  `effect` again. Migration: nothing to change; a view that showed no tint after such a
-  failure now shows the plain blur.
+  its tint, and reports the failure once, as before. The plain blur is the regular style, as
+  for every other failure, also when the host had given the view another effect. In 1.1.0
+  the view could keep the standard filters with the tint that the earlier installation had
+  hidden, until the host assigned `effect` again. Migration: nothing to change; a view that
+  showed no tint after such a failure now shows the plain blur.
 
 ## [1.1.0] - 2026-10-03
 

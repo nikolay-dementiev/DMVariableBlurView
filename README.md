@@ -290,9 +290,11 @@ The handler runs once for each configuration that fails, and again when a failur
 after a valid configuration. A configuration rejected for the same reason as the one before
 it, the same case and value, counts as unchanged: nothing is reported again, also when its
 other values differ. One update is one request: when it changes the values and the Reduce
-Transparency option together, the handler hears only about the new values. Without a handler, the view writes one line for each failure to
-the unified log, under the subsystem `DMVariableBlurView` and the category `failure`. In
-UIKit, the `failure` property holds the reason, and each reason also goes to the log.
+Transparency option together, the handler hears only about the new values. Without a handler,
+the view writes one line for each failure to the unified log, under the subsystem
+`DMVariableBlurView` and the category `failure`. In UIKit, the `failure` property holds the
+reason, and each reason also goes to the log. When the view cannot install the blur again after
+the system rebuilt the effect, it shows the plain blur of the system, as for any other failure.
 
 `onFailure(_:)` and `respectsReduceTransparency(_:)` are methods of `DMVariableBlurView`:
 call them before other modifiers such as `.frame`.
