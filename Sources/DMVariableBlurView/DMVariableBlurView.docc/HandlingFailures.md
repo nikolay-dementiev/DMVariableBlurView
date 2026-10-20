@@ -31,7 +31,9 @@ main actor, after the update that applied the configuration, so it may change st
 runs once for each configuration that fails, and again when a failure returns after a
 valid configuration. A configuration rejected for the same reason as the one before it,
 the same case and value, counts as unchanged: nothing is reported again, also when its
-other values differ.
+other values differ. One update is one request: when it changes the values and the
+Reduce Transparency option together, the handler hears only about the new values, never
+about the values that the update replaced.
 
 Without a handler, the view writes one line for each failure to the unified log, under
 the subsystem `DMVariableBlurView` and the category `failure`. With a handler, it writes
@@ -42,7 +44,10 @@ none.
 Read ``DMVariableBlurUIView/failure`` after you create the view, after
 ``DMVariableBlurUIView/update(maxBlurRadius:direction:startOffset:)``, and after a change
 of appearance: it holds the reason, or `nil` when nothing prevents the blur. Each
-recorded reason also writes one line to the unified log.
+recorded reason also writes one line to the unified log. When the view cannot install the
+blur again after the system rebuilt the effect, it shows the plain blur of the system, as
+for any other failure: the regular style, also when the host had given the view another
+one.
 
 ### Reduce Transparency
 

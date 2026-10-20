@@ -17,6 +17,7 @@ public struct DMVariableBlurView: UIViewRepresentable {
     var startOffset: CGFloat
     private var failureHandler: (@MainActor (DMVariableBlurError) -> Void)?
     private var followsReduceTransparency = false
+    private var makeCollaborators: @MainActor () -> VariableBlurCollaborators = { .system }
 
     /// Creates a blur view.
     ///
@@ -68,6 +69,14 @@ public struct DMVariableBlurView: UIViewRepresentable {
         return view
     }
 
+    /// Replaces the collaborators of the UIKit views this view makes. A test passes spies, to see
+    /// what one update of this view asks of them; the library never calls it.
+    package func collaborators(_ make: @escaping @MainActor () -> VariableBlurCollaborators) -> DMVariableBlurView {
+        var view = self
+        view.makeCollaborators = make
+        return view
+    }
+
     /// Sets whether the view follows the Reduce Transparency setting of the device.
     ///
     /// By default, as in release 1.0.0, the view ignores the setting and shows the variable
@@ -88,25 +97,16 @@ public struct DMVariableBlurView: UIViewRepresentable {
 
     /// Creates the UIKit view that draws the blur. SwiftUI calls this method.
     public func makeUIView(context: Context) -> DMVariableBlurUIView {
-        // The handler must be in place before the first configuration is applied.
-        let view = DMVariableBlurUIView(
-            maskRenderer: CoreGraphicsMaskImageRenderer(),
-            installer: SystemVariableBlurInstaller(),
-            failureLog: SystemFailureLog(),
-            reduceTransparency: SystemReduceTransparencySetting()
-        )
-        view.failureHandler = failureHandler
-        view.respectsReduceTransparency = followsReduceTransparency
-        view.apply(configuration)
+        // The handler is in place before the first configuration is applied.
+        let view = DMVariableBlurUIView(makeCollaborators())
+        view.apply(configuration, respectsReduceTransparency: followsReduceTransparency, failureHandler: failureHandler)
         return view
     }
 
     /// Applies the values of this view to the UIKit view. SwiftUI calls this method when
     /// the values change; values equal to the applied ones change nothing.
     public func updateUIView(_ uiView: DMVariableBlurUIView, context: Context) {
-        uiView.failureHandler = failureHandler
-        uiView.respectsReduceTransparency = followsReduceTransparency
-        uiView.apply(configuration)
+        uiView.apply(configuration, respectsReduceTransparency: followsReduceTransparency, failureHandler: failureHandler)
     }
 
     private var configuration: VariableBlurConfiguration {

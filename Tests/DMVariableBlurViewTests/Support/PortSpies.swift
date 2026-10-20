@@ -22,6 +22,8 @@ final class VariableBlurInstallerSpy: VariableBlurInstaller {
     private(set) var installations: [Installation] = []
     private(set) var scaleUpdates: [ScaleUpdate] = []
     var outcome: VariableBlurInstallation = .installed
+    /// Outcomes for single radii. A request whose radius is not here gets `outcome`.
+    var outcomeForRadius: [CGFloat: VariableBlurInstallation] = [:]
     /// What the spy answers when the view asks whether its blur is still on.
     var blurIsStillInstalled = true
 
@@ -29,7 +31,7 @@ final class VariableBlurInstallerSpy: VariableBlurInstaller {
         installations.append(
             Installation(maxBlurRadius: maxBlurRadius, mask: mask, effectView: ObjectIdentifier(effectView))
         )
-        return outcome
+        return outcomeForRadius[maxBlurRadius] ?? outcome
     }
 
     func isInstalled(maxBlurRadius: CGFloat, mask: CGImage, on effectView: UIVisualEffectView) -> Bool {

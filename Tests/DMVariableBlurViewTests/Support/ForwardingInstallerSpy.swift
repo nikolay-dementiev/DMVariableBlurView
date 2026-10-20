@@ -5,7 +5,8 @@ import UIKit
 /// installer, so the view runs against the real system and a test can still count.
 ///
 /// It stands in for the installer port of the library, not for a system interface: every
-/// answer is the real installer's.
+/// answer is the real installer's, until a test makes it refuse installations, which the
+/// real installer does when the layer does not take the filter.
 @MainActor
 final class ForwardingInstallerSpy: VariableBlurInstaller {
     private let installer = SystemVariableBlurInstaller()
@@ -14,9 +15,20 @@ final class ForwardingInstallerSpy: VariableBlurInstaller {
     private(set) var installCount = 0
     /// What the real installer answered each time the view asked whether its blur is still on.
     private(set) var answers: [Bool] = []
+    /// When set, every installation is answered `.unavailable` with it and the layer is left as it is.
+    private var refusal: VariableBlurInstallation.Reason?
+
+    /// Makes the system refuse the blur from now on, for the `reason` given: the installer
+    /// answers `.unavailable(reason)` and touches nothing.
+    func refuseInstallations(because reason: VariableBlurInstallation.Reason) {
+        refusal = reason
+    }
 
     func install(maxBlurRadius: CGFloat, mask: CGImage, on effectView: UIVisualEffectView) -> VariableBlurInstallation {
         installCount += 1
+        if let refusal {
+            return .unavailable(refusal)
+        }
         return installer.install(maxBlurRadius: maxBlurRadius, mask: mask, on: effectView)
     }
 

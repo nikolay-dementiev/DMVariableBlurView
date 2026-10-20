@@ -52,12 +52,19 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
     /// setting is turned off. A change of this property is applied at once. Following the
     /// setting is not a failure: ``failure`` stays `nil`. A failure that is already recorded
     /// stays recorded when the option or the setting changes.
-    public var respectsReduceTransparency = false {
-        didSet {
-            guard respectsReduceTransparency != oldValue else { return }
+    public var respectsReduceTransparency: Bool {
+        get { followsReduceTransparency }
+        set {
+            guard newValue != followsReduceTransparency else { return }
+            followsReduceTransparency = newValue
             settingChanged()
         }
     }
+
+    /// The option itself. The setter above shows the view at once; an update of the SwiftUI
+    /// wrapper stores the option here first and decides what to show afterwards, so that it
+    /// shows only the final request.
+    private var followsReduceTransparency = false
 
     /// Receives each recorded failure in a later turn of the main actor. Without it, the
     /// failure goes to the log.
@@ -118,6 +125,17 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
         }
     }
 
+    /// A view that shows the plain blur of the system until a configuration is applied, with
+    /// the collaborators given.
+    package convenience init(_ collaborators: VariableBlurCollaborators) {
+        self.init(
+            maskRenderer: collaborators.maskRenderer,
+            installer: collaborators.installer,
+            failureLog: collaborators.failureLog,
+            reduceTransparency: collaborators.reduceTransparency
+        )
+    }
+
     /// Creates a blur view for a UIKit hierarchy.
     ///
     /// The view always exists after this call. When the values are not valid, or the
@@ -136,12 +154,7 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
         direction: DMVariableBlurDirection = .blurredCenterClearTopBottom(),
         startOffset: CGFloat = 0
     ) {
-        self.init(
-            maskRenderer: CoreGraphicsMaskImageRenderer(),
-            installer: SystemVariableBlurInstaller(),
-            failureLog: SystemFailureLog(),
-            reduceTransparency: SystemReduceTransparencySetting()
-        )
+        self.init(.system)
         apply(VariableBlurConfiguration(maxBlurRadius: maxBlurRadius, direction: direction, startOffset: startOffset))
     }
 
@@ -157,23 +170,50 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
     /// cannot be shown, the view shows the plain blur of the system, records the reason in
     /// ``failure`` and writes it to the log once. A configuration equal to the last one, or
     /// rejected with an equal error, the same case and value, changes nothing.
-    package func apply(_ configuration: VariableBlurConfiguration) {
+    ///
+    /// - Returns: Whether the request differed from the last one and was shown. An equal request
+    ///   shows nothing.
+    @discardableResult
+    package func apply(_ configuration: VariableBlurConfiguration) -> Bool {
         let request: Request
         do throws(DMVariableBlurError) {
             request = .valid(configuration, try configuration.maskProfile())
         } catch {
             request = .rejected(error)
         }
-        guard request != lastRequest else { return }
+        guard request != lastRequest else { return false }
         lastRequest = request
         preparedBlur = nil
 
         if case .rejected(let error) = request {
             showPlainBlur()
             record(error, detail: nil)
-            return
+            return true
         }
         present()
+        return true
+    }
+
+    /// Applies what one update of the SwiftUI wrapper asks for: the handler of the update, the
+    /// Reduce Transparency option and the values, as one request.
+    ///
+    /// The view shows the final request once. The option is stored before anything is shown, so
+    /// values that arrive with it are shown under the new option and the previous values are
+    /// not shown on the way; a failure of the previous values is not reported to the new
+    /// handler. When only the option changed, the view shows what it already has under the new
+    /// option.
+    package func apply(
+        _ configuration: VariableBlurConfiguration,
+        respectsReduceTransparency respects: Bool,
+        failureHandler: (@MainActor (DMVariableBlurError) -> Void)?
+    ) {
+        self.failureHandler = failureHandler
+        let optionChanged = respects != followsReduceTransparency
+        followsReduceTransparency = respects
+        let requestChanged = apply(configuration)
+        if optionChanged && !requestChanged {
+            settingChanged()
+        }
     }
 
     /// Replaces the values of the view and applies them.
@@ -198,8 +238,11 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
         else { return }
         let installation = installer.install(maxBlurRadius: installedBlur.maxBlurRadius, mask: installedBlur.mask, on: self)
         if case .unavailable(let reason) = installation {
-            // Trying again in every layout pass would not change the answer of the system.
-            self.installedBlur = nil
+            // Trying again in every layout pass would not change the answer of the system. The
+            // layer holds what it held before the attempt, which can be the standard filters
+            // without their tint, so the plain blur is rebuilt, as for any other failure. That
+            // also stops the attempts.
+            showPlainBlur()
             record(.effectUnavailable, detail: String(describing: reason))
             return
         }

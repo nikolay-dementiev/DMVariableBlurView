@@ -119,14 +119,16 @@ is a breaking change too, and needs a major version.
   that: the custom rule `domain_imports` reports any other import in it. `Adapters` wraps the
   system: four `package` protocols, `FailureLog`, `MaskImageRenderer`, `ReduceTransparencySetting`
   and `VariableBlurInstaller`, and the implementations that touch UIKit, CoreGraphics, `os` and the
-  private filter. `UI` holds the two public views. The dependencies point inward: `Domain` names no
+  private filter. `UI` holds the two public views and `VariableBlurCollaborators`, the set of
+  collaborators they use. The dependencies point inward: `Domain` names no
   type of the other two folders, and `Adapters` names no type of `UI`. No tool checks that, because
   an import restricts nothing inside one module; the reviewer applies it. There is no further
   layer, no view model and no coordinator.
 - **Collaborators and the composition root.** The four protocols have `package` access, so a test
-  inside the package replaces a collaborator and a consumer cannot. The two public views create the
-  concrete implementations, in `UI/DMVariableBlurView.swift` and `UI/DMVariableBlurUIView.swift`;
-  the reviewer applies that no other file of the library does.
+  inside the package replaces a collaborator and a consumer cannot. The concrete implementations
+  are created in one place, `VariableBlurCollaborators.system`
+  (`UI/VariableBlurCollaborators.swift`), and the two public views take them from there; the
+  reviewer applies that no other file of the library creates one.
 - **A private system API.** The view reaches a filter of the system that is not public. The README,
   "Private API", lists its names, the checks made before the filter is installed and the risk that
   remains; this file does not restate them. A new private name of the system is a decision for the
