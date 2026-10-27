@@ -50,7 +50,11 @@ Raising the minimum version of a dependency within the same major version is add
 moves no platform floor, changes no behaviour and asks nothing of a consumer. It then needs a minor
 release and its own line in the changelog. A raise that does any of these is breaking.
 
-The package has no dependency today.
+The package has no dependency today. `Tools/Package.swift` depends on DMDevKit, the development
+tooling that the lint scripts and `Scripts/prepare-simulator.sh` forward to, but it is a package of
+its own: SwiftPM reads the manifest at the root of a dependency only, so a consumer of this package
+does not fetch DMDevKit, and the root manifest that this policy and `Scripts/check-manifest.sh`
+govern does not change.
 
 Who checks. The `api` job of CI runs `Scripts/check-api.sh --self-test` and `Scripts/check-api.sh`
 on every pull request and fails it when the public interface differs from the baseline; on a pull
@@ -155,9 +159,9 @@ is a breaking change too, and needs a major version.
   from Swift and ends the app (README, "Private API").
 - **The rules are tested.** A rule that never matches reports nothing, so
   `Scripts/check-lint-contract.sh` lints the fixtures of `Fixtures/Lint` and checks that the rules
-  in its `RULES` (`domain_imports`, `no_process_termination`, `force_unwrapping`, `force_cast`,
-  `force_try` and `implicitly_unwrapped_optional`) fire on the lines that expect them and on no
-  other line. A fixture is linted where its folder says: one in the root of `Fixtures/Lint` as a
+  in the `RULES` of `devkit.conf` (`domain_imports`, `no_process_termination`, `force_unwrapping`,
+  `force_cast`, `force_try` and `implicitly_unwrapped_optional`) fire on the lines that expect them
+  and on no other line. A fixture is linted where its folder says: one in the root of `Fixtures/Lint` as a
   file of the library, one in `Domain`, `UI` or `Adapters` in that folder of the library, and one
   under `Outside` outside the library, where it expects nothing. So the contract shows where a
   rule reaches. `domain_imports` fires in `Domain` and its subfolders and in no other folder of the
@@ -168,9 +172,12 @@ is a breaking change too, and needs a major version.
   library's fails it. It does not notice that `Domain` was renamed while the include of
   `domain_imports` was left alone, so the reviewer applies that. `domain_imports` does not see an
   import that has a comment inside it, that follows a block comment on its line, or that names the
-  module in backticks. The helper that fetches SwiftLint, `Scripts/swiftlint-tool.sh`, is tested
-  too: `Scripts/check-lint-tool.sh` proves, with a fake archive and no network, that two runs on
-  one checkout at once do not break each other and that a failed fetch leaves nothing behind.
+  module in backticks. The helper that fetches SwiftLint, the `swiftlint-tool.sh` of DMDevKit, is
+  tested too: `Scripts/check-lint-tool.sh` proves, with a fake archive and no network, that two
+  runs on one checkout at once do not break each other and that a failed fetch leaves nothing
+  behind. The four scripts that forward to DMDevKit are tested as well:
+  `Scripts/check-wrappers.sh` proves that each hands its command, arguments, directory, status and
+  streams over unchanged.
 - **Isolation.** The package builds in the Swift 6 language mode. Both views are `@MainActor`, the
   two public enums are `Sendable` and the handler of `onFailure(_:)` is `@MainActor @Sendable`.
 - **Documented limits.** What the library enforces and what it cannot promise are in the README,
