@@ -236,7 +236,9 @@ jobs:
       # Tools/Package.swift is tools 6.0 like the package, and DMDevKit has to build with the oldest
       # compiler that the manifest promises. The other jobs run the tools on newer Xcode versions.
       - name: Build the tools with Swift 6.0
-        run: swift run --quiet --package-path Tools devkit --version
+        run: |
+          swift --version
+          swift run --quiet --package-path Tools devkit --version
       # The flags of the next step repeat the manifest. A changed manifest fails here, so
       # the flags cannot drift from it unnoticed.
       - name: Load the manifest and compare it with the compiler flags
