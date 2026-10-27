@@ -7,3 +7,5 @@ DerivedData/
 .swiftpm/
 Fixtures/Consumer/Package.resolved
 *.xcresult
+# The tools manifest in Tools/ pins DMDevKit and keeps its lockfile; only its build folder is ignored.
+/Tools/.build
