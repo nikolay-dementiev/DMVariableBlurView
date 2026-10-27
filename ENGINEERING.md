@@ -159,9 +159,9 @@ is a breaking change too, and needs a major version.
   from Swift and ends the app (README, "Private API").
 - **The rules are tested.** A rule that never matches reports nothing, so
   `Scripts/check-lint-contract.sh` lints the fixtures of `Fixtures/Lint` and checks that the rules
-  in its `RULES` (`domain_imports`, `no_process_termination`, `force_unwrapping`, `force_cast`,
-  `force_try` and `implicitly_unwrapped_optional`) fire on the lines that expect them and on no
-  other line. A fixture is linted where its folder says: one in the root of `Fixtures/Lint` as a
+  in the `RULES` of `devkit.conf` (`domain_imports`, `no_process_termination`, `force_unwrapping`,
+  `force_cast`, `force_try` and `implicitly_unwrapped_optional`) fire on the lines that expect them
+  and on no other line. A fixture is linted where its folder says: one in the root of `Fixtures/Lint` as a
   file of the library, one in `Domain`, `UI` or `Adapters` in that folder of the library, and one
   under `Outside` outside the library, where it expects nothing. So the contract shows where a
   rule reaches. `domain_imports` fires in `Domain` and its subfolders and in no other folder of the
