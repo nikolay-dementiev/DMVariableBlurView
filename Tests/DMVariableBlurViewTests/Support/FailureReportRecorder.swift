@@ -35,8 +35,19 @@ final class FailureReportRecorder {
 
         let result = await XCTWaiter().fulfillment(of: [expectation], timeout: timeout)
 
-        XCTAssertTrue(result == .completed, "\(reports.count) of \(count) reports arrived in \(timeout) s", file: file, line: line)
-        XCTAssertLessThanOrEqual(reports.count, count, "more reports than the \(count) expected: \(reports)", file: file, line: line)
+        XCTAssertTrue(
+            result == .completed,
+            "\(reports.count) of \(count) reports arrived in \(timeout) s",
+            file: file,
+            line: line
+        )
+        XCTAssertLessThanOrEqual(
+            reports.count,
+            count,
+            "more reports than the \(count) expected: \(reports)",
+            file: file,
+            line: line
+        )
     }
 
     /// Fails when a report arrives within `interval`. For a contract of absence only: an
@@ -53,6 +64,11 @@ final class FailureReportRecorder {
 
         let result = await XCTWaiter().fulfillment(of: [expectation], timeout: interval)
 
-        XCTAssertFalse(result == .invertedFulfillment, "a report arrived within \(interval) s: \(reports)", file: file, line: line)
+        XCTAssertFalse(
+            result == .invertedFulfillment,
+            "a report arrived within \(interval) s: \(reports)",
+            file: file,
+            line: line
+        )
     }
 }

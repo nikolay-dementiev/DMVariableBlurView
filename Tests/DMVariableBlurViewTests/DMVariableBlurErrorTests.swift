@@ -74,14 +74,14 @@ final class DMVariableBlurErrorTests: XCTestCase {
             ("invalidCenterBandProportion", { .invalidCenterBandProportion($0) }),
             ("invalidStartOffset", { .invalidStartOffset($0) })
         ]
-        let pairs: [(left: CGFloat, right: CGFloat, isEqual: Bool, comparison: String)] = [
-            (1.5, 1.5, true, "the same value"),
-            (1.5, 2, false, "different values"),
-            (.nan, .nan, true, "two values that are not a number"),
-            (.nan, 1.5, false, "a value that is not a number against a number"),
-            (1.5, .nan, false, "a number against a value that is not a number"),
-            (.infinity, .infinity, true, "the same infinity"),
-            (.infinity, -.infinity, false, "opposite infinities")
+        let pairs = [
+            ValuePair(1.5, 1.5, isEqual: true, "the same value"),
+            ValuePair(1.5, 2, isEqual: false, "different values"),
+            ValuePair(.nan, .nan, isEqual: true, "two values that are not a number"),
+            ValuePair(.nan, 1.5, isEqual: false, "a value that is not a number against a number"),
+            ValuePair(1.5, .nan, isEqual: false, "a number against a value that is not a number"),
+            ValuePair(.infinity, .infinity, isEqual: true, "the same infinity"),
+            ValuePair(.infinity, -.infinity, isEqual: false, "opposite infinities")
         ]
 
         for reason in reasons {
@@ -110,6 +110,21 @@ final class DMVariableBlurErrorTests: XCTestCase {
     }
 
     // MARK: - Helpers
+
+    /// Two values and whether two reasons that carry them are equal.
+    private struct ValuePair {
+        let left: CGFloat
+        let right: CGFloat
+        let isEqual: Bool
+        let comparison: String
+
+        init(_ left: CGFloat, _ right: CGFloat, isEqual: Bool, _ comparison: String) {
+            self.left = left
+            self.right = right
+            self.isEqual = isEqual
+            self.comparison = comparison
+        }
+    }
 
     private func makeSUT(_ centerBandProportion: CGFloat) -> DMVariableBlurError {
         .invalidCenterBandProportion(centerBandProportion)
