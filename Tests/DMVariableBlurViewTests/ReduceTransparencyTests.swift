@@ -75,6 +75,17 @@ final class ReduceTransparencyTests: XCTestCase {
         XCTAssertFalse(updated.respectsReduceTransparency, "an update turns it off")
     }
 
+    /// A host that never asks for the option gets what release 1.0.0 drew: the setting does not
+    /// change the blur. The default of the UIKit view is pinned below; this is the default of the
+    /// SwiftUI view, which sets the option of its UIKit view itself.
+    @MainActor
+    func test_blurView_defaultOptions_doesNotFollowReduceTransparency() throws {
+        let sut = try makeSUT(DMVariableBlurView())
+        defer { sut.hide() }
+
+        XCTAssertFalse(sut.blurView.respectsReduceTransparency, "the SwiftUI view ignores the setting unless the host asks")
+    }
+
     @MainActor
     func test_blurUIView_option_isOffByDefaultAndCanBeSet() {
         let sut = DMVariableBlurUIView()
