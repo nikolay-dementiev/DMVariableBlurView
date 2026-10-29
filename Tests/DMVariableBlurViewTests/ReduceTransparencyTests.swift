@@ -105,15 +105,20 @@ final class ReduceTransparencyTests: XCTestCase {
     /// UIKit posts the notification on the main thread; another poster may not. The handler
     /// still runs on the main actor, and the process keeps running.
     @MainActor
-    func test_systemSetting_notificationPostedOffTheMainThread_callsTheHandlerOnTheMainActor() async throws {
+    func test_systemSetting_notificationPostedOffTheMainThread_callsTheHandlerOnTheMainActor() async {
         let sut = SystemReduceTransparencySetting()
+        let called = expectation(description: "the handler is called once")
+        called.assertForOverFulfill = true
         var threads: [Bool] = []
-        sut.onChange { threads.append(Thread.isMainThread) }
+        sut.onChange {
+            threads.append(Thread.isMainThread)
+            called.fulfill()
+        }
 
         await Task.detached {
             NotificationCenter.default.post(name: UIAccessibility.reduceTransparencyStatusDidChangeNotification, object: nil)
         }.value
-        try await Task.sleep(for: .milliseconds(50))
+        await fulfillment(of: [called], timeout: 5)
 
         XCTAssertEqual(threads, [true], "one call, on the main thread")
     }
