@@ -107,8 +107,10 @@ final class ReduceTransparencyTests: XCTestCase {
     @MainActor
     func test_systemSetting_notificationPostedOffTheMainThread_callsTheHandlerOnTheMainActor() async {
         let sut = SystemReduceTransparencySetting()
-        let called = expectation(description: "the handler is called once")
-        called.assertForOverFulfill = true
+        let called = expectation(description: "the handler is called")
+        // An expectation of the test case aborts the whole process when it is fulfilled twice;
+        // a second call shows in `threads` instead.
+        called.assertForOverFulfill = false
         var threads: [Bool] = []
         sut.onChange {
             threads.append(Thread.isMainThread)

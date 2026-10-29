@@ -14,8 +14,9 @@ final class FailureReportRecorder {
         waitedFor?.fulfill()
     }
 
-    /// Waits until the recorder holds `count` reports, in total. A report beyond `count` that
-    /// arrives during the wait over-fulfils the expectation and fails the test.
+    /// Waits until the recorder holds `count` reports, in total, and fails the test when it
+    /// holds more once the wait is over. The expectation does not assert on over-fulfilment:
+    /// XCTest then aborts the whole test process instead of failing the test.
     func waitForReports(
         count: Int,
         timeout: TimeInterval = 5,
@@ -29,13 +30,13 @@ final class FailureReportRecorder {
         }
         let expectation = XCTestExpectation(description: "\(count) failure reports")
         expectation.expectedFulfillmentCount = missing
-        expectation.assertForOverFulfill = true
         waitedFor = expectation
         defer { waitedFor = nil }
 
         let result = await XCTWaiter().fulfillment(of: [expectation], timeout: timeout)
 
         XCTAssertTrue(result == .completed, "\(reports.count) of \(count) reports arrived in \(timeout) s", file: file, line: line)
+        XCTAssertLessThanOrEqual(reports.count, count, "more reports than the \(count) expected: \(reports)", file: file, line: line)
     }
 
     /// Fails when a report arrives within `interval`. For a contract of absence only: an
