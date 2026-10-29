@@ -10,9 +10,10 @@ import XCTest
 /// tint, the strength of the blur, and the system blur shown in place of the variable one,
 /// which no band can tell from the full mode.
 ///
-/// - **Names.** `<name>_ios<major>_<minor>`, in `Examples/DMVariableBlurViewExample/Snapshots`.
-///   Every runtime has its own references: iOS 26.5 draws four of the five scenes with 4
-///   to 6 % of the pixels over Delta E 2 against 17.5 and 18.6, which agree within 1.1.
+/// - **Names.** `<name>_<device>_ios<major>_<minor>` (`SnapshotReference`), in
+///   `Examples/DMVariableBlurViewExample/Snapshots`. Every device and every OS has its own
+///   references: iOS 26.5 draws four of the five scenes with 4 to 6 % of the pixels over
+///   Delta E 2 against 17.5 and 18.6, which agree within 1.1.
 /// - **Recording.** Locally a new runtime records its references and fails once, and so
 ///   does a missing reference of a runtime that has the others. CI never records: when the
 ///   variable `CI` is set (xcodebuild hands `TEST_RUNNER_CI` to the test process as `CI`),
@@ -72,11 +73,6 @@ final class BlurSnapshotTests: XCTestCase {
             .appendingPathComponent("Snapshots", isDirectory: true)
     }
 
-    private static var runtimeSuffix: String {
-        let version = ProcessInfo.processInfo.operatingSystemVersion
-        return "_ios\(version.majorVersion)_\(version.minorVersion)"
-    }
-
     private static var isCI: Bool {
         ProcessInfo.processInfo.environment["CI"] != nil
     }
@@ -97,8 +93,9 @@ final class BlurSnapshotTests: XCTestCase {
         file: StaticString = #filePath,
         line: UInt = #line
     ) throws {
+        let reference = try SnapshotReference.current()
         if Self.isCI {
-            try checkReferencesForThisRuntime()
+            try checkReferences(of: reference)
         }
         let scene = try RenderingHarness.render(overlay)
         let failure = verifySnapshot(
@@ -107,7 +104,7 @@ final class BlurSnapshotTests: XCTestCase {
             record: Self.isCI ? .never : .missing,
             snapshotDirectory: Self.snapshotDirectory.path,
             file: file,
-            testName: base + Self.runtimeSuffix,
+            testName: reference.name(for: base),
             line: line
         )
         if let failure {
@@ -115,28 +112,22 @@ final class BlurSnapshotTests: XCTestCase {
         }
     }
 
-    /// A runtime with references compares all of them, so a deleted reference fails. A
-    /// runtime without any is skipped, because CI never records one, unless the cell
-    /// requires references. A folder without any reference fails.
-    private func checkReferencesForThisRuntime() throws {
+    /// A device and an OS with references compare all of them, so a deleted reference fails. A
+    /// run without any is skipped, because CI never records one, unless the cell requires
+    /// references. A folder without any reference fails.
+    private func checkReferences(of reference: SnapshotReference) throws {
         let directory = Self.snapshotDirectory.path
-        var references: [String] = []
+        var files: [String] = []
         if FileManager.default.fileExists(atPath: directory) {
-            references = try FileManager.default.contentsOfDirectory(atPath: directory)
-                .filter { $0.hasSuffix(".png") }
+            files = try FileManager.default.contentsOfDirectory(atPath: directory)
         }
-        guard !references.isEmpty else {
-            throw ReferenceError(
-                "No snapshot reference at all in \(directory): the folder moved, or the tests "
-                    + "run away from the checkout."
-            )
-        }
-        guard references.contains(where: { $0.contains("\(Self.runtimeSuffix).") }) else {
-            let missing = "No snapshot references for this runtime (\(Self.runtimeSuffix)) in \(directory)."
-            if Self.referencesRequired {
-                throw ReferenceError(missing + " This run requires them: record them on this runtime.")
-            }
-            throw XCTSkip(missing + " CI does not record them; the band tests cover this runtime.")
+        switch reference.availability(among: files, in: directory, required: Self.referencesRequired) {
+        case .compare:
+            return
+        case .skip(let message):
+            throw XCTSkip(message)
+        case .fail(let message):
+            throw ReferenceError(message)
         }
     }
 }

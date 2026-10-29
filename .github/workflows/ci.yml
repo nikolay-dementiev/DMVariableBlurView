@@ -391,7 +391,7 @@ jobs:
             device: iPhone 17
             os: "26.5"
             newest: true
-            passed: 20
+            passed: 30
             skipped: 0
           - name: iOS 18.5
             runner: macos-15
@@ -400,7 +400,7 @@ jobs:
             os: "18.5"
             newest: false
             # This runtime has no snapshot references, so the five snapshot tests are skipped.
-            passed: 15
+            passed: 25
             skipped: 5
     env:
       DEVELOPER_DIR: ${{ matrix.xcode }}/Contents/Developer
