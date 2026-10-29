@@ -54,6 +54,7 @@ final class BlurViewRejectedValueTests: XCTestCase {
         defer { sut.hide() }
 
         await recorder.waitForReports(count: 1, file: file, line: line)
+        await recorder.waitForNoReport(file: file, line: line)
 
         XCTAssertFalse(sut.filterTypes.contains("variableBlur"), "\(text): no variable blur", file: file, line: line)
         XCTAssertEqual(sut.tintAlphas, [1], "\(text): the tint of the system blur is visible", file: file, line: line)

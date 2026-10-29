@@ -117,6 +117,7 @@ final class BlurUIViewUpdateOperationTests: XCTestCase {
 
         sut.apply(configuration(radius: 9), respectsReduceTransparency: false, failureHandler: recorder.record)
         await recorder.waitForReports(count: 1)
+        await recorder.waitForNoReport()
 
         XCTAssertEqual(recorder.reports, [.effectUnavailable], "the handler hears of the failure of the new values once")
         XCTAssertEqual(sut.failure, .effectUnavailable, "the failure is recorded")

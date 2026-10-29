@@ -22,6 +22,7 @@ final class OnFailureTests: XCTestCase {
         defer { sut.hide() }
 
         await recorder.waitForReports(count: 1)
+        await recorder.waitForNoReport()
 
         XCTAssertEqual(recorder.reports, [.invalidCenterBandProportion(1.5)])
     }
@@ -153,6 +154,7 @@ final class OnFailureTests: XCTestCase {
         sut.removeFromWindow()
         let leftTheHierarchy = blurView.window == nil
         await recorder.waitForReports(count: 1)
+        await recorder.waitForNoReport()
 
         XCTAssertTrue(leftTheHierarchy, "precondition: the blur view left the window before the delivery")
         XCTAssertEqual(recorder.reports, [.invalidCenterBandProportion(1.5)], "the handler is called once")
@@ -171,6 +173,7 @@ final class OnFailureTests: XCTestCase {
         let deallocated = blurView == nil
 
         await recorder.waitForReports(count: 1)
+        await recorder.waitForNoReport()
 
         XCTAssertTrue(deallocated, "precondition: the view is gone before the delivery")
         XCTAssertEqual(recorder.reports, [.invalidCenterBandProportion(1.5)], "the handler is called once")

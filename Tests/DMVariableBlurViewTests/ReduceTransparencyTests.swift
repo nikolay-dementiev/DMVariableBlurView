@@ -119,19 +119,27 @@ final class ReduceTransparencyTests: XCTestCase {
     func test_systemSetting_notificationPostedOffTheMainThread_callsTheHandlerOnTheMainActor() async {
         let sut = SystemReduceTransparencySetting()
         let called = expectation(description: "the handler is called")
+        let calledAgain = expectation(description: "the handler is called a second time")
+        calledAgain.isInverted = true
         // An expectation of the test case aborts the whole process when it is fulfilled twice;
-        // a second call shows in `threads` instead.
+        // a second call is counted by `calledAgain` and shows in `threads`.
         called.assertForOverFulfill = false
+        calledAgain.assertForOverFulfill = false
         var threads: [Bool] = []
         sut.onChange {
             threads.append(Thread.isMainThread)
-            called.fulfill()
+            if threads.count == 1 {
+                called.fulfill()
+            } else {
+                calledAgain.fulfill()
+            }
         }
 
         await Task.detached {
             NotificationCenter.default.post(name: UIAccessibility.reduceTransparencyStatusDidChangeNotification, object: nil)
         }.value
         await fulfillment(of: [called], timeout: 5)
+        await fulfillment(of: [calledAgain], timeout: 0.1)
 
         XCTAssertEqual(threads, [true], "one call, on the main thread")
     }
