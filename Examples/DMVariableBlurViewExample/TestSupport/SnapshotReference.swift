@@ -15,7 +15,8 @@ struct SnapshotReference: Equatable {
 
     /// The run cannot name its device.
     struct MissingDevice: Error, CustomStringConvertible {
-        let description = "SIMULATOR_DEVICE_NAME is not set: the references are named after the device, and a run does not guess it."
+        let description = "SIMULATOR_DEVICE_NAME is not set: the references are named after the device, "
+            + "and a run does not guess it."
     }
 
     let device: String

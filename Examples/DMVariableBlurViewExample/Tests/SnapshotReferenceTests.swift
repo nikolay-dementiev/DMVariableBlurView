@@ -14,10 +14,13 @@ final class SnapshotReferenceTests: XCTestCase {
 
     func test_name_anotherDeviceOrAnotherOS_isAnotherName() {
         let sut = makeSUT(device: "iPhone 17", major: 26, minor: 5).name(for: "scene")
+        let anotherDevice = makeSUT(device: "iPhone 16", major: 26, minor: 5).name(for: "scene")
+        let anotherMinor = makeSUT(device: "iPhone 17", major: 26, minor: 4).name(for: "scene")
+        let anotherMajor = makeSUT(device: "iPhone 17", major: 18, minor: 5).name(for: "scene")
 
-        XCTAssertNotEqual(makeSUT(device: "iPhone 16", major: 26, minor: 5).name(for: "scene"), sut, "another device of the same OS")
-        XCTAssertNotEqual(makeSUT(device: "iPhone 17", major: 26, minor: 4).name(for: "scene"), sut, "the same device on another minor version")
-        XCTAssertNotEqual(makeSUT(device: "iPhone 17", major: 18, minor: 5).name(for: "scene"), sut, "the same device on another major version")
+        XCTAssertNotEqual(anotherDevice, sut, "another device of the same OS")
+        XCTAssertNotEqual(anotherMinor, sut, "the same device on another minor version")
+        XCTAssertNotEqual(anotherMajor, sut, "the same device on another major version")
     }
 
     func test_current_environmentAndVersion_namesTheDeviceWithoutSpacesAndTheVersion() throws {
@@ -30,17 +33,14 @@ final class SnapshotReferenceTests: XCTestCase {
     }
 
     func test_current_deviceNameMissing_throwsAMessageThatNamesTheVariable() {
-        XCTAssertThrowsError(try SnapshotReference.current(environment: [:], version: ProcessInfo.processInfo.operatingSystemVersion)) { error in
+        XCTAssertThrowsError(try SnapshotReference.current(environment: [:], version: anyVersion)) { error in
             XCTAssertTrue("\(error)".contains("SIMULATOR_DEVICE_NAME"), "the message names the variable: \(error)")
         }
     }
 
     func test_current_deviceNameEmpty_throws() {
         XCTAssertThrowsError(
-            try SnapshotReference.current(
-                environment: ["SIMULATOR_DEVICE_NAME": ""],
-                version: ProcessInfo.processInfo.operatingSystemVersion
-            ),
+            try SnapshotReference.current(environment: ["SIMULATOR_DEVICE_NAME": ""], version: anyVersion),
             "an empty name is no name"
         )
     }
@@ -100,6 +100,10 @@ final class SnapshotReferenceTests: XCTestCase {
     }
 
     // MARK: - Helpers
+
+    private var anyVersion: OperatingSystemVersion {
+        ProcessInfo.processInfo.operatingSystemVersion
+    }
 
     private func makeSUT(device: String, major: Int, minor: Int) -> SnapshotReference {
         SnapshotReference(deviceName: device, major: major, minor: minor)
