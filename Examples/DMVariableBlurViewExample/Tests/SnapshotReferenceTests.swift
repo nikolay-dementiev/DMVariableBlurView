@@ -13,14 +13,22 @@ final class SnapshotReferenceTests: XCTestCase {
     }
 
     func test_name_anotherDeviceOrAnotherOS_isAnotherName() {
-        let sut = makeSUT(device: "iPhone 17", major: 26, minor: 5).name(for: "scene")
+        let name = makeSUT(device: "iPhone 17", major: 26, minor: 5).name(for: "scene")
         let anotherDevice = makeSUT(device: "iPhone 16", major: 26, minor: 5).name(for: "scene")
         let anotherMinor = makeSUT(device: "iPhone 17", major: 26, minor: 4).name(for: "scene")
         let anotherMajor = makeSUT(device: "iPhone 17", major: 18, minor: 5).name(for: "scene")
 
-        XCTAssertNotEqual(anotherDevice, sut, "another device of the same OS")
-        XCTAssertNotEqual(anotherMinor, sut, "the same device on another minor version")
-        XCTAssertNotEqual(anotherMajor, sut, "the same device on another major version")
+        XCTAssertNotEqual(anotherDevice, name, "another device of the same OS")
+        XCTAssertNotEqual(anotherMinor, name, "the same device on another minor version")
+        XCTAssertNotEqual(anotherMajor, name, "the same device on another major version")
+    }
+
+    /// swift-snapshot-testing writes any other run of characters of a name as a hyphen, so the name
+    /// of a reference keeps letters, digits and underscores only, or it is never found on disk.
+    func test_name_deviceWithPunctuation_keepsLettersAndDigitsOnly() {
+        let sut = makeSUT(device: "iPad Pro 11-inch (M4)", major: 26, minor: 5)
+
+        XCTAssertEqual(sut.name(for: "scene"), "scene_iPadPro11inchM4_ios26_5")
     }
 
     func test_current_environmentAndVersion_namesTheDeviceWithoutSpacesAndTheVersion() throws {
@@ -33,9 +41,21 @@ final class SnapshotReferenceTests: XCTestCase {
     }
 
     func test_current_deviceNameMissing_throwsAMessageThatNamesTheVariable() {
-        XCTAssertThrowsError(try SnapshotReference.current(environment: [:], version: anyVersion)) { error in
+        XCTAssertThrowsError(
+            try SnapshotReference.current(environment: [:], version: anyVersion),
+            "no device name throws"
+        ) { error in
             XCTAssertTrue("\(error)".contains("SIMULATOR_DEVICE_NAME"), "the message names the variable: \(error)")
         }
+    }
+
+    /// A name of spaces and punctuation leaves nothing of the device: the name of a reference
+    /// would be `scene__ios26_5`.
+    func test_current_deviceNameWithoutLettersOrDigits_throws() {
+        XCTAssertThrowsError(
+            try SnapshotReference.current(environment: ["SIMULATOR_DEVICE_NAME": " () "], version: anyVersion),
+            "a device name with nothing to keep is no name"
+        )
     }
 
     func test_current_deviceNameEmpty_throws() {
@@ -84,6 +104,17 @@ final class SnapshotReferenceTests: XCTestCase {
 
         guard case .skip = availability else {
             return XCTFail("a run on a runtime without references is skipped, got \(availability)")
+        }
+    }
+
+    /// The minor version ends at the dot of the file name: iOS 26.50 is not iOS 26.5.
+    func test_availability_onlyReferencesOfALongerMinorVersion_skipsWhenTheRunDoesNotRequireThem() {
+        let sut = makeSUT(device: "iPhone 17", major: 26, minor: 5)
+
+        let availability = sut.availability(among: ["blurredFully_iPhone17_ios26_50.1.png"], in: folder, required: false)
+
+        guard case .skip = availability else {
+            return XCTFail("a reference of iOS 26.50 is not one of iOS 26.5, got \(availability)")
         }
     }
 

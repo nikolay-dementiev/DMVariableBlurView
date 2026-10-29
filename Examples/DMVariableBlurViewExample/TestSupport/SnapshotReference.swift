@@ -23,8 +23,11 @@ struct SnapshotReference: Equatable {
     let major: Int
     let minor: Int
 
+    /// The device keeps its letters, digits and underscores only: swift-snapshot-testing turns any
+    /// other run of characters in a file name into a hyphen, and the name of a reference has to
+    /// be the name of its file.
     init(deviceName: String, major: Int, minor: Int) {
-        device = deviceName.filter { !$0.isWhitespace }
+        device = deviceName.filter { $0.isLetter || $0.isNumber || $0 == "_" }
         self.major = major
         self.minor = minor
     }
@@ -35,14 +38,17 @@ struct SnapshotReference: Equatable {
         environment: [String: String] = ProcessInfo.processInfo.environment,
         version: OperatingSystemVersion = ProcessInfo.processInfo.operatingSystemVersion
     ) throws -> SnapshotReference {
-        guard let name = environment["SIMULATOR_DEVICE_NAME"], !name.isEmpty else {
+        guard let name = environment["SIMULATOR_DEVICE_NAME"] else {
             throw MissingDevice()
         }
-        return SnapshotReference(deviceName: name, major: version.majorVersion, minor: version.minorVersion)
+        let reference = SnapshotReference(deviceName: name, major: version.majorVersion, minor: version.minorVersion)
+        guard !reference.device.isEmpty else {
+            throw MissingDevice()
+        }
+        return reference
     }
 
-    /// The part of a name that follows the scene: the dot after it ends the match, so that
-    /// `_iPhone17_ios26_5.` is not found in the name of another device.
+    /// The part of a name that follows the scene.
     var suffix: String {
         "_\(device)_ios\(major)_\(minor)"
     }
@@ -56,12 +62,13 @@ struct SnapshotReference: Equatable {
         guard !references.isEmpty else {
             return .fail("No snapshot reference at all in \(folder): the folder moved, or the tests run away from the checkout.")
         }
+        // The dot ends the match: `_ios26_5.` is not found in the name of a reference of iOS 26.50.
         guard references.contains(where: { $0.contains("\(suffix).") }) else {
             let missing = "No snapshot references for this device and OS (\(suffix)) in \(folder)."
             if required {
                 return .fail(missing + " This run requires them: record them on this device and OS.")
             }
-            return .skip(missing + " CI does not record them; the band tests cover this runtime.")
+            return .skip(missing + " CI does not record them; the band tests cover this OS.")
         }
         return .compare
     }

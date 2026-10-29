@@ -47,12 +47,12 @@ xcodebuild test -project Examples/DMVariableBlurViewExample/DMVariableBlurViewEx
 The snapshot references live in `Examples/DMVariableBlurViewExample/Snapshots`, one set for each
 device and iOS version, named `<name>_<device>_ios<major>_<minor>.1.png`, for example
 `blurredFully_iPhone17_ios26_5.1.png`. The device is the name the simulator gives the test process
-in `SIMULATOR_DEVICE_NAME`, without spaces; a run that has none fails and does not guess. A local
-run records a missing reference and fails once; CI never records one. The cell of the `example`
-job that runs iPhone 17 on iOS 26.5 compares the set of that device and requires it. A reference
-that another device recorded is not one of this run, even on the same iOS version. To record a
-reference again, move the old file away, run the tests on that device and iOS version, look at the
-new picture, and commit it with the device, the iOS version and the reason.
+in `SIMULATOR_DEVICE_NAME`, reduced to its letters and digits; a run that has none fails and does
+not guess. A local run records a missing reference and fails once; CI never records one. The cell
+of the `example` job that runs iPhone 17 on iOS 26.5 compares the set of that device and requires
+it. A reference that another device recorded is not one of this run, even on the same iOS version.
+To record a reference again, move the old file away, run the tests on that device and iOS version,
+look at the new picture, and commit it with the device, the iOS version and the reason.
 
 CI checks how many tests each cell of the `example` job ran: the `passed` and `skipped` numbers of
 that cell in `.github/workflows/ci.yml` must equal the ones in the result bundle, and no test may
