@@ -86,7 +86,7 @@ overload that makes an existing call ambiguous as breaking, and says that a requ
 default implementation is additive only when its name is new to the protocol and to its
 extensions; it cannot see which of them an added line is, and the review above decides.
 `Scripts/check-release.sh --self-test`, which the `api` job runs, tries the decisions of the script
-on scratch repositories. The script cannot tell a line that a new compiler reworded
+(DMDevKit's, since the script forwards to it) on scratch repositories. The script cannot tell a line that a new compiler reworded
 from a line that the code changed, so both count. It does not see the order of the cases of an enum
 or the statements in the body of an inlinable function (the package has no inlinable function
 today), and it cannot see behaviour. The pull request template asks for the class, the changes of

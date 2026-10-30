@@ -24,7 +24,7 @@ fault of the script cannot turn the check into another one.
 | Script | What it checks |
 |---|---|
 | `Scripts/lint.sh` | SwiftLint, at the version pinned in `.swiftlint.yml`. The first run fetches that version into `.build/tools` and checks its checksum, and two runs that fetch at once on one checkout do not break each other. `--analyze <xcodebuild log>` also runs the analyzer rule for unused imports. It needs the log of a clean build whose DerivedData is still on disk: a log without compiler invocations, or one whose files are gone, stops the run with status 2, and `--analyze` with no log or with one that cannot be read ends with status 1 |
-| `Scripts/check-api.sh` | the public interface against `Fixtures/API/public-interface.txt`; `--self-test` runs the cases of its normalisation, which DMDevKit carries; `--since <ref>` prints, without a compiler, the lines the baseline lost, changed or gained since a git ref such as a release tag. A deliberate change of the public API runs it with `--update` and commits the new baseline in the same commit |
+| `Scripts/check-api.sh` | the public interface against `Fixtures/API/public-interface.txt`; `--self-test` runs the cases of its normalisation, which DMDevKit carries, among them the spelling of module selectors that Swift 6.4 prints (`Module::name`, read as `Module.name`), so the baseline stays as it is; `--since <ref>` prints, without a compiler, the lines the baseline lost, changed or gained since a git ref such as a release tag. A deliberate change of the public API runs it with `--update` and commits the new baseline in the same commit |
 | `Scripts/check-manifest.sh` | that no manifest file (`Package.swift` and every `Package@swift-*.swift`) declares a dependency, uses a plugin, declares a plugin target or declares a binary target with a url; that the installation manifest of `README.md`, with its URL pointed at a tagged copy of the tracked manifest and sources, resolves and builds for the iOS simulator and that its consumer resolves this package only, and that the URL it names is the `:git` source of the podspec, character for character, and its version that of the newest dated release heading of `CHANGELOG.md`; the consumer fixture; that no resource bundle ships; and every Swift block of `README.md`, each on its own: a manifest block is evaluated, every other block compiled. A warning in a block fails it too. `--self-test` runs the readers of the manifest, of the README and of `Package.resolved` on built-in texts, with no build |
 | `Scripts/check-lint-contract.sh` | that each rule in the `RULES` of `devkit.conf` fires on the lines of `Fixtures/Lint` that expect it and on no other line. It lints the fixtures in a scratch copy with the `.swiftlint.yml` of the repository, unchanged, each where its folder says: one in the root as a file of the library, one in `Domain`, `UI` or `Adapters`, or in a subfolder of one, in that folder, one under `Outside` outside the library, where it expects nothing |
 | `Scripts/check-lint-tool.sh` | that the helper which fetches SwiftLint (the `swiftlint-tool.sh` of DMDevKit) does so safely when two runs overlap: the tool stays whole while another run unpacks, two first-time runs both succeed, a wrong checksum never reaches the unpack, and a failed fetch leaves nothing behind. It needs no network and no SwiftLint |
@@ -32,7 +32,7 @@ fault of the script cannot turn the check into another one.
 | `Scripts/check-podspec.sh` | `pod lib lint` in Swift 5.0 and 6.0 mode, and that the pod links no test framework |
 | `Scripts/coverage-gate.sh <result bundle>` | the line coverage of the library against its floor |
 | `Scripts/check-release.sh <version>` | that the newest heading of `CHANGELOG.md` is that version, with a release date that is a day of the calendar and notes under it, and that the podspec still names 1.1.0, the version the pod is frozen at; it also takes the previous release from the tags (the highest release tag below the version that the commit reaches) and refuses a changelog whose heading below the newest does not name it, is not lower than the version or skips a reachable tag; it compares the release with it and refuses a version that keeps its major version after a removed or changed line of the interface, a breaking-changes heading in the notes (a heading of any level, or a bold line, whose first word is "breaking") or a break reported by the digester where there is one; it refuses a release whose previous release is not an ancestor of the commit, and stops with exit 2 in a shallow clone. Under GitHub Actions the reminder for added lines is also a warning annotation. `--self-test` runs these decisions on scratch repositories |
-| `Scripts/export-coverage.sh <result bundle> <target> <output>` | not a check: it exports the line coverage of the library from a result bundle to LCOV, for CI to upload to Codecov |
+| `Scripts/export-coverage.sh <result bundle> <target> <output>` | not a check: it exports the line coverage of the library from a result bundle to LCOV, for CI to upload to Codecov; the tests of the exporter are DMDevKit's |
 | `Scripts/count-tests.sh [--label <text>] <result bundle> <glob>...` | that every test method of the files the globs name ran and passed in the result bundle: a run that lost a test class or skipped a test passes the build and the coverage floor too |
 | `Scripts/check-example-project.sh` | that the Xcode project of the example matches its XcodeGen spec |
 
@@ -61,11 +61,12 @@ the root. The other scripts of `Scripts/` have not moved: `check-manifest.sh`, `
   fetch DMDevKit.
 - `devkit.conf` holds the settings of this repository that the commands read: the module and the
   library folder, the compiler flags of the interface check, the lint rules and the folder of their
-  fixtures, the version the pod is frozen at, and the list of the wrappers (`WRAPPERS`). Each
-  setting is written there once, except the compiler flags and the module: `SWIFT_FLAGS` repeats
-  what `Package.swift` sets, and no check compares the two, so change both, and
-  `Scripts/check-manifest.sh`, which does not run devkit, sets `MODULE` as well. A change to a
-  command is a change to DMDevKit.
+  fixtures, the version the pod is frozen at, and the list of the wrappers (`WRAPPERS`). A few
+  values are also written elsewhere, and no check compares them with `devkit.conf`, so change
+  both: `MODULE` in `Scripts/check-manifest.sh`, which does not run devkit; `SWIFT_FLAGS` in
+  `Package.swift` and in the compiler call of the `floor` job of `ci.yml`; `SOURCE_DIR` in that
+  job and in `.swiftlint.yml`. A change to a command is a change to DMDevKit. The messages of a
+  command name it as `devkit <command>`, and the script of the same name runs it.
 - The first run builds `devkit`, takes several seconds and prints the lines that SwiftPM writes
   while it fetches DMDevKit; each next run adds about a second to the script. If `swift run`
   itself fails, a fetch or a build, the script ends with its status, which can be 1, the status
