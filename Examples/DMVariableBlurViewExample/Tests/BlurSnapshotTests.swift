@@ -1,5 +1,6 @@
 import DMVariableBlurView
 import SnapshotTesting
+import UIKit
 import XCTest
 
 /// Pictures of the blur over the striped scene of `RenderingHarness`, compared with
@@ -30,7 +31,9 @@ import XCTest
 ///   tint left visible, the top mode drawn as the bottom mode, a clear area 40 points
 ///   longer, a center band wider than asked, half the radius (except in the full mode,
 ///   where any radius flattens the stripes), edges not normalized, a blur 20 points
-///   shorter, no blur. A mask one step of 255 lower stays under 1 % and passes.
+///   shorter, no blur. A mask one step of 255 lower stays under 1 % of the whole picture and
+///   passes there; the focused picture of the end of the top ramp, rows 340 to 400, puts about
+///   3 % of its pixels over Delta E 2 and fails.
 /// - **Scale.** The capture has a scale of 1, so it does not show the scale the backdrop
 ///   renders at; the package tests pin that value.
 final class BlurSnapshotTests: XCTestCase {
@@ -65,6 +68,18 @@ final class BlurSnapshotTests: XCTestCase {
         try assertMatchesReference(makeSUT(maxBlurRadius: 4, direction: direction), named: "configurationOfDMUnLoader")
     }
 
+    /// The end of the ramp of the top mode, rows 340 to 400, where the blur fades out and the stripes
+    /// come back. A fault that the whole picture lets through shows here: a mask one step of 255
+    /// lower moves about 3 % of these pixels over Delta E 2, and about 0.5 % of the whole picture.
+    @MainActor
+    func test_snapshot_endOfTheTopModeRamp_matchesTheReference() throws {
+        try assertMatchesReference(
+            makeSUT(direction: .blurredTopClearBottom),
+            named: "endOfTheTopModeRamp",
+            rows: 340..<400
+        )
+    }
+
     // MARK: - Helpers
 
     private static var snapshotDirectory: URL {
@@ -91,6 +106,7 @@ final class BlurSnapshotTests: XCTestCase {
     private func assertMatchesReference(
         _ overlay: DMVariableBlurView,
         named base: String,
+        rows: Range<Int>? = nil,
         file: StaticString = #filePath,
         line: UInt = #line
     ) throws {
@@ -99,8 +115,9 @@ final class BlurSnapshotTests: XCTestCase {
             try checkReferences(of: reference)
         }
         let scene = try RenderingHarness.render(overlay)
+        let picture = try rows.map { try Self.crop(scene.image, to: $0) } ?? scene.image
         let failure = verifySnapshot(
-            of: scene.image,
+            of: picture,
             as: .image(precision: Self.precision, perceptualPrecision: Self.perceptualPrecision, scale: 1),
             record: Self.isCI ? .never : .missing,
             snapshotDirectory: Self.snapshotDirectory.path,
@@ -111,6 +128,15 @@ final class BlurSnapshotTests: XCTestCase {
         if let failure {
             XCTFail(failure, file: file, line: line)
         }
+    }
+
+    /// The rows of a picture, over its whole width.
+    private static func crop(_ image: UIImage, to rows: Range<Int>) throws -> UIImage {
+        let area = CGRect(x: 0, y: rows.lowerBound, width: Int(image.size.width), height: rows.count)
+        guard let cropped = image.cgImage?.cropping(to: area) else {
+            throw ReferenceError("The picture has no rows \(rows).")
+        }
+        return UIImage(cgImage: cropped, scale: 1, orientation: .up)
     }
 
     /// A device and an OS with references compare all of them, so a deleted reference fails. A

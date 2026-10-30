@@ -391,7 +391,7 @@ jobs:
             device: iPhone 17
             os: "26.5"
             newest: true
-            passed: 33
+            passed: 34
             skipped: 0
           - name: iOS 18.5
             runner: macos-15
@@ -399,9 +399,9 @@ jobs:
             device: iPhone 16
             os: "18.5"
             newest: false
-            # This runtime has no snapshot references, so the five snapshot tests are skipped.
+            # This device and runtime have no snapshot references, so the six snapshot tests are skipped.
             passed: 28
-            skipped: 5
+            skipped: 6
     env:
       DEVELOPER_DIR: ${{ matrix.xcode }}/Contents/Developer
       # xcodebuild hands a variable with this prefix to the test process without the
