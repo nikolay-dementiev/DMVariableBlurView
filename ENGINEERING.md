@@ -51,7 +51,7 @@ moves no platform floor, changes no behaviour and asks nothing of a consumer. It
 release and its own line in the changelog. A raise that does any of these is breaking.
 
 The package has no dependency today. `Tools/Package.swift` depends on DMDevKit, the development
-tooling that the lint scripts and `Scripts/prepare-simulator.sh` forward to, but it is a package of
+tooling that the wrappers listed by `WRAPPERS` in `devkit.conf` forward to, but it is a package of
 its own: SwiftPM reads the manifest at the root of a dependency only, so a consumer of this package
 does not fetch DMDevKit, and the root manifest that this policy and `Scripts/check-manifest.sh`
 govern does not change.
@@ -175,9 +175,9 @@ is a breaking change too, and needs a major version.
   module in backticks. The helper that fetches SwiftLint, the `swiftlint-tool.sh` of DMDevKit, is
   tested too: `Scripts/check-lint-tool.sh` proves, with a fake archive and no network, that two
   runs on one checkout at once do not break each other and that a failed fetch leaves nothing
-  behind. The four scripts that forward to DMDevKit are tested as well:
-  `Scripts/check-wrappers.sh` proves that each hands its command, arguments, directory, status and
-  streams over unchanged.
+  behind. The wrappers that `WRAPPERS` in `devkit.conf` lists are tested as well:
+  `devkit check-wrappers`, which CI runs directly and `Scripts/check-wrappers.sh` forwards to,
+  proves that each hands its command, arguments, directory, status and streams over unchanged.
 - **Isolation.** The package builds in the Swift 6 language mode. Both views are `@MainActor`, the
   two public enums are `Sendable` and the handler of `onFailure(_:)` is `@MainActor @Sendable`.
 - **Documented limits.** What the library enforces and what it cannot promise are in the README,
