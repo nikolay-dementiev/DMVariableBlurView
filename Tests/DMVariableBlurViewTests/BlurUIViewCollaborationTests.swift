@@ -364,31 +364,32 @@ final class BlurUIViewCollaborationTests: XCTestCase {
     @MainActor
     func test_apply_effectUnavailableWithAHandler_reportsToTheHandlerAndLogsNothing() async throws {
         let (sut, collaborators) = try makeSUT()
-        var reports: [DMVariableBlurError] = []
-        sut.failureHandler = { reports.append($0) }
+        let recorder = FailureReportRecorder()
+        sut.failureHandler = recorder.record
         collaborators.installer.outcome = .unavailable(.filterTypeMissing)
 
         sut.apply(validConfiguration)
-        try await Task.sleep(for: .milliseconds(50))
+        await recorder.waitForReports(count: 1)
 
-        XCTAssertEqual(reports, [.effectUnavailable], "the handler receives the reason")
+        XCTAssertEqual(recorder.reports, [.effectUnavailable], "the handler receives the reason")
         XCTAssertEqual(collaborators.log.entries, [], "the log stays silent")
     }
 
     @MainActor
     func test_layout_installingAgainFailsWithAHandler_reportsToTheHandlerOnce() async throws {
         let (sut, collaborators) = try makeSUT()
-        var reports: [DMVariableBlurError] = []
-        sut.failureHandler = { reports.append($0) }
+        let recorder = FailureReportRecorder()
+        sut.failureHandler = recorder.record
         sut.apply(validConfiguration)
         collaborators.installer.blurIsStillInstalled = false
         collaborators.installer.outcome = .unavailable(.notApplied)
 
         layOut(sut)
         layOut(sut)
-        try await Task.sleep(for: .milliseconds(50))
+        await recorder.waitForReports(count: 1)
+        await recorder.waitForNoReport()
 
-        XCTAssertEqual(reports, [.effectUnavailable], "the failure of the re-application is reported once")
+        XCTAssertEqual(recorder.reports, [.effectUnavailable], "the failure of the re-application is reported once")
         XCTAssertEqual(collaborators.log.entries, [], "the log stays silent")
     }
 

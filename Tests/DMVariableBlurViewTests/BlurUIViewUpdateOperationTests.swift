@@ -59,12 +59,12 @@ final class BlurUIViewUpdateOperationTests: XCTestCase {
         collaborators.installer.outcomeForRadius[7] = .unavailable(.notApplied)
         sut.apply(configuration(radius: 7), respectsReduceTransparency: true, failureHandler: nil)
         XCTAssertNil(sut.failure, "precondition: the first request was never presented, so nothing failed")
-        var reports: [DMVariableBlurError] = []
+        let recorder = FailureReportRecorder()
 
-        sut.apply(configuration(radius: 9), respectsReduceTransparency: false, failureHandler: { reports.append($0) })
-        try await Task.sleep(for: .milliseconds(50))
+        sut.apply(configuration(radius: 9), respectsReduceTransparency: false, failureHandler: recorder.record)
+        await recorder.waitForNoReport()
 
-        XCTAssertEqual(reports, [], "the handler hears nothing about the request that was never shown")
+        XCTAssertEqual(recorder.reports, [], "the handler hears nothing about the request that was never shown")
         XCTAssertNil(sut.failure, "the view shows the final request, which the system took")
         XCTAssertEqual(collaborators.installer.installations.map(\.maxBlurRadius), [9], "only the final request is installed")
         XCTAssertEqual(collaborators.log.entries, [], "nothing is logged")
@@ -113,12 +113,13 @@ final class BlurUIViewUpdateOperationTests: XCTestCase {
         let (sut, collaborators) = try makeSUT(reduceTransparencyEnabled: true)
         collaborators.installer.outcomeForRadius[9] = .unavailable(.notApplied)
         sut.apply(configuration(radius: 7), respectsReduceTransparency: true, failureHandler: nil)
-        var reports: [DMVariableBlurError] = []
+        let recorder = FailureReportRecorder()
 
-        sut.apply(configuration(radius: 9), respectsReduceTransparency: false, failureHandler: { reports.append($0) })
-        try await Task.sleep(for: .milliseconds(50))
+        sut.apply(configuration(radius: 9), respectsReduceTransparency: false, failureHandler: recorder.record)
+        await recorder.waitForReports(count: 1)
+        await recorder.waitForNoReport()
 
-        XCTAssertEqual(reports, [.effectUnavailable], "the handler hears of the failure of the new values once")
+        XCTAssertEqual(recorder.reports, [.effectUnavailable], "the handler hears of the failure of the new values once")
         XCTAssertEqual(sut.failure, .effectUnavailable, "the failure is recorded")
         XCTAssertEqual(collaborators.installer.installations.map(\.maxBlurRadius), [9], "only the new values were tried")
     }
@@ -129,16 +130,16 @@ final class BlurUIViewUpdateOperationTests: XCTestCase {
     func test_update_optionChangesWhileTheFailureIsRecorded_reportsNothingNew() async throws {
         let (sut, collaborators) = try makeSUT(reduceTransparencyEnabled: false)
         collaborators.installer.outcome = .unavailable(.notApplied)
-        var reports: [DMVariableBlurError] = []
-        let handler: @MainActor (DMVariableBlurError) -> Void = { reports.append($0) }
+        let recorder = FailureReportRecorder()
+        let handler: @MainActor (DMVariableBlurError) -> Void = recorder.record
         sut.apply(configuration(radius: 7), respectsReduceTransparency: false, failureHandler: handler)
-        try await Task.sleep(for: .milliseconds(50))
+        await recorder.waitForReports(count: 1)
 
         sut.apply(configuration(radius: 7), respectsReduceTransparency: true, failureHandler: handler)
         sut.apply(configuration(radius: 7), respectsReduceTransparency: false, failureHandler: handler)
-        try await Task.sleep(for: .milliseconds(50))
+        await recorder.waitForNoReport()
 
-        XCTAssertEqual(reports, [.effectUnavailable], "the failure is reported once")
+        XCTAssertEqual(recorder.reports, [.effectUnavailable], "the failure is reported once")
         XCTAssertEqual(collaborators.installer.installations.count, 1, "no second attempt")
     }
 

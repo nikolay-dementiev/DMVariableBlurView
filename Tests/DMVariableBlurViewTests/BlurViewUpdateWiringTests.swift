@@ -34,14 +34,14 @@ final class BlurViewUpdateWiringTests: XCTestCase {
         spies.installer.outcomeForRadius[7] = .unavailable(.notApplied)
         let sut = try HostedBlurView(makeView(radius: 7, followsTheSetting: true, spies: spies))
         defer { sut.hide() }
-        var reports: [DMVariableBlurError] = []
+        let recorder = FailureReportRecorder()
 
         _ = try sut.update(
-            makeView(radius: 9, followsTheSetting: false, spies: spies).onFailure { reports.append($0) }
+            makeView(radius: 9, followsTheSetting: false, spies: spies).onFailure(recorder.record)
         )
-        try await Task.sleep(for: .milliseconds(50))
+        await recorder.waitForNoReport()
 
-        XCTAssertEqual(reports, [], "the handler hears nothing about the values that were never shown")
+        XCTAssertEqual(recorder.reports, [], "the handler hears nothing about the values that were never shown")
         XCTAssertNil(sut.blurView.failure, "the new values were taken")
     }
 

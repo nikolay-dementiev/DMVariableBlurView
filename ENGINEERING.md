@@ -180,6 +180,13 @@ is a breaking change too, and needs a major version.
   streams over unchanged.
 - **Isolation.** The package builds in the Swift 6 language mode. Both views are `@MainActor`, the
   two public enums are `Sendable` and the handler of `onFailure(_:)` is `@MainActor @Sendable`.
+- **Tests do not wait a fixed time.** A report reaches the handler of `onFailure(_:)` in a later
+  turn of the main actor, so a test that expects one waits for it with `FailureReportRecorder`
+  (`Tests/DMVariableBlurViewTests/Support`): until the number of reports is reached, within 5
+  seconds, so that a slow runner does not fail it, and, only where the contract is that nothing
+  arrives, for a quiet interval of 100 milliseconds. The recorder counts the reports itself,
+  because an expectation that asserts on over-fulfilment aborts the whole test process and does
+  not name the test. A `Task.sleep` in a test is a finding.
 - **Documented limits.** What the library enforces and what it cannot promise are in the README,
   "Behaviour your app must know", and in the DocC catalog. This file points to them and does not
   restate them. A change of one of those limits is a change of behaviour.

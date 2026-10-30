@@ -76,15 +76,20 @@ xcodebuild test -project Examples/DMVariableBlurViewExample/DMVariableBlurViewEx
 ```
 
 The snapshot references live in `Examples/DMVariableBlurViewExample/Snapshots`, one set for each
-iOS version, named `<name>_ios<major>_<minor>.1.png`. A local run records a missing reference and
-fails once; CI never records one. To record a reference again, move the old file away, run the
-tests on that iOS version, look at the new picture, and commit it with the reason.
+device and iOS version, named `<name>_<device>_ios<major>_<minor>.1.png`, for example
+`blurredFully_iPhone17_ios26_5.1.png`. The device is the name the simulator gives the test process
+in `SIMULATOR_DEVICE_NAME`, reduced to its letters and digits; a run that has none fails and does
+not guess. A local run records a missing reference and fails once; CI never records one. The cell
+of the `example` job that runs iPhone 17 on iOS 26.5 compares the set of that device and requires
+it. A reference that another device recorded is not one of this run, even on the same iOS version.
+To record a reference again, move the old file away, run the tests on that device and iOS version,
+look at the new picture, and commit it with the device, the iOS version and the reason.
 
 CI checks how many tests each cell of the `example` job ran: the `passed` and `skipped` numbers of
 that cell in `.github/workflows/ci.yml` must equal the ones in the result bundle, and no test may
 fail. A new test of the example changes them, and so does recording the snapshot references of a
-runtime that had none, since its snapshot tests were skipped and now run. Change the numbers in the
-same commit.
+device and iOS version that had none, since its snapshot tests were skipped and now run. Change the
+numbers in the same commit.
 
 CI checks the tests of the package in the same way in every cell of the `test` job: the step "Check
 the test count" counts the test methods of `Tests` (a `func test...()` on one line, with attributes
@@ -161,8 +166,13 @@ merge first, then tag. Before the tag is pushed:
    only while that check passes.
 3. The tests of the package and of the example app pass on an iOS 17 simulator, the oldest version
    the package supports. CI's oldest runtime is iOS 18.5, so this run is local:
-   `xcodebuild test -scheme DMVariableBlurView -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5'`,
-   and the same destination for the example's scheme.
+   `xcodebuild test -scheme DMVariableBlurView -destination 'platform=iOS Simulator,name=iPhone 14,OS=17.5'`,
+   and the same destination for the example's scheme. The snapshot references of iOS 17.5 were
+   recorded on that iPhone 14 and only this local run compares them: CI compares the set of the
+   iPhone 17 on iOS 26.5, and its iOS 18.5 cell, an iPhone 16, has no set and skips the snapshot
+   tests. The references of iOS 18.6 were recorded on an iPhone 16 and are local too: the same
+   command with `name=iPhone 16,OS=18.6` compares them. Another device records a set of its own
+   on its first run and fails once.
 
 On the tag, the release workflow runs the check, makes sure the tagged commit is on `main`, runs the
 whole CI workflow, makes sure the tag still points at the commit CI tested, and drafts a GitHub

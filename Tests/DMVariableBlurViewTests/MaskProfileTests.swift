@@ -144,6 +144,14 @@ final class MaskProfileTests: XCTestCase {
         XCTAssertEqual([0.005, 0.5, 0.995].map(sut.alpha(at:)), [1, 1, 1])
     }
 
+    /// A band of no width leaves no clear stretch: the two ramps meet in the middle, so the blur
+    /// peaks there and is gone at both edges. It is not the full blur, which a band of 1 gives.
+    func test_profile_zeroWidthCenterBand_hasOnlyACentralPeak() throws {
+        let sut = try makeSUT(.blurredCenterClearTopBottom(centerBandProportion: 0))
+
+        XCTAssertEqual([0, 0.25, 0.5, 0.75, 1].map(sut.alpha(at:)), [0, 0.5, 1, 0.5, 0])
+    }
+
     /// The offset moves the clear end of the ramp. From 1 on, nothing is blurred (release
     /// 1.0.0 blurred everything); a negative offset leaves blur at the clear edge. The alpha
     /// is read at the blurred edge, in the middle and at the clear edge.
