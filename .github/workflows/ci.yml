@@ -405,8 +405,8 @@ jobs:
     env:
       DEVELOPER_DIR: ${{ matrix.xcode }}/Contents/Developer
       # xcodebuild hands a variable with this prefix to the test process without the
-      # prefix. The snapshot tests see CI: they never record a reference, and a runtime
-      # without references skips them, except in the newest cell, which has references
+      # prefix. The snapshot tests see CI: they never record a reference, and a device and
+      # runtime without references skip them, except in the newest cell, which has references
       # and must compare them: there a missing reference fails.
       TEST_RUNNER_CI: "true"
       TEST_RUNNER_SNAPSHOT_REFERENCES_REQUIRED: ${{ matrix.newest }}

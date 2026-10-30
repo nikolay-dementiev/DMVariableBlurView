@@ -139,8 +139,9 @@ merge first, then tag. Before the tag is pushed:
    and the same destination for the example's scheme. The snapshot references of iOS 17.5 were
    recorded on that iPhone 14 and only this local run compares them: CI compares the set of the
    iPhone 17 on iOS 26.5, and its iOS 18.5 cell, an iPhone 16, has no set and skips the snapshot
-   tests. The references of iOS 18.6 were recorded on an iPhone 16 and are local too. Another
-   device records a set of its own on its first run and fails once.
+   tests. The references of iOS 18.6 were recorded on an iPhone 16 and are local too: the same
+   command with `name=iPhone 16,OS=18.6` compares them. Another device records a set of its own
+   on its first run and fails once.
 
 On the tag, the release workflow runs the check, makes sure the tagged commit is on `main`, runs the
 whole CI workflow, makes sure the tag still points at the commit CI tested, and drafts a GitHub

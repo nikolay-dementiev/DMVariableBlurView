@@ -15,7 +15,7 @@ import XCTest
 /// - **Names.** `<name>_<device>_ios<major>_<minor>` (`SnapshotReference`), in
 ///   `Examples/DMVariableBlurViewExample/Snapshots`. Every device and every OS has its own
 ///   references: iOS 26.5 draws four of the five scenes with 4 to 6 % of the pixels over
-///   Delta E 2 against 17.5 and 18.6, which agree within 1.1.
+///   Delta E 2 against 17.5 and 18.6, which draw the same pictures.
 /// - **Recording.** Locally a new device or OS records its references and fails once, and so
 ///   does a missing reference of a device and OS that has the others. CI never records: when
 ///   the variable `CI` is set (xcodebuild hands `TEST_RUNNER_CI` to the test process as `CI`),
@@ -25,15 +25,18 @@ import XCTest
 ///   snapshots sets it, and there a missing reference fails.
 /// - **Tolerance.** A pixel matches when its colour is within a Delta E of 2 of the
 ///   reference, and 99 % of the pixels must match. The device that recorded a reference
-///   renders it again byte for byte; another device of the same OS stayed within Delta E 2
-///   in every pixel. On iOS 17.5 and 26.5 each of these faults puts at least 5 % of the
+///   renders it again byte for byte on iOS 17.5 and 18.6, and on iOS 26.5 within one level of
+///   a channel in a few pixels; another device of the same OS stayed within Delta E 2 in
+///   every pixel. On iOS 17.5 and 26.5 each of these faults puts at least 5 % of the
 ///   pixels over Delta E 2 and fails: the system blur in place of the variable blur, its
 ///   tint left visible, the top mode drawn as the bottom mode, a clear area 40 points
 ///   longer, a center band wider than asked, half the radius (except in the full mode,
 ///   where any radius flattens the stripes), edges not normalized, a blur 20 points
-///   shorter, no blur. A mask one step of 255 lower stays under 1 % of the whole picture and
-///   passes there; the focused picture of the end of the top ramp, rows 340 to 400, puts about
-///   3 % of its pixels over Delta E 2 and fails.
+///   shorter, no blur. A mask one step of 255 lower is a smaller fault: it puts 0.5 % of the
+///   top picture over Delta E 2 on iOS 26.5, which passes, and 1.9 % on iOS 17.5, which fails.
+///   The focused picture, the last 60 rows of the overlay (340 up to 400), where the blur
+///   fades out, puts 3.4 % over Delta E 2 on iOS 26.5 and 13.9 % on iOS 17.5, and fails on
+///   both. The shares are a plain Lab difference, measured on an iPhone 17 and an iPhone 14.
 /// - **Scale.** The capture has a scale of 1, so it does not show the scale the backdrop
 ///   renders at; the package tests pin that value.
 final class BlurSnapshotTests: XCTestCase {
@@ -68,9 +71,10 @@ final class BlurSnapshotTests: XCTestCase {
         try assertMatchesReference(makeSUT(maxBlurRadius: 4, direction: direction), named: "configurationOfDMUnLoader")
     }
 
-    /// The end of the ramp of the top mode, rows 340 to 400, where the blur fades out and the stripes
-    /// come back. A fault that the whole picture lets through shows here: a mask one step of 255
-    /// lower moves about 3 % of these pixels over Delta E 2, and about 0.5 % of the whole picture.
+    /// The end of the ramp of the top mode, the last 60 rows of the overlay (340 up to 400), where
+    /// the blur fades out and the stripes come back. A fault that the whole picture lets through on
+    /// iOS 26.5 shows here: a mask one step of 255 lower moves 3.4 % of these pixels over Delta E 2,
+    /// and 0.5 % of the whole picture.
     @MainActor
     func test_snapshot_endOfTheTopModeRamp_matchesTheReference() throws {
         try assertMatchesReference(
@@ -130,11 +134,15 @@ final class BlurSnapshotTests: XCTestCase {
         }
     }
 
-    /// The rows of a picture, over its whole width.
+    /// The rows of a picture, over its whole width. Rows that are not all in the picture throw
+    /// instead of being cut to what is there, or a reference would be recorded from fewer rows.
     private static func crop(_ image: UIImage, to rows: Range<Int>) throws -> UIImage {
-        let area = CGRect(x: 0, y: rows.lowerBound, width: Int(image.size.width), height: rows.count)
-        guard let cropped = image.cgImage?.cropping(to: area) else {
-            throw ReferenceError("The picture has no rows \(rows).")
+        guard let pixels = image.cgImage else {
+            throw SnapshotError("The picture has no pixels.")
+        }
+        let area = CGRect(x: 0, y: rows.lowerBound, width: pixels.width, height: rows.count)
+        guard let cropped = pixels.cropping(to: area), cropped.height == rows.count else {
+            throw SnapshotError("The picture has no rows \(rows).")
         }
         return UIImage(cgImage: cropped, scale: 1, orientation: .up)
     }
@@ -154,13 +162,14 @@ final class BlurSnapshotTests: XCTestCase {
         case .skip(let message):
             throw XCTSkip(message)
         case .fail(let message):
-            throw ReferenceError(message)
+            throw SnapshotError(message)
         }
     }
 }
 
-/// The references a run in CI needs are not there.
-private struct ReferenceError: Error, CustomStringConvertible {
+/// A snapshot test cannot compare: the references that it needs are not there, or the part of
+/// the picture that it asks for is not.
+private struct SnapshotError: Error, CustomStringConvertible {
     let description: String
 
     init(_ description: String) {
