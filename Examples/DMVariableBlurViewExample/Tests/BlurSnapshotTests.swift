@@ -1,34 +1,42 @@
 import DMVariableBlurView
 import SnapshotTesting
+import UIKit
 import XCTest
 
 /// Pictures of the blur over the striped scene of `RenderingHarness`, compared with
-/// references recorded on iOS 17.5, 18.6 and 26.5.
+/// references recorded on an iPhone 14 with iOS 17.5, an iPhone 16 with iOS 18.6 and an
+/// iPhone 17 with iOS 26.5. CI compares the set of the iPhone 17 only.
 ///
 /// The band tests decide on every OS whether a mode works. These tests catch a change of
-/// the picture on the runtimes that have references: the course of the transition, the
+/// the picture on the devices and OS versions that have references: the course of the transition, the
 /// tint, the strength of the blur, and the system blur shown in place of the variable one,
 /// which no band can tell from the full mode.
 ///
-/// - **Names.** `<name>_ios<major>_<minor>`, in `Examples/DMVariableBlurViewExample/Snapshots`.
-///   Every runtime has its own references: iOS 26.5 draws four of the five scenes with 4
-///   to 6 % of the pixels over Delta E 2 against 17.5 and 18.6, which agree within 1.1.
-/// - **Recording.** Locally a new runtime records its references and fails once, and so
-///   does a missing reference of a runtime that has the others. CI never records: when the
-///   variable `CI` is set (xcodebuild hands `TEST_RUNNER_CI` to the test process as `CI`),
+/// - **Names.** `<name>_<device>_ios<major>_<minor>` (`SnapshotReference`), in
+///   `Examples/DMVariableBlurViewExample/Snapshots`. Every device and every OS has its own
+///   references: iOS 26.5 draws four of the five scenes with 4 to 6 % of the pixels over
+///   Delta E 2 against 17.5 and 18.6, which draw the same pictures.
+/// - **Recording.** Locally a new device or OS records its references and fails once, and so
+///   does a missing reference of a device and OS that has the others. CI never records: when
+///   the variable `CI` is set (xcodebuild hands `TEST_RUNNER_CI` to the test process as `CI`),
 ///   a folder without any reference fails, because it moved or the tests run away from the
-///   checkout, and a runtime without references skips every test with a message that says
+///   checkout, and a device and OS without references skip every test with a message that says
 ///   so, unless `SNAPSHOT_REFERENCES_REQUIRED` is `true`: the CI cell that compares the
 ///   snapshots sets it, and there a missing reference fails.
 /// - **Tolerance.** A pixel matches when its colour is within a Delta E of 2 of the
 ///   reference, and 99 % of the pixels must match. The device that recorded a reference
-///   renders it again byte for byte; another device of the same OS stayed within Delta E 2
-///   in every pixel. On iOS 17.5 and 26.5 each of these faults puts at least 5 % of the
+///   renders it again byte for byte on iOS 17.5 and 18.6, and on iOS 26.5 within one level of
+///   a channel in a few pixels; another device of the same OS stayed within Delta E 2 in
+///   every pixel. On iOS 17.5 and 26.5 each of these faults puts at least 5 % of the
 ///   pixels over Delta E 2 and fails: the system blur in place of the variable blur, its
 ///   tint left visible, the top mode drawn as the bottom mode, a clear area 40 points
 ///   longer, a center band wider than asked, half the radius (except in the full mode,
 ///   where any radius flattens the stripes), edges not normalized, a blur 20 points
-///   shorter, no blur. A mask one step of 255 lower stays under 1 % and passes.
+///   shorter, no blur. A mask one step of 255 lower is a smaller fault: it puts 0.5 % of the
+///   top picture over Delta E 2 on iOS 26.5, which passes, and 1.9 % on iOS 17.5, which fails.
+///   The focused picture, the last 60 rows of the overlay (340 up to 400), where the blur
+///   fades out, puts 3.4 % over Delta E 2 on iOS 26.5 and 13.9 % on iOS 17.5, and fails on
+///   both. The shares are a plain Lab difference, measured on an iPhone 17 and an iPhone 14.
 /// - **Scale.** The capture has a scale of 1, so it does not show the scale the backdrop
 ///   renders at; the package tests pin that value.
 final class BlurSnapshotTests: XCTestCase {
@@ -63,6 +71,19 @@ final class BlurSnapshotTests: XCTestCase {
         try assertMatchesReference(makeSUT(maxBlurRadius: 4, direction: direction), named: "configurationOfDMUnLoader")
     }
 
+    /// The end of the ramp of the top mode, the last 60 rows of the overlay (340 up to 400), where
+    /// the blur fades out and the stripes come back. A fault that the whole picture lets through on
+    /// iOS 26.5 shows here: a mask one step of 255 lower moves 3.4 % of these pixels over Delta E 2,
+    /// and 0.5 % of the whole picture.
+    @MainActor
+    func test_snapshot_endOfTheTopModeRamp_matchesTheReference() throws {
+        try assertMatchesReference(
+            makeSUT(direction: .blurredTopClearBottom),
+            named: "endOfTheTopModeRamp",
+            rows: 340..<400
+        )
+    }
+
     // MARK: - Helpers
 
     private static var snapshotDirectory: URL {
@@ -70,11 +91,6 @@ final class BlurSnapshotTests: XCTestCase {
             .deletingLastPathComponent()
             .deletingLastPathComponent()
             .appendingPathComponent("Snapshots", isDirectory: true)
-    }
-
-    private static var runtimeSuffix: String {
-        let version = ProcessInfo.processInfo.operatingSystemVersion
-        return "_ios\(version.majorVersion)_\(version.minorVersion)"
     }
 
     private static var isCI: Bool {
@@ -94,20 +110,23 @@ final class BlurSnapshotTests: XCTestCase {
     private func assertMatchesReference(
         _ overlay: DMVariableBlurView,
         named base: String,
+        rows: Range<Int>? = nil,
         file: StaticString = #filePath,
         line: UInt = #line
     ) throws {
+        let reference = try SnapshotReference.current()
         if Self.isCI {
-            try checkReferencesForThisRuntime()
+            try checkReferences(of: reference)
         }
         let scene = try RenderingHarness.render(overlay)
+        let picture = try rows.map { try Self.crop(scene.image, to: $0) } ?? scene.image
         let failure = verifySnapshot(
-            of: scene.image,
+            of: picture,
             as: .image(precision: Self.precision, perceptualPrecision: Self.perceptualPrecision, scale: 1),
             record: Self.isCI ? .never : .missing,
             snapshotDirectory: Self.snapshotDirectory.path,
             file: file,
-            testName: base + Self.runtimeSuffix,
+            testName: reference.name(for: base),
             line: line
         )
         if let failure {
@@ -115,34 +134,42 @@ final class BlurSnapshotTests: XCTestCase {
         }
     }
 
-    /// A runtime with references compares all of them, so a deleted reference fails. A
-    /// runtime without any is skipped, because CI never records one, unless the cell
-    /// requires references. A folder without any reference fails.
-    private func checkReferencesForThisRuntime() throws {
+    /// The rows of a picture, over its whole width. Rows that are not all in the picture throw
+    /// instead of being cut to what is there, or a reference would be recorded from fewer rows.
+    private static func crop(_ image: UIImage, to rows: Range<Int>) throws -> UIImage {
+        guard let pixels = image.cgImage else {
+            throw SnapshotError("The picture has no pixels.")
+        }
+        let area = CGRect(x: 0, y: rows.lowerBound, width: pixels.width, height: rows.count)
+        guard let cropped = pixels.cropping(to: area), cropped.height == rows.count else {
+            throw SnapshotError("The picture has no rows \(rows).")
+        }
+        return UIImage(cgImage: cropped, scale: 1, orientation: .up)
+    }
+
+    /// A device and an OS with references compare all of them, so a deleted reference fails. A
+    /// run without any is skipped, because CI never records one, unless the cell requires
+    /// references. A folder without any reference fails.
+    private func checkReferences(of reference: SnapshotReference) throws {
         let directory = Self.snapshotDirectory.path
-        var references: [String] = []
+        var files: [String] = []
         if FileManager.default.fileExists(atPath: directory) {
-            references = try FileManager.default.contentsOfDirectory(atPath: directory)
-                .filter { $0.hasSuffix(".png") }
+            files = try FileManager.default.contentsOfDirectory(atPath: directory)
         }
-        guard !references.isEmpty else {
-            throw ReferenceError(
-                "No snapshot reference at all in \(directory): the folder moved, or the tests "
-                    + "run away from the checkout."
-            )
-        }
-        guard references.contains(where: { $0.contains("\(Self.runtimeSuffix).") }) else {
-            let missing = "No snapshot references for this runtime (\(Self.runtimeSuffix)) in \(directory)."
-            if Self.referencesRequired {
-                throw ReferenceError(missing + " This run requires them: record them on this runtime.")
-            }
-            throw XCTSkip(missing + " CI does not record them; the band tests cover this runtime.")
+        switch reference.availability(among: files, in: directory, required: Self.referencesRequired) {
+        case .compare:
+            return
+        case .skip(let message):
+            throw XCTSkip(message)
+        case .fail(let message):
+            throw SnapshotError(message)
         }
     }
 }
 
-/// The references a run in CI needs are not there.
-private struct ReferenceError: Error, CustomStringConvertible {
+/// A snapshot test cannot compare: the references that it needs are not there, or the part of
+/// the picture that it asks for is not.
+private struct SnapshotError: Error, CustomStringConvertible {
     let description: String
 
     init(_ description: String) {

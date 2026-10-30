@@ -10,31 +10,31 @@ final class BlurViewFailedReinstallationTests: XCTestCase {
     func test_layout_reinstallationUnavailable_restoresPlainBlurAndReportsOnce() async throws {
         let sut = makeSUT()
         defer { sut.hosted.hide() }
-        var reports: [DMVariableBlurError] = []
-        sut.view.failureHandler = { reports.append($0) }
+        let recorder = FailureReportRecorder()
+        sut.view.failureHandler = recorder.record
 
         refuseReinstallation(of: sut)
         let installationsBeforeTheFailure = sut.installer.installCount
         sut.view.setNeedsLayout()
         sut.hosted.window.layoutIfNeeded()
-        try await Task.sleep(for: .milliseconds(50))
+        await recorder.waitForReports(count: 1)
 
         XCTAssertEqual(sut.view.failure, .effectUnavailable, "the failure is recorded")
         XCTAssertEqual(sut.hosted.tintAlphas, [1], "the tint that the installation hid is back")
         XCTAssertFalse(sut.hosted.filterTypes.isEmpty, "the backdrop carries the standard filters")
         XCTAssertFalse(sut.hosted.filterTypes.contains("variableBlur"), "the variable blur is gone")
-        XCTAssertEqual(reports, [.effectUnavailable], "the failure is reported once")
+        XCTAssertEqual(recorder.reports, [.effectUnavailable], "the failure is reported once")
 
         sut.view.setNeedsLayout()
         sut.hosted.window.layoutIfNeeded()
-        try await Task.sleep(for: .milliseconds(50))
+        await recorder.waitForNoReport()
 
         XCTAssertEqual(
             sut.installer.installCount,
             installationsBeforeTheFailure + 1,
             "one attempt at the failure and none on the next pass"
         )
-        XCTAssertEqual(reports, [.effectUnavailable], "the next pass reports nothing new")
+        XCTAssertEqual(recorder.reports, [.effectUnavailable], "the next pass reports nothing new")
     }
 
     /// The plain blur is the state the view leaves, so a host that removes the effect and gives one

@@ -371,8 +371,9 @@ How the package is tested:
   spies, the failure reports, and the views through their public API.
 - Tests hosted in the example app: they render the blur in a window over a striped scene and
   measure how sharp each of twenty bands is, also after the appearance changes and after the
-  direction changes. Snapshot tests compare the picture with references recorded on iOS 17.5,
-  18.6 and 26.5.
+  direction changes. Snapshot tests compare the picture with references recorded on an iPhone 14
+  with iOS 17.5, an iPhone 16 with iOS 18.6 and an iPhone 17 with iOS 26.5; CI compares the
+  iPhone 17 set only.
 - UI tests: the app switches to the dark appearance and a screenshot is measured, and a tap
   reaches a button under a blur that lets touches through.
 - CI also lints, checks the public interface against a committed baseline, builds a consumer

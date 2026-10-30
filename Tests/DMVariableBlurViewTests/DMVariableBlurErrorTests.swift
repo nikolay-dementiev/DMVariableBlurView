@@ -66,7 +66,65 @@ final class DMVariableBlurErrorTests: XCTestCase {
         }
     }
 
+    /// The three reasons that carry a value compare it by the same rules: equal values are equal,
+    /// two values that are not a number are equal, and nothing else is.
+    func test_equality_reasonsThatCarryAValue_compareTheValueByTheSameRules() {
+        let reasons: [(name: String, make: (CGFloat) -> DMVariableBlurError)] = [
+            ("invalidMaxBlurRadius", { .invalidMaxBlurRadius($0) }),
+            ("invalidCenterBandProportion", { .invalidCenterBandProportion($0) }),
+            ("invalidStartOffset", { .invalidStartOffset($0) })
+        ]
+        let pairs = [
+            ValuePair(1.5, 1.5, isEqual: true, "the same value"),
+            ValuePair(1.5, 2, isEqual: false, "different values"),
+            ValuePair(.nan, .nan, isEqual: true, "two values that are not a number"),
+            ValuePair(.nan, 1.5, isEqual: false, "a value that is not a number against a number"),
+            ValuePair(1.5, .nan, isEqual: false, "a number against a value that is not a number"),
+            ValuePair(.infinity, .infinity, isEqual: true, "the same infinity"),
+            ValuePair(.infinity, -.infinity, isEqual: false, "opposite infinities")
+        ]
+
+        for reason in reasons {
+            for pair in pairs {
+                XCTAssertEqual(
+                    reason.make(pair.left) == reason.make(pair.right),
+                    pair.isEqual,
+                    "\(reason.name), \(pair.comparison)"
+                )
+            }
+        }
+    }
+
+    /// A reason is never equal to another reason, also when both carry the same value.
+    func test_equality_differentReasonsWithTheSameValue_isNotEqual() {
+        for value in [0, 1.5, .nan, .infinity] as [CGFloat] {
+            let reasons: [DMVariableBlurError] = [
+                .invalidMaxBlurRadius(value), .invalidCenterBandProportion(value), .invalidStartOffset(value)
+            ]
+            for (index, reason) in reasons.enumerated() {
+                for (otherIndex, other) in reasons.enumerated() where otherIndex != index {
+                    XCTAssertNotEqual(reason, other, "\(reason) and \(other) carry the same value and are different reasons")
+                }
+            }
+        }
+    }
+
     // MARK: - Helpers
+
+    /// Two values and whether two reasons that carry them are equal.
+    private struct ValuePair {
+        let left: CGFloat
+        let right: CGFloat
+        let isEqual: Bool
+        let comparison: String
+
+        init(_ left: CGFloat, _ right: CGFloat, isEqual: Bool, _ comparison: String) {
+            self.left = left
+            self.right = right
+            self.isEqual = isEqual
+            self.comparison = comparison
+        }
+    }
 
     private func makeSUT(_ centerBandProportion: CGFloat) -> DMVariableBlurError {
         .invalidCenterBandProportion(centerBandProportion)

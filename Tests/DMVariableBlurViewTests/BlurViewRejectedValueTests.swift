@@ -49,15 +49,22 @@ final class BlurViewRejectedValueTests: XCTestCase {
         file: StaticString = #filePath,
         line: UInt = #line
     ) async throws {
-        var reports: [DMVariableBlurError] = []
-        let sut = try makeSUT(view.onFailure { reports.append($0) }, file: file, line: line)
+        let recorder = FailureReportRecorder()
+        let sut = try makeSUT(view.onFailure(recorder.record), file: file, line: line)
         defer { sut.hide() }
 
-        try await Task.sleep(for: .milliseconds(50))
+        await recorder.waitForReports(count: 1, file: file, line: line)
+        await recorder.waitForNoReport(file: file, line: line)
 
         XCTAssertFalse(sut.filterTypes.contains("variableBlur"), "\(text): no variable blur", file: file, line: line)
         XCTAssertEqual(sut.tintAlphas, [1], "\(text): the tint of the system blur is visible", file: file, line: line)
-        XCTAssertEqual(reports, [reason], "\(text): one report with the value", file: file, line: line)
-        XCTAssertEqual(reports.first?.localizedDescription, text, "\(text): the description", file: file, line: line)
+        XCTAssertEqual(recorder.reports, [reason], "\(text): one report with the value", file: file, line: line)
+        XCTAssertEqual(
+            recorder.reports.first?.localizedDescription,
+            text,
+            "\(text): the description",
+            file: file,
+            line: line
+        )
     }
 }

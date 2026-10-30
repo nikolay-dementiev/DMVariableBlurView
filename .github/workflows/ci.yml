@@ -381,7 +381,7 @@ jobs:
             device: iPhone 17
             os: "26.5"
             newest: true
-            passed: 20
+            passed: 34
             skipped: 0
           - name: iOS 18.5
             runner: macos-15
@@ -389,14 +389,14 @@ jobs:
             device: iPhone 16
             os: "18.5"
             newest: false
-            # This runtime has no snapshot references, so the five snapshot tests are skipped.
-            passed: 15
-            skipped: 5
+            # This device and runtime have no snapshot references, so the six snapshot tests are skipped.
+            passed: 28
+            skipped: 6
     env:
       DEVELOPER_DIR: ${{ matrix.xcode }}/Contents/Developer
       # xcodebuild hands a variable with this prefix to the test process without the
-      # prefix. The snapshot tests see CI: they never record a reference, and a runtime
-      # without references skips them, except in the newest cell, which has references
+      # prefix. The snapshot tests see CI: they never record a reference, and a device and
+      # runtime without references skip them, except in the newest cell, which has references
       # and must compare them: there a missing reference fails.
       TEST_RUNNER_CI: "true"
       TEST_RUNNER_SNAPSHOT_REFERENCES_REQUIRED: ${{ matrix.newest }}
