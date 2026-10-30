@@ -219,7 +219,7 @@ jobs:
     # so the diagnostics that run after type checking run too. What it does not prove:
     # nothing is linked and no test runs here; the test job does that with newer toolchains.
     #
-    # The compiler is called directly, as Scripts/check-api.sh does, because it needs the
+    # The compiler is called directly, as devkit check-api does, because it needs the
     # SDK only. An xcodebuild destination of Xcode 16.0 needs a simulator platform that the
     # runners of this image do not always offer ("iOS 18.0 is not installed").
     name: floor
