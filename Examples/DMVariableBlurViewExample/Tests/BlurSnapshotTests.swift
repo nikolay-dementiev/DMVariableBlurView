@@ -3,7 +3,8 @@ import SnapshotTesting
 import XCTest
 
 /// Pictures of the blur over the striped scene of `RenderingHarness`, compared with
-/// references recorded on iOS 17.5, 18.6 and 26.5.
+/// references recorded on an iPhone 14 with iOS 17.5, an iPhone 16 with iOS 18.6 and an
+/// iPhone 17 with iOS 26.5. CI compares the set of the iPhone 17 only.
 ///
 /// The band tests decide on every OS whether a mode works. These tests catch a change of
 /// the picture on the devices and OS versions that have references: the course of the transition, the
