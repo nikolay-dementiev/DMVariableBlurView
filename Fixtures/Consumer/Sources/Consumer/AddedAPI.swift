@@ -36,7 +36,8 @@ enum AddedAPI {
             }
     }
 
-    /// A UIKit host: the defaults, explicit values, an update and the failure state.
+    /// A UIKit host: the defaults, explicit values, an update and the failure state, and a view
+    /// that tells its host about a failure.
     static func uiKitHost() -> [DMVariableBlurUIView] {
         let defaults = DMVariableBlurUIView()
         let explicit = DMVariableBlurUIView(maxBlurRadius: 12, direction: .blurredTopClearBottom, startOffset: -0.1)
@@ -45,7 +46,16 @@ enum AddedAPI {
         if let reason = explicit.failure {
             print(reason.localizedDescription)
         }
-        return [defaults, explicit]
+        let reporting = DMVariableBlurUIView(maxBlurRadius: 12) { error in
+            print(error.localizedDescription)
+        }
+        let reportingEverything = DMVariableBlurUIView(
+            maxBlurRadius: 12,
+            direction: .blurredTopClearBottom,
+            startOffset: -0.1,
+            onFailure: { _ in }
+        )
+        return [defaults, explicit, reporting, reportingEverything]
     }
 
     static func directionCrossesToAnotherTask() async -> DMVariableBlurDirection {

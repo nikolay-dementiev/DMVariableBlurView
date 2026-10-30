@@ -36,6 +36,25 @@ final class BlurUIViewPublicAPITests: XCTestCase {
         XCTAssertEqual(sut.blurView.failure, .invalidMaxBlurRadius(-1), "the reason is readable at once")
     }
 
+    /// The handler is in place before the first values are applied, so a UIKit host hears about
+    /// a failure of its initial values too, in a later turn and never inside the initializer.
+    @MainActor
+    func test_init_invalidConfiguration_deliversFailureAfterInitialization() async throws {
+        let log = UnifiedLogReader()
+        let recorder = FailureReportRecorder()
+        let sut = makeSUT(DMVariableBlurUIView(maxBlurRadius: -1, onFailure: recorder.record))
+        defer { sut.hide() }
+        let reportsRightAfterTheInitializer = recorder.reports
+
+        await recorder.waitForReports(count: 1)
+        await recorder.waitForNoReport()
+
+        XCTAssertEqual(reportsRightAfterTheInitializer, [], "nothing is reported while the initializer runs")
+        XCTAssertEqual(recorder.reports, [.invalidMaxBlurRadius(-1)], "the report follows once, in a later turn")
+        XCTAssertEqual(sut.blurView.failure, .invalidMaxBlurRadius(-1), "failure holds the reason as well")
+        XCTAssertEqual(try log.libraryLines().count, 0, "the log stays silent while the handler exists")
+    }
+
     @MainActor
     func test_blurUIView_update_newValues_replacesTheRadiusAndTheMask() throws {
         let sut = makeSUT(DMVariableBlurUIView(maxBlurRadius: 7, direction: .blurredTopClearBottom))
