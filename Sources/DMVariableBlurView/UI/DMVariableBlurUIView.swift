@@ -39,8 +39,9 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
     /// light and dark appearance, and when ``respectsReduceTransparency`` or the setting
     /// changes and the view shows its values again. Each recorded reason also writes one
     /// line to the unified log, also one recorded later on such a re-application. A view
-    /// made by ``DMVariableBlurView`` with ``DMVariableBlurView/onFailure(_:)`` hands the
-    /// reason to that handler instead.
+    /// made by ``DMVariableBlurView`` with ``DMVariableBlurView/onFailure(_:)``, or made with
+    /// ``init(maxBlurRadius:direction:startOffset:onFailure:)``, hands the reason to that
+    /// handler instead.
     public private(set) var failure: DMVariableBlurError?
 
     /// Whether the view follows the Reduce Transparency setting of the device.
@@ -155,6 +156,64 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
         startOffset: CGFloat = 0
     ) {
         self.init(.system)
+        apply(VariableBlurConfiguration(maxBlurRadius: maxBlurRadius, direction: direction, startOffset: startOffset))
+    }
+
+    /// Creates a blur view for a UIKit hierarchy that tells its host when it cannot show the
+    /// blur it was asked for.
+    ///
+    /// The values are as in ``init(maxBlurRadius:direction:startOffset:)``: the view always
+    /// exists after this call, and ``failure`` gives the reason.
+    ///
+    /// The handler runs on the main actor, in a later turn than the one that recorded the
+    /// failure, so it may change the state of the host: it never runs inside this initializer
+    /// or inside ``update(maxBlurRadius:direction:startOffset:)``. It is in place before the
+    /// values of this initializer are applied, so it also hears about a failure of those. It is
+    /// called once for each configuration that was applied and failed, and not again while the
+    /// configuration stays the same; a configuration rejected with an equal error, the same case
+    /// and value, counts as the same. It is called again when a failing configuration returns
+    /// after a valid one, and when a configuration that was shown fails later, for example when
+    /// the view applies it again after the system rebuilt the effect.
+    ///
+    /// While the view has a handler it writes nothing to the unified log. The handler stays for
+    /// the life of the view: unlike ``DMVariableBlurView/onFailure(_:)`` in SwiftUI, nothing
+    /// replaces it. The view keeps the handler, so a handler that captures the view strongly
+    /// keeps both alive: capture the view weakly.
+    ///
+    /// - Parameters:
+    ///   - maxBlurRadius: The radius of the blur where it is strongest, in points. A finite
+    ///     number, 0 or greater.
+    ///   - direction: Where the blur is strongest and where it fades out.
+    ///   - startOffset: Moves the point where the blur ends, as a fraction of the height.
+    ///     Any finite number; from 1 on, the top and bottom modes blur nothing. It does not
+    ///     shape the center band or the full blur.
+    ///   - onFailure: Called with the reason each time the view cannot show the blur.
+    public convenience init(
+        maxBlurRadius: CGFloat = 20,
+        direction: DMVariableBlurDirection = .blurredCenterClearTopBottom(),
+        startOffset: CGFloat = 0,
+        onFailure: @escaping @MainActor (DMVariableBlurError) -> Void
+    ) {
+        self.init(
+            .system,
+            maxBlurRadius: maxBlurRadius,
+            direction: direction,
+            startOffset: startOffset,
+            onFailure: onFailure
+        )
+    }
+
+    /// The initializer that reports failures, with the collaborators given.
+    package convenience init(
+        _ collaborators: VariableBlurCollaborators,
+        maxBlurRadius: CGFloat,
+        direction: DMVariableBlurDirection,
+        startOffset: CGFloat,
+        onFailure: @escaping @MainActor (DMVariableBlurError) -> Void
+    ) {
+        self.init(collaborators)
+        // In place before the first values are applied: a failure of those values is delivered.
+        failureHandler = onFailure
         apply(VariableBlurConfiguration(maxBlurRadius: maxBlurRadius, direction: direction, startOffset: startOffset))
     }
 
