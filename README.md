@@ -115,7 +115,7 @@ let package = Package(
     name: "MyApp",
     platforms: [.iOS(.v17)],
     dependencies: [
-        .package(url: "https://github.com/nikolay-dementiev/DMVariableBlurView.git", from: "1.1.0")
+        .package(url: "https://github.com/nikolay-dementiev/DMVariableBlurView.git", from: "2.0.0")
     ],
     targets: [
         .target(
