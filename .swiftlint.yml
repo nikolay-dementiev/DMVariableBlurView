@@ -55,6 +55,9 @@ custom_rules:
     # submodule of Foundation or CoreGraphics is allowed. Comments and strings never match.
     # Not seen: an import with a comment inside it or after a block comment on its line, and a
     # module name in backticks.
+    # CoreGraphics is allowed for its scalar types, such as CGFloat, and not for its objects or
+    # its functions. The rule checks the import only, so the reviewer applies that part
+    # (ENGINEERING.md, "The package as it is").
     regex: '(?:^|;)[ \t]*(@\w+(\([^)]*\))?\s+)*((public|package|internal|fileprivate|private)\s+)?import\s+(?:(?:struct|class|enum|protocol|typealias|func|var|let)\s+)?+(?!(?:CoreGraphics|Foundation)\b)\w+'
     match_kinds: [keyword, identifier, attribute.builtin, attribute.id]
     message: "The Domain folder imports only Foundation and CoreGraphics: no UI and no rendering framework."

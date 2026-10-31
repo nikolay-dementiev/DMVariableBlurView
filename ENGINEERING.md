@@ -120,7 +120,10 @@ is a breaking change too, and needs a major version.
   decisions that need no UI framework: `DMVariableBlurDirection`, `DMVariableBlurError`,
   `VariableBlurConfiguration` and `BlurMaskProfile`, which says how strongly each height of the view
   is blurred. The folder imports Foundation and CoreGraphics only, and `Scripts/lint.sh` enforces
-  that: the custom rule `domain_imports` reports any other import in it. `Adapters` wraps the
+  that: the custom rule `domain_imports` reports any other import in it. CoreGraphics is there
+  for its scalar types, such as `CGFloat`, which the public values carry; the folder uses no
+  CoreGraphics object and no CoreGraphics function. The rule looks at the import and at nothing
+  else, so the reviewer applies that part. `Adapters` wraps the
   system: four `package` protocols, `FailureLog`, `MaskImageRenderer`, `ReduceTransparencySetting`
   and `VariableBlurInstaller`, and the implementations that touch UIKit, CoreGraphics, `os` and the
   private filter. `UI` holds the two public views and `VariableBlurCollaborators`, the set of
@@ -143,7 +146,10 @@ is a breaking change too, and needs a major version.
   set to `nil`, which shows no blur until it gets an effect back. The view records the reason as a
   `DMVariableBlurError`. In SwiftUI a handler passed to `onFailure(_:)` receives it, and in UIKit
   the handler of the initializer that takes `onFailure:` does; the unified log gets one line when
-  no handler is set. In UIKit the `failure` property holds it as well. The README, "Failures",
+  no handler is set. In UIKit the `failure` property holds it as well. The log line may carry a
+  `detail`, which the view hands to `FailureLog`: it is the library's own text and never data of
+  the host, and if a detail derived from the host ever appears, `detail` becomes a code type,
+  with its test at the view boundary. The README, "Failures",
   and the DocC article Handling failures
   (`Sources/DMVariableBlurView/DMVariableBlurView.docc/HandlingFailures.md`) have the details.
 - **The library does not stop its host.** Its sources contain no `fatalError`,

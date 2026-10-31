@@ -5,7 +5,8 @@ package protocol FailureLog {
     /// - Parameters:
     ///   - error: The reason, as a host would receive it.
     ///   - detail: What the library knows beyond the reason, for example what the system
-    ///     answered. For a developer, never shown to a user.
+    ///     answered. For a developer, never shown to a user. The library's own text and never
+    ///     data of the host, because `SystemFailureLog` writes it to the log as public.
     func record(_ error: DMVariableBlurError, detail: String?)
 }
 
