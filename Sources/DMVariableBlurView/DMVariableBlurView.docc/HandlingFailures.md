@@ -47,16 +47,18 @@ than the one that recorded the failure, once for each configuration that fails, 
 when a failure returns after a valid configuration, also for the failure of a re-application
 after the system rebuilt the effect. It is in place before the first values are applied, so a
 failure of those is reported too, after the initializer has returned. One thing differs: nothing
-replaces the handler, which stays for the life of the view. The view keeps it, so capture the
-view weakly. With a handler the view writes nothing to the log.
+replaces the handler, which stays for the life of the view. The view keeps it, so a handler
+that captures the view, or whatever owns the view, strongly makes a cycle: capture them
+weakly. The handler of a failure that happened is called even if the view is gone by then.
+With a handler the view writes nothing to the log.
 
-Without a handler, read ``DMVariableBlurUIView/failure`` after you create the view, after
-``DMVariableBlurUIView/update(maxBlurRadius:direction:startOffset:)``, and after a change
-of appearance: it holds the reason, or `nil` when nothing prevents the blur. Each
-recorded reason also writes one line to the unified log. When the view cannot install the
-blur again after the system rebuilt the effect, it shows the plain blur of the system, as
-for any other failure: the regular style, also when the host had given the view another
-one.
+With or without a handler, read ``DMVariableBlurUIView/failure`` after you create the view,
+after ``DMVariableBlurUIView/update(maxBlurRadius:direction:startOffset:)``, and after a
+change of appearance: it holds the reason, or `nil` when nothing prevents the blur. Without
+a handler, each recorded reason also writes one line to the unified log. When the view
+cannot install the blur again after the system rebuilt the effect, it shows the plain blur
+of the system, as for any other failure: the regular style, also when the host had given
+the view another one.
 
 ### Reduce Transparency
 

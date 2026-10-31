@@ -143,7 +143,8 @@ is a breaking change too, and needs a major version.
   set to `nil`, which shows no blur until it gets an effect back. The view records the reason as a
   `DMVariableBlurError`. In SwiftUI a handler passed to `onFailure(_:)` receives it, and in UIKit
   the handler of the initializer that takes `onFailure:` does; the unified log gets one line when
-  no handler is set. In UIKit the `failure` property holds it as well. The README, "Failures", and the DocC article Handling failures
+  no handler is set. In UIKit the `failure` property holds it as well. The README, "Failures",
+  and the DocC article Handling failures
   (`Sources/DMVariableBlurView/DMVariableBlurView.docc/HandlingFailures.md`) have the details.
 - **The library does not stop its host.** Its sources contain no `fatalError`,
   `preconditionFailure`, `assertionFailure`, `precondition`, `assert`, `dispatchPrecondition`,

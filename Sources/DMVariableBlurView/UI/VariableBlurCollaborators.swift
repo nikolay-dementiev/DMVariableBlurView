@@ -1,8 +1,8 @@
 /// The four collaborators of a blur view.
 ///
-/// The system ones are listed here and nowhere else: the public initializer of the UIKit view
-/// and the SwiftUI wrapper both take them from ``system``, so the object graph of the library
-/// has one home.
+/// The system ones are listed here and nowhere else: the public initializers of the UIKit view
+/// and the SwiftUI wrapper take them from ``system``, so the object graph of the library has
+/// one home.
 package struct VariableBlurCollaborators {
     package let maskRenderer: any MaskImageRenderer
     package let installer: any VariableBlurInstaller

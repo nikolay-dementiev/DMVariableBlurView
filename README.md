@@ -298,8 +298,9 @@ failure.
 
 In UIKit, pass the handler to the initializer. It follows the same rules, and it is in place
 before the first values are applied, so a failure of those is reported too, after the
-initializer has returned. The view keeps the handler for its whole life and writes nothing to
-the log while it has one, so capture the view weakly:
+initializer has returned. The view keeps the handler for its whole life, so capture the view
+and whatever owns it weakly, as the example does. While it has a handler, the view writes
+nothing to the log:
 
 ```swift
 import DMVariableBlurView
@@ -316,7 +317,7 @@ final class ReportingHeaderViewController: UIViewController {
 }
 ```
 
-A view made without a handler keeps the `failure` property, which holds the reason, and each
+With or without a handler, the `failure` property holds the reason; without a handler, each
 reason also goes to the log.
 
 `onFailure(_:)` and `respectsReduceTransparency(_:)` are methods of `DMVariableBlurView`:

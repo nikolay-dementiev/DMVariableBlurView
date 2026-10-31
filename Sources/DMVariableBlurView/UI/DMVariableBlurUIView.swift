@@ -175,10 +175,12 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
     /// after a valid one, and when a configuration that was shown fails later, for example when
     /// the view applies it again after the system rebuilt the effect.
     ///
-    /// While the view has a handler it writes nothing to the unified log. The handler stays for
-    /// the life of the view: unlike ``DMVariableBlurView/onFailure(_:)`` in SwiftUI, nothing
-    /// replaces it. The view keeps the handler, so a handler that captures the view strongly
-    /// keeps both alive: capture the view weakly.
+    /// While the view has a handler it writes nothing to the unified log; ``failure`` holds the
+    /// reason in either case. The handler of a failure that happened is called even if the view
+    /// is gone by then. The handler stays for the life of the view: unlike
+    /// ``DMVariableBlurView/onFailure(_:)`` in SwiftUI, nothing replaces it. The view keeps the
+    /// handler, so a handler that captures the view, or whatever owns the view, strongly makes
+    /// a cycle: capture them weakly.
     ///
     /// - Parameters:
     ///   - maxBlurRadius: The radius of the blur where it is strongest, in points. A finite
@@ -187,7 +189,8 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
     ///   - startOffset: Moves the point where the blur ends, as a fraction of the height.
     ///     Any finite number; from 1 on, the top and bottom modes blur nothing. It does not
     ///     shape the center band or the full blur.
-    ///   - onFailure: Called with the reason each time the view cannot show the blur.
+    ///   - onFailure: Called with the reason when the view cannot show the blur, as described
+    ///     above.
     public convenience init(
         maxBlurRadius: CGFloat = 20,
         direction: DMVariableBlurDirection = .blurredCenterClearTopBottom(),
