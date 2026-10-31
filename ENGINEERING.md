@@ -120,7 +120,10 @@ is a breaking change too, and needs a major version.
   decisions that need no UI framework: `DMVariableBlurDirection`, `DMVariableBlurError`,
   `VariableBlurConfiguration` and `BlurMaskProfile`, which says how strongly each height of the view
   is blurred. The folder imports Foundation and CoreGraphics only, and `Scripts/lint.sh` enforces
-  that: the custom rule `domain_imports` reports any other import in it. `Adapters` wraps the
+  that: the custom rule `domain_imports` reports any other import in it. CoreGraphics is there
+  for its scalar types, such as `CGFloat`, which the public values carry; the folder uses no
+  CoreGraphics object and no CoreGraphics function. The rule looks at the import and at nothing
+  else, so the reviewer applies that part. `Adapters` wraps the
   system: four `package` protocols, `FailureLog`, `MaskImageRenderer`, `ReduceTransparencySetting`
   and `VariableBlurInstaller`, and the implementations that touch UIKit, CoreGraphics, `os` and the
   private filter. `UI` holds the two public views and `VariableBlurCollaborators`, the set of
