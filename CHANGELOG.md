@@ -119,5 +119,6 @@ Behaviour changes. None of them removes a declaration; each one is pinned by a t
 - First release: `DMVariableBlurView` for SwiftUI and `DMVariableBlurUIView` for UIKit, with
   four blur directions.
 
+[Unreleased]: https://github.com/nikolay-dementiev/DMVariableBlurView/compare/1.1.0...HEAD
 [1.1.0]: https://github.com/nikolay-dementiev/DMVariableBlurView/compare/1.0.0...1.1.0
 [1.0.0]: https://github.com/nikolay-dementiev/DMVariableBlurView/tree/1.0.0
