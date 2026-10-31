@@ -96,8 +96,8 @@ What each version is verified with:
 | What | How |
 |---|---|
 | iOS 26.5 (Xcode 26.6), iOS 18.5 (Xcode 16.4) | the tests of the package and of the example app run on simulators in CI; the snapshot tests compare on iOS 26.5 only |
-| iOS 17.5 (Xcode 26.6) | the same tests run on a simulator before each release |
-| iOS 18.6, iOS 26.5 (Xcode 26.6) | the same tests ran on simulators for 1.1.0 |
+| iOS 17.5 (Xcode 27.2) | the same tests run on a simulator before each release; they ran for 2.0.0 |
+| iOS 18.6 (Xcode 27.2) | the same tests, with the snapshot references of that runtime, ran on a simulator for 2.0.0 |
 | Swift 6.0 (Xcode 16.0) | CI compiles the library with that compiler; no test runs with it |
 
 ## Installation
