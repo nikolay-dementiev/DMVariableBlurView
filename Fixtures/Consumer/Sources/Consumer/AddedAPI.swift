@@ -55,7 +55,10 @@ enum AddedAPI {
             startOffset: -0.1,
             onFailure: { _ in }
         )
-        return [defaults, explicit, reporting, reportingEverything]
+        let reportingWithDefaults = DMVariableBlurUIView(onFailure: { _ in })
+        let reportingDirection = DMVariableBlurUIView(direction: .blurredFully) { _ in }
+        let reportingOffset = DMVariableBlurUIView(startOffset: 0.2) { _ in }
+        return [defaults, explicit, reporting, reportingEverything, reportingWithDefaults, reportingDirection, reportingOffset]
     }
 
     static func directionCrossesToAnotherTask() async -> DMVariableBlurDirection {

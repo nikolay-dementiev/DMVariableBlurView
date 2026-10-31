@@ -101,6 +101,39 @@ final class BlurUIViewFailureCallbackTests: XCTestCase {
         XCTAssertEqual(installer.installCount, installationsBeforeTheChange + 1, "the change brought one attempt")
     }
 
+    /// A failure that an update brings is not reported inside `update`, so a host may change
+    /// state in the handler.
+    @MainActor
+    func test_update_rejectedValuesWithAHandler_isNotReportedBeforeUpdateReturns() async throws {
+        let recorder = FailureReportRecorder()
+        let (sut, _) = try makeSUT(recorder: recorder)
+
+        sut.update(maxBlurRadius: 7, direction: rejectedDirection, startOffset: 0)
+        let reportsRightAfterTheUpdate = recorder.reports
+        await recorder.waitForReports(count: 1)
+
+        XCTAssertEqual(reportsRightAfterTheUpdate, [], "nothing is reported while the update runs")
+        XCTAssertEqual(recorder.reports, [.invalidCenterBandProportion(1.25)], "the report follows in a later turn")
+    }
+
+    /// The task that delivers a report holds the handler of the moment and not the view.
+    @MainActor
+    func test_init_viewDeallocatedBeforeDelivery_handlerIsStillCalledOnce() async throws {
+        let recorder = FailureReportRecorder()
+        weak var blurView: DMVariableBlurUIView?
+        try autoreleasepool {
+            let (sut, _) = try makeSUT(direction: rejectedDirection, recorder: recorder)
+            blurView = sut
+        }
+        let deallocated = blurView == nil
+
+        await recorder.waitForReports(count: 1)
+        await recorder.waitForNoReport()
+
+        XCTAssertTrue(deallocated, "precondition: the view is gone before the delivery")
+        XCTAssertEqual(recorder.reports, [.invalidCenterBandProportion(1.25)], "the handler is called once")
+    }
+
     // MARK: - Equal failures and recovery
 
     @MainActor

@@ -55,6 +55,29 @@ final class BlurUIViewPublicAPITests: XCTestCase {
         XCTAssertEqual(try log.libraryLines().count, 0, "the log stays silent while the handler exists")
     }
 
+    /// The initializer that takes a handler hands the radius, the direction and the offset on as
+    /// given: it shows the same blur as the initializer without one.
+    @MainActor
+    func test_init_withAHandler_validValues_installsTheSameBlurAsTheInitializerWithoutOne() throws {
+        let recorder = FailureReportRecorder()
+        let reporting = makeSUT(DMVariableBlurUIView(
+            maxBlurRadius: 9,
+            direction: .blurredBottomClearTop,
+            startOffset: 0.3,
+            onFailure: recorder.record
+        ))
+        let plain = makeSUT(DMVariableBlurUIView(maxBlurRadius: 9, direction: .blurredBottomClearTop, startOffset: 0.3))
+        defer {
+            reporting.hide()
+            plain.hide()
+        }
+
+        XCTAssertEqual(reporting.filterTypes, ["variableBlur"], "the backdrop carries the variable blur")
+        XCTAssertEqual(reporting.radius, 9, "with the radius given")
+        XCTAssertNotNil(reporting.maskAlphaProfile, "with a mask")
+        XCTAssertEqual(reporting.maskAlphaProfile, plain.maskAlphaProfile, "shaped by the direction and the offset given")
+    }
+
     @MainActor
     func test_blurUIView_update_newValues_replacesTheRadiusAndTheMask() throws {
         let sut = makeSUT(DMVariableBlurUIView(maxBlurRadius: 7, direction: .blurredTopClearBottom))
