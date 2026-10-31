@@ -36,6 +36,48 @@ final class BlurUIViewPublicAPITests: XCTestCase {
         XCTAssertEqual(sut.blurView.failure, .invalidMaxBlurRadius(-1), "the reason is readable at once")
     }
 
+    /// The handler is in place before the first values are applied, so a UIKit host hears about
+    /// a failure of its initial values too, in a later turn and never inside the initializer.
+    @MainActor
+    func test_init_invalidConfiguration_deliversFailureAfterInitialization() async throws {
+        let log = UnifiedLogReader()
+        let recorder = FailureReportRecorder()
+        let sut = makeSUT(DMVariableBlurUIView(maxBlurRadius: -1, onFailure: recorder.record))
+        defer { sut.hide() }
+        let reportsRightAfterTheInitializer = recorder.reports
+
+        await recorder.waitForReports(count: 1)
+        await recorder.waitForNoReport()
+
+        XCTAssertEqual(reportsRightAfterTheInitializer, [], "nothing is reported while the initializer runs")
+        XCTAssertEqual(recorder.reports, [.invalidMaxBlurRadius(-1)], "the report follows once, in a later turn")
+        XCTAssertEqual(sut.blurView.failure, .invalidMaxBlurRadius(-1), "failure holds the reason as well")
+        XCTAssertEqual(try log.libraryLines().count, 0, "the log stays silent while the handler exists")
+    }
+
+    /// The initializer that takes a handler hands the radius, the direction and the offset on as
+    /// given: it shows the same blur as the initializer without one.
+    @MainActor
+    func test_init_withAHandler_validValues_installsTheSameBlurAsTheInitializerWithoutOne() throws {
+        let recorder = FailureReportRecorder()
+        let reporting = makeSUT(DMVariableBlurUIView(
+            maxBlurRadius: 9,
+            direction: .blurredBottomClearTop,
+            startOffset: 0.3,
+            onFailure: recorder.record
+        ))
+        let plain = makeSUT(DMVariableBlurUIView(maxBlurRadius: 9, direction: .blurredBottomClearTop, startOffset: 0.3))
+        defer {
+            reporting.hide()
+            plain.hide()
+        }
+
+        XCTAssertEqual(reporting.filterTypes, ["variableBlur"], "the backdrop carries the variable blur")
+        XCTAssertEqual(reporting.radius, 9, "with the radius given")
+        XCTAssertNotNil(reporting.maskAlphaProfile, "with a mask")
+        XCTAssertEqual(reporting.maskAlphaProfile, plain.maskAlphaProfile, "shaped by the direction and the offset given")
+    }
+
     @MainActor
     func test_blurUIView_update_newValues_replacesTheRadiusAndTheMask() throws {
         let sut = makeSUT(DMVariableBlurUIView(maxBlurRadius: 7, direction: .blurredTopClearBottom))

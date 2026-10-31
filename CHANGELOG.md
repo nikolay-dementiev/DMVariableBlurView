@@ -5,6 +5,16 @@ Changelog 1.1.0, and versions follow Semantic Versioning 2.0.0.
 
 ## [Unreleased]
 
+### Added
+
+- `DMVariableBlurUIView.init(maxBlurRadius:direction:startOffset:onFailure:)`, a failure
+  callback for UIKit hosts. The handler follows the rules of `onFailure(_:)` in SwiftUI: it runs
+  on the main actor in a later turn, once for each configuration that fails, again when a
+  failure returns after a valid configuration, also for the failure of a re-application after
+  the system rebuilt the effect, and the view writes nothing to the log while it has one. It
+  is in place before the first values are applied, so a failure of those is reported too. It
+  stays for the life of the view. The existing initializer is unchanged.
+
 ### Breaking changes
 
 - The view finds its own filter on the backdrop by identity and reads the radius and the mask
