@@ -41,7 +41,16 @@ none.
 
 ### In UIKit
 
-Read ``DMVariableBlurUIView/failure`` after you create the view, after
+Pass a handler to ``DMVariableBlurUIView/init(maxBlurRadius:direction:startOffset:onFailure:)``.
+It follows the rules of the SwiftUI handler above: it runs on the main actor, in a later turn
+than the one that recorded the failure, once for each configuration that fails, and again
+when a failure returns after a valid configuration, also for the failure of a re-application
+after the system rebuilt the effect. It is in place before the first values are applied, so a
+failure of those is reported too, after the initializer has returned. One thing differs: nothing
+replaces the handler, which stays for the life of the view. The view keeps it, so capture the
+view weakly. With a handler the view writes nothing to the log.
+
+Without a handler, read ``DMVariableBlurUIView/failure`` after you create the view, after
 ``DMVariableBlurUIView/update(maxBlurRadius:direction:startOffset:)``, and after a change
 of appearance: it holds the reason, or `nil` when nothing prevents the blur. Each
 recorded reason also writes one line to the unified log. When the view cannot install the

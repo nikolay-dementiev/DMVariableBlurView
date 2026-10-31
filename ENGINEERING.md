@@ -141,9 +141,9 @@ is a breaking change too, and needs a major version.
   or the image that shapes the blur cannot be created, the view shows the plain blur of the system
   over its whole frame. The one exception is a `DMVariableBlurUIView` whose `effect` the host has
   set to `nil`, which shows no blur until it gets an effect back. The view records the reason as a
-  `DMVariableBlurError`. In SwiftUI a handler passed to `onFailure(_:)` receives it, and the
-  unified log gets one line when no handler is set. In UIKit the `failure` property holds it and
-  the unified log gets a line. The README, "Failures", and the DocC article Handling failures
+  `DMVariableBlurError`. In SwiftUI a handler passed to `onFailure(_:)` receives it, and in UIKit
+  the handler of the initializer that takes `onFailure:` does; the unified log gets one line when
+  no handler is set. In UIKit the `failure` property holds it as well. The README, "Failures", and the DocC article Handling failures
   (`Sources/DMVariableBlurView/DMVariableBlurView.docc/HandlingFailures.md`) have the details.
 - **The library does not stop its host.** Its sources contain no `fatalError`,
   `preconditionFailure`, `assertionFailure`, `precondition`, `assert`, `dispatchPrecondition`,

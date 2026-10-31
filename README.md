@@ -292,9 +292,32 @@ it, the same case and value, counts as unchanged: nothing is reported again, als
 other values differ. One update is one request: when it changes the values and the Reduce
 Transparency option together, the handler hears only about the new values. Without a handler,
 the view writes one line for each failure to the unified log, under the subsystem
-`DMVariableBlurView` and the category `failure`. In UIKit, the `failure` property holds the
-reason, and each reason also goes to the log. When the view cannot install the blur again after
-the system rebuilt the effect, it shows the plain blur of the system, as for any other failure.
+`DMVariableBlurView` and the category `failure`. When the view cannot install the blur again
+after the system rebuilt the effect, it shows the plain blur of the system, as for any other
+failure.
+
+In UIKit, pass the handler to the initializer. It follows the same rules, and it is in place
+before the first values are applied, so a failure of those is reported too, after the
+initializer has returned. The view keeps the handler for its whole life and writes nothing to
+the log while it has one, so capture the view weakly:
+
+```swift
+import DMVariableBlurView
+import UIKit
+
+final class ReportingHeaderViewController: UIViewController {
+    private lazy var blur = DMVariableBlurUIView(maxBlurRadius: 12, direction: .blurredTopClearBottom) { [weak self] error in
+        self?.showBlurProblem(error)
+    }
+
+    private func showBlurProblem(_ error: DMVariableBlurError) {
+        print("The blur is not shown: \(error.localizedDescription)")
+    }
+}
+```
+
+A view made without a handler keeps the `failure` property, which holds the reason, and each
+reason also goes to the log.
 
 `onFailure(_:)` and `respectsReduceTransparency(_:)` are methods of `DMVariableBlurView`:
 call them before other modifiers such as `.frame`.
