@@ -3,7 +3,7 @@
 All notable changes to DMVariableBlurView are recorded in this file. The format follows Keep a
 Changelog 1.1.0, and versions follow Semantic Versioning 2.0.0.
 
-## [Unreleased]
+## [2.0.0] - 2026-11-01
 
 ### Added
 
@@ -119,6 +119,7 @@ Behaviour changes. None of them removes a declaration; each one is pinned by a t
 - First release: `DMVariableBlurView` for SwiftUI and `DMVariableBlurUIView` for UIKit, with
   four blur directions.
 
-[Unreleased]: https://github.com/nikolay-dementiev/DMVariableBlurView/compare/1.1.0...HEAD
+[Unreleased]: https://github.com/nikolay-dementiev/DMVariableBlurView/compare/2.0.0...HEAD
+[2.0.0]: https://github.com/nikolay-dementiev/DMVariableBlurView/compare/1.1.0...2.0.0
 [1.1.0]: https://github.com/nikolay-dementiev/DMVariableBlurView/compare/1.0.0...1.1.0
 [1.0.0]: https://github.com/nikolay-dementiev/DMVariableBlurView/tree/1.0.0
