@@ -145,6 +145,8 @@ change to the example's project.
 - A change that people using the package can notice gets an entry in `CHANGELOG.md`.
 - A new private name of the system in the library is a decision for the maintainer: say so in the
   pull request, and add it to the lists in the README and in the article How the blur works.
+- A review, by a person or by an automated reviewer, follows the lanes of
+  [Documentation/Review/README.md](Documentation/Review/README.md).
 
 ## Releases
 
