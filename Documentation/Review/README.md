@@ -6,6 +6,12 @@ together into one verdict. It adds no rule to the package. The rules are in
 [ENGINEERING.md](../../ENGINEERING.md), [AGENTS.md](../../AGENTS.md) and
 [CONTRIBUTING.md](../../CONTRIBUTING.md); a lane applies them and cites the one it applies.
 
+A lane cites the text it applies as `(FILE, "phrase")`. FILE is `ENGINEERING.md`, `AGENTS.md`,
+`CONTRIBUTING.md`, `README.md` (the README in the root of the repository, not this file) or
+`PR template` (`.github/PULL_REQUEST_TEMPLATE.md`). The phrase occurs once in that file, and a
+phrase that starts with `###` is a heading of the README. The notes of a release are the text under
+its heading in `CHANGELOG.md`.
+
 ## The lanes
 
 A review is split into lanes, so that each reviewer asks one kind of question and a finding has one
@@ -33,7 +39,8 @@ FILE:LINE | BLOCKING/NON_BLOCKING | lane | CATEGORY | TITLE | WHY | FIX
 - `FILE:LINE`: the path from the repository root and the first line of the code concerned.
 - `BLOCKING` or `NON_BLOCKING`: whether the change must not be merged before the finding is fixed
   or the maintainer decides otherwise.
-- `lane`: the lane that found it, by the name of its folder.
+- `lane`: the lane that found it, by the name of its folder. A finding that names more than one
+  lane lists them, separated by a comma without a space.
 - `CATEGORY`: a short upper-case label for the topic of the rule, such as `API_CLASS` or
   `PRIVATE_API`. It is an open label, not a closed list.
 - `TITLE`: the defect in one phrase.
@@ -79,11 +86,12 @@ accepts it.
 
 1. Bind every finding to the base and the head commit it was made on. A finding on an older head
    commit is checked again, or dropped.
-2. Open the cited code at the head commit. A finding whose file, line or code is not there is
-   dropped.
+2. Open the cited code on the `side` of the diff that the finding names: at the head commit, or at
+   the base commit for a line that the change removed. A finding whose file, line or code is not
+   there is dropped.
 3. Deduplicate by defect, not by line. One defect found by two lanes is one finding that names both
    lanes.
-4. Give each finding a priority:
+4. Give each finding a priority; a finding that fits two of them takes the higher:
    - **P1**: a crash, a deadlock, a leak, or a break that nobody approved. A change that alters a
      behaviour the README documents, for example under "Accessibility and Reduce Transparency" or
      "Touches", without the notes declaring it, is a break of this kind: its finding is P1 and
