@@ -12,13 +12,18 @@ the format of [Documentation/Review/README.md](../../../Documentation/Review/REA
 ## What it checks
 
 - A view that loses `@MainActor`, a public enum that loses `Sendable`, or a handler of
-  `onFailure(_:)` that is no longer `@MainActor @Sendable`.
+  `onFailure(_:)` that is no longer `@MainActor @Sendable`, in a change that edits
+  `Fixtures/API/public-interface.txt` to match, so that `Scripts/check-api.sh` has nothing to
+  report.
   (ENGINEERING.md, "Both views are `@MainActor`")
 - A report that reaches the handler of `onFailure(_:)` before the update that applied the values
   has ended, or off the main actor: it arrives in a later turn of the main actor.
   (README.md, "a handler receives the reason on the main actor")
   (ENGINEERING.md, "A report reaches the handler of `onFailure(_:)` in a later turn of the main
   actor")
+- A change of values and of the Reduce Transparency option in one update, after which the handler
+  hears about more than the new values.
+  (README.md, "One update is one request")
 - A failure that does not reach the host. A value that is not valid, a filter that the system does
   not offer and an image that cannot be created leave the plain blur of the system over the whole
   frame, except for a `DMVariableBlurUIView` whose `effect` the host has set to `nil`. The reason
@@ -52,10 +57,11 @@ the format of [Documentation/Review/README.md](../../../Documentation/Review/REA
 - What a CI script already enforces: `Scripts/lint.sh` (the names `fatalError`,
   `preconditionFailure`, `assertionFailure`, `precondition`, `assert`, `dispatchPrecondition`,
   `abort` and `exit` followed by a parenthesis, force unwraps, implicitly unwrapped optionals,
-  `try!` and `as!`), the `thread-sanitizer` job (a race that a test run shows) and the `floor` job
-  (a warning of the oldest compiler).
+  `try!` and `as!`), `Scripts/check-api.sh` (a declaration that loses its isolation while the
+  baseline still holds it), the `thread-sanitizer` job (a race that a test run shows) and the
+  `floor` job (a warning of the oldest compiler).
 - The layers and the dependencies: that is the lane architecture-and-dependencies.
 - The class of a change and its documentation: that is the lane public-api-and-documentation.
 - The quality of a test: that is the lane test-discrimination.
-- Touches, accessibility and how a host uses a view: that is the lane
-  accessibility-and-ui-integration.
+- Touches, accessibility, how a host uses a view and what the view relies on in the structure of
+  the effect view: that is the lane accessibility-and-ui-integration.

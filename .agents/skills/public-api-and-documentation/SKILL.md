@@ -41,9 +41,13 @@ repository and states none of its own. Report each finding in the format of
   (CONTRIBUTING.md, "A change that people using the package can notice gets an entry in
   `CHANGELOG.md`")
   (PR template, "Every change that people using the package can notice is in `CHANGELOG.md`")
-- A change to a documented limit that leaves the README, "Behaviour your app must know", or the
-  DocC catalog as it was. A change to how a failure is reported that leaves the README,
-  "Failures", or the article Handling failures as it was.
+- A change of observable behaviour that the notes of the release do not declare. No script sees
+  behaviour, and a test catches the change only where a test pins the behaviour.
+  (ENGINEERING.md, "every change of observable behaviour that the notes do not declare")
+  (ENGINEERING.md, "which a test catches only where a test pins the behaviour")
+- A change of a documented limit, after which the README, "Behaviour your app must know", or the
+  DocC catalog no longer matches it. A change of how a failure is reported, after which the
+  README, "Failures", or the article Handling failures no longer matches it.
   (ENGINEERING.md, "Documented limits")
   (ENGINEERING.md, "A failure reaches the host")
 - The release the change needs is stated, and it is the one the table gives.

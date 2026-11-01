@@ -7,9 +7,10 @@ description: Review a change to DMVariableBlurView for accessibility, Reduce Tra
 
 The question of this lane: does a person who uses assistive technology, or an app that hosts a
 view, still get what the README says? The lane applies the rules of the repository and states none
-of its own. The parts of the README it cites are the contract of observable behaviour
-(ENGINEERING.md, "every `public` declaration and every observable behaviour"), so a change of what
-they promise is a change of behaviour. Report each finding in the format of
+of its own. The parts of the README it cites describe observable behaviour, which is part of the
+contract of a published library (ENGINEERING.md, "every `public` declaration and every observable
+behaviour"), so a change of what they promise is a change of behaviour. Report each finding in the
+format of
 [Documentation/Review/README.md](../../../Documentation/Review/README.md).
 
 ## What it checks
@@ -31,19 +32,15 @@ they promise is a change of behaviour. Report each finding in the format of
   (README.md, "### Touches")
   (README.md, "The blur takes the touches in its frame")
   (README.md, "The default stays as it is")
-- A SwiftUI host. New values reach a view that is already on the screen. One update is one
-  request: when it changes the values and the Reduce Transparency option together, the handler
-  hears only about the new values. `onFailure(_:)` and `respectsReduceTransparency(_:)` are methods
-  of `DMVariableBlurView`, to be called before other modifiers.
+- A SwiftUI host. New values reach a view that is already on the screen. `onFailure(_:)` and
+  `respectsReduceTransparency(_:)` are methods of `DMVariableBlurView`, to be called before other
+  modifiers.
   (README.md, "SwiftUI hands new values to the view that is already on the screen")
-  (README.md, "One update is one request")
   (README.md, "are methods of `DMVariableBlurView`")
 - A UIKit host. Content added to the `contentView` stays visible over the blur. Valid values given
-  while the host has set `effect` to `nil` wait for the effect, and a value that is not valid is
-  reported at once.
+  while the host has set `effect` to `nil` wait for the effect.
   (README.md, "Content you add to the `contentView` of the view stays visible over the blur")
   (README.md, "valid values given meanwhile wait for the effect")
-  (ENGINEERING.md, "A failure reaches the host")
 - Appearance and display scale. The blur keeps its shape when the appearance changes between light
   and dark and when `effect` is assigned, and the view puts it back in the same layout pass. The
   layer key `scale` is set to the display scale of the traits of the view.
@@ -51,11 +48,10 @@ they promise is a change of behaviour. Report each finding in the format of
   (README.md, "the view puts the variable blur back in the same layout pass")
   (README.md, "a key of the backdrop's layer, set to the display scale of the view's traits")
 - The private API where a change to a view touches it. The backdrop is the first subview whose
-  layer carries filters, and the other subviews, except `contentView`, are the tint. The view finds
-  its own filter by identity, and installs the blur again at its next layout pass when the backdrop
-  carries another filter in its place. A change that relies on more of the structure of the effect
-  view than the README lists. A new private name of the system goes to the lane
-  architecture-and-dependencies.
+  layer carries filters, and the other subviews, except `contentView`, are the tint, which the view
+  hides. The view finds its own filter by identity, and installs the blur again at its next layout
+  pass when the backdrop carries another filter in its place. A new private name of the system goes
+  to the lane architecture-and-dependencies.
   (README.md, "The view also relies on how the effect view is built")
   (README.md, "the view finds its own filter by that identity")
   (README.md, "the view installs the blur again at its next layout pass")
@@ -71,13 +67,15 @@ they promise is a change of behaviour. Report each finding in the format of
 - What a CI script already enforces: `Scripts/lint.sh`, `Scripts/check-api.sh` (the declarations,
   not what a view does) and `Scripts/count-tests.sh`.
 - The rendering, snapshot and UI tests of the example app, and the cells of the `example` job: each
-  checks what it pins. The lane asks that they ran, and does not re-read what they compare.
+  checks what it pins. The lane asks that they ran, and does not re-read what they compare. A
+  snapshot reference that is recorded again: that is the lane test-discrimination.
 - A missing accessibility label on a view of the blur: the README says the views of the blur are no
   accessibility elements, so a label that is added is the finding, and none that is missing.
 - Dynamic Type, target sizes and contrast of the controls and the text of an app: the blur has
   none, and the host owns its own.
 - The layers, the dependencies and the private names of the system: that is the lane
   architecture-and-dependencies.
-- How a view decides and reports a failure: that is the lane correctness-and-concurrency.
+- How a view decides and reports a failure, and the checks before the private filter is used,
+  including a re-installation that fails: that is the lane correctness-and-concurrency.
 - The class of a change and its documentation: that is the lane public-api-and-documentation.
 - The quality of a test: that is the lane test-discrimination.
