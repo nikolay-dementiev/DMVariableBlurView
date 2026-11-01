@@ -250,6 +250,9 @@ is a breaking change too, and needs a major version.
 
 - [CONTRIBUTING.md](CONTRIBUTING.md): how to build and test, the checks CI runs, the rules for
   tests, commits and releases.
+- [Documentation/Review/README.md](Documentation/Review/README.md): how a change is reviewed, with
+  the lanes in `.agents/skills`, the finding format and the handling of an automated reviewer's
+  remarks.
 - `Sources/DMVariableBlurView/DMVariableBlurView.docc`: what each symbol does, how a failure is
   reported and how the blur works.
 - [CHANGELOG.md](CHANGELOG.md): the history of every release.
