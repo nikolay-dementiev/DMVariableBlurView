@@ -74,38 +74,67 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # The udid names the device, not a name and an OS: a hosted image can list a runtime with
-      # no device in it, and the script creates the device then.
-      - name: Prepare the simulator
+      # The simulator boots while the package builds: the build does not need it, and the boot is
+      # one of the longest steps of the job. The script boots the device, waits for it and prints
+      # its udid, which the Wait step reads. Every descriptor of the process goes to a file, so
+      # that this step does not wait for it. The udid names the device, not a name and an OS: a
+      # hosted image can list a runtime with no device in it, and the script creates the device then.
+      - name: Start the simulator
         env:
           DEVICE: ${{ matrix.device }}
           OS: ${{ matrix.os }}
         run: |
-          udid="$(Scripts/prepare-simulator.sh "$DEVICE" "$OS")"
-          echo "SIMULATOR=$udid" >> "$GITHUB_ENV"
-      - name: Build and test
+          sim="$RUNNER_TEMP/sim"
+          mkdir -p "$sim"
+          {
+            status=0
+            Scripts/prepare-simulator.sh "$DEVICE" "$OS" > "$sim/udid" 2> "$sim/log" || status=$?
+            echo "$status" > "$sim/status"
+          } > /dev/null 2>&1 < /dev/null &
+      # The generic destination builds arm64 and x86_64 for the simulator, and ONLY_ACTIVE_ARCH does
+      # not stop it. The runners and their simulators are arm64, and the destination with its udid
+      # that this step replaced built that one only, so ARCHS keeps the build as short as it was.
+      - name: Build the package for testing
         run: |
           set -o pipefail
           mkdir -p .build/results/ci
-          xcodebuild clean build test \
+          xcodebuild clean build-for-testing \
+            -scheme DMVariableBlurView \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -enableCodeCoverage YES \
+            ARCHS=arm64 \
+            SWIFT_TREAT_WARNINGS_AS_ERRORS=YES \
+            | tee .build/results/ci/package.log
+      # The rule that finds unused imports needs the compiler commands of a clean build. It reads
+      # the log of the build and not the simulator, so it runs while the simulator still boots.
+      - name: Find unused imports
+        if: matrix.newest
+        run: Scripts/lint.sh --analyze .build/results/ci/package.log
+      - name: Wait for the simulator
+        run: |
+          sim="$RUNNER_TEMP/sim"
+          for _ in $(seq 1 600); do [ -f "$sim/status" ] && break; sleep 1; done
+          cat "$sim/log" >&2
+          [ -f "$sim/status" ] && [ "$(cat "$sim/status")" = 0 ] || { echo "The simulator did not boot." >&2; exit 1; }
+          echo "SIMULATOR=$(cat "$sim/udid")" >> "$GITHUB_ENV"
+      - name: Test the package
+        run: |
+          set -o pipefail
+          xcodebuild test-without-building \
             -scheme DMVariableBlurView \
             -sdk iphonesimulator \
             -destination "platform=iOS Simulator,id=$SIMULATOR" \
             -enableCodeCoverage YES \
             -resultBundlePath .build/results/ci/package.xcresult \
-            SWIFT_TREAT_WARNINGS_AS_ERRORS=YES \
-            | tee .build/results/ci/package.log
-      # A run that lost a test class, or has a test that skips itself, passes the build above: the
+            | tee -a .build/results/ci/package.log
+      # A run that lost a test class, or has a test that skips itself, passes the test step above: the
       # bundle feeds the coverage floor only, which runs in one cell, and the tests it loses may not
       # move the coverage. So every test method of Tests must be in the bundle, run and passed. Two
       # tests skip themselves when Reduce Transparency is on, a setting that a default simulator
       # does not have, and that fails here.
       - name: Check the test count
         run: Scripts/count-tests.sh --label package .build/results/ci/package.xcresult 'Tests/*.swift'
-      # The rule that finds unused imports needs the compiler commands of a clean build.
-      - name: Find unused imports
-        if: matrix.newest
-        run: Scripts/lint.sh --analyze .build/results/ci/package.log
       # The tests run in Debug. This build proves that the release configuration compiles.
       - name: Build the library for release
         if: matrix.newest
@@ -162,24 +191,47 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Prepare the simulator
+      # The simulator boots while the package builds, as in the test job.
+      - name: Start the simulator
         env:
           DEVICE: iPhone 17
           OS: "26.5"
         run: |
-          udid="$(Scripts/prepare-simulator.sh "$DEVICE" "$OS")"
-          echo "SIMULATOR=$udid" >> "$GITHUB_ENV"
-      - name: Test the package under the Thread Sanitizer
+          sim="$RUNNER_TEMP/sim"
+          mkdir -p "$sim"
+          {
+            status=0
+            Scripts/prepare-simulator.sh "$DEVICE" "$OS" > "$sim/udid" 2> "$sim/log" || status=$?
+            echo "$status" > "$sim/status"
+          } > /dev/null 2>&1 < /dev/null &
+      - name: Build the package for testing under the Thread Sanitizer
         run: |
           set -o pipefail
           mkdir -p .build/results/ci
-          xcodebuild test \
+          xcodebuild build-for-testing \
+            -scheme DMVariableBlurView \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -enableThreadSanitizer YES \
+            ARCHS=arm64 \
+            | tee .build/results/ci/thread-sanitizer.log
+      - name: Wait for the simulator
+        run: |
+          sim="$RUNNER_TEMP/sim"
+          for _ in $(seq 1 600); do [ -f "$sim/status" ] && break; sleep 1; done
+          cat "$sim/log" >&2
+          [ -f "$sim/status" ] && [ "$(cat "$sim/status")" = 0 ] || { echo "The simulator did not boot." >&2; exit 1; }
+          echo "SIMULATOR=$(cat "$sim/udid")" >> "$GITHUB_ENV"
+      - name: Test the package under the Thread Sanitizer
+        run: |
+          set -o pipefail
+          xcodebuild test-without-building \
             -scheme DMVariableBlurView \
             -sdk iphonesimulator \
             -destination "platform=iOS Simulator,id=$SIMULATOR" \
             -enableThreadSanitizer YES \
             -resultBundlePath .build/results/ci/thread-sanitizer.xcresult \
-            | tee .build/results/ci/thread-sanitizer.log
+            | tee -a .build/results/ci/thread-sanitizer.log
       - name: Upload the result bundle
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -404,27 +456,52 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # The device comes from the script, as in the test job.
-      - name: Prepare the simulator
+      # The device comes from the script, as in the test job, and boots while the example builds.
+      - name: Start the simulator
         env:
           DEVICE: ${{ matrix.device }}
           OS: ${{ matrix.os }}
         run: |
-          udid="$(Scripts/prepare-simulator.sh "$DEVICE" "$OS")"
-          echo "SIMULATOR=$udid" >> "$GITHUB_ENV"
+          sim="$RUNNER_TEMP/sim"
+          mkdir -p "$sim"
+          {
+            status=0
+            Scripts/prepare-simulator.sh "$DEVICE" "$OS" > "$sim/udid" 2> "$sim/log" || status=$?
+            echo "$status" > "$sim/status"
+          } > /dev/null 2>&1 < /dev/null &
       # Only the committed package versions: a resolved file that no longer matches the
       # project fails here instead of being resolved again to whatever is newest.
-      - name: Build the example and run its tests
+      - name: Build the example for testing
         run: |
           set -o pipefail
           mkdir -p .build/results/ci
-          xcodebuild test \
+          xcodebuild build-for-testing \
+            -project Examples/DMVariableBlurViewExample/DMVariableBlurViewExample.xcodeproj \
+            -scheme DMVariableBlurViewExample \
+            -destination 'generic/platform=iOS Simulator' \
+            -onlyUsePackageVersionsFromResolvedFile \
+            ARCHS=arm64 \
+            | tee .build/results/ci/example.log
+      # It reads the log of the build and not the simulator, so it runs while the simulator still boots.
+      - name: Find unused imports
+        if: matrix.newest
+        run: Scripts/lint.sh --analyze .build/results/ci/example.log
+      - name: Wait for the simulator
+        run: |
+          sim="$RUNNER_TEMP/sim"
+          for _ in $(seq 1 600); do [ -f "$sim/status" ] && break; sleep 1; done
+          cat "$sim/log" >&2
+          [ -f "$sim/status" ] && [ "$(cat "$sim/status")" = 0 ] || { echo "The simulator did not boot." >&2; exit 1; }
+          echo "SIMULATOR=$(cat "$sim/udid")" >> "$GITHUB_ENV"
+      - name: Run the example tests
+        run: |
+          set -o pipefail
+          xcodebuild test-without-building \
             -project Examples/DMVariableBlurViewExample/DMVariableBlurViewExample.xcodeproj \
             -scheme DMVariableBlurViewExample \
             -destination "platform=iOS Simulator,id=$SIMULATOR" \
-            -onlyUsePackageVersionsFromResolvedFile \
             -resultBundlePath .build/results/ci/example.xcresult \
-            | tee .build/results/ci/example.log
+            | tee -a .build/results/ci/example.log
       # A run that runs no test passes, and so does one that skips what it should run. The
       # numbers of the matrix are what the example has in this cell, so a lost test or a run that
       # skips everything fails here. A new example test changes them, in the same commit.
@@ -457,9 +534,6 @@ jobs:
             echo "$warnings"
             exit 1
           fi
-      - name: Find unused imports
-        if: matrix.newest
-        run: Scripts/lint.sh --analyze .build/results/ci/example.log
       - name: Upload the result bundle
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
