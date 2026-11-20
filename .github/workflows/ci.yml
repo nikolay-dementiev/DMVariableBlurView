@@ -27,7 +27,8 @@ jobs:
   # floor) a pull request needs. Scripts/ci-changes.sh decides: a pull request that changes
   # documents only skips them. The other jobs read the README, the changelog, the sources or the
   # scripts, so they never skip and do not wait for this one. Any other event runs every job.
-  # The four run when this job fails or gives no answer, so a fault here costs time and never a check.
+  # The four run when this job fails or gives no answer, so a fault here costs time and never skips
+  # a check.
   changes:
     name: changes
     runs-on: ubuntu-24.04
@@ -48,7 +49,9 @@ jobs:
       - name: Check the change filter
         run: Scripts/ci-changes.sh --self-test
       # A rename lists both paths: the old one may be code that the new one hides. A diff that fails
-      # is passed on as a path that is not a document, so that every job runs.
+      # is passed on as a path that is not a document, so that every job runs, and it is a warning:
+      # a diff that always fails would otherwise end the saving with no sign. The paths are indented
+      # in the log, so that a file name that starts with :: is not read as a workflow command.
       - name: List what the change touches
         id: filter
         env:
@@ -58,9 +61,15 @@ jobs:
           set -o pipefail
           paths=""
           if [ "$EVENT" = pull_request ]; then
-            paths="$(git diff --no-renames --name-only "$BASE_SHA...HEAD")" || paths="the diff failed"
+            if ! paths="$(git diff --no-renames --name-only "$BASE_SHA...HEAD")"; then
+              echo "::warning title=Change filter::The diff failed, so every job runs."
+              paths="the diff failed"
+            fi
           fi
-          printf '%s\n' "$paths" | Scripts/ci-changes.sh "$EVENT" | tee -a "$GITHUB_OUTPUT"
+          printf '%s\n' "$paths" > "$RUNNER_TEMP/changed-paths.txt"
+          echo "Changed paths:"
+          sed 's/^/    /' "$RUNNER_TEMP/changed-paths.txt"
+          Scripts/ci-changes.sh "$EVENT" < "$RUNNER_TEMP/changed-paths.txt" | tee -a "$GITHUB_OUTPUT"
 
   lint:
     name: lint
