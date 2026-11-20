@@ -35,6 +35,7 @@ fault of the script cannot turn the check into another one.
 | `Scripts/export-coverage.sh <result bundle> <target> <output>` | not a check: it exports the line coverage of the library from a result bundle to LCOV, for CI to upload to Codecov; the tests of the exporter are DMDevKit's |
 | `Scripts/count-tests.sh [--label <text>] <result bundle> <glob>...` | that every test method of the files the globs name ran and passed in the result bundle: a run that lost a test class or skipped a test passes the build and the coverage floor too |
 | `Scripts/check-example-project.sh` | that the Xcode project of the example matches its XcodeGen spec |
+| `Scripts/ci-changes.sh --self-test` | not a check of the code: the rules by which CI decides which jobs a pull request needs. A pull request that changes documents only (Markdown files, `Documentation/` and the `LICENSE`, outside `Sources/`, `Tests/`, `Examples/`, `Fixtures/`, `Tools/`, `Scripts/` and `.github/`) skips the jobs `test`, `example`, `thread-sanitizer` and `floor`. Any other path, one that no rule lists included, and any event but a pull request runs them all. `lint`, `api`, `consumer`, `podspec` and `docs` never skip. `--self-test` runs the rules on fixture lists of paths, and CI runs it on every run. Run `Scripts/ci-changes.sh pull_request < <file with one path per line>` to see what a change would skip |
 
 The checks run code that the branch contains: `Package.swift`, every `Package@swift-*.swift` and the
 manifest blocks of the README are evaluated by Swift Package Manager, the podspec by CocoaPods, and `project.yml` by XcodeGen.
@@ -53,7 +54,7 @@ finds with git, so run them in a clone, and runs
 `swift run --quiet --package-path Tools devkit <command>` with the arguments it was given, so the
 paths that CI and this file name stay as they were. A relative path in an argument is relative to
 the root. The other scripts of `Scripts/` have not moved: `check-manifest.sh`, `check-podspec.sh`,
-`check-example-project.sh` and `coverage-gate.sh`.
+`check-example-project.sh`, `coverage-gate.sh` and `ci-changes.sh`.
 
 - `Tools/Package.swift` is a package of its own. It pins a release of DMDevKit, and
   `Tools/Package.resolved` pins its commit; Dependabot proposes the newer releases. SwiftPM reads
