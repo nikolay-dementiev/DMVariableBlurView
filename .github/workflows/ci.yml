@@ -7,9 +7,10 @@ on:
   workflow_dispatch:
   # The release workflow runs this workflow on a version tag.
   workflow_call:
-  # An early warning when a new runner image or iOS version breaks the package.
+  # An early warning when a new runner image or iOS version breaks the package. The day is not the
+  # one of the author's other packages: the macOS jobs of one account run five at a time.
   schedule:
-    - cron: "17 5 * * 1"
+    - cron: "17 5 * * 2"
 
 permissions:
   contents: read
