@@ -98,6 +98,24 @@ self_test() {
     README.md new/dir/x.bin
   check "a DocC article under Sources runs every job" "$all_run" pull_request \
     Sources/DMVariableBlurView/DMVariableBlurView.docc/Article.md
+  # A file that is not Markdown is code with or without the directory rule, so only a Markdown
+  # file proves that the rule of a directory is there.
+  for path in \
+    Tests/NOTES.md \
+    Examples/NOTES.md \
+    Fixtures/NOTES.md \
+    Tools/NOTES.md \
+    Scripts/NOTES.md; do
+    check "a Markdown file $path under a directory of code runs every job" "$all_run" \
+      pull_request "$path"
+  done
+  check "a Markdown file with a space in its path alone skips" "$all_skip" pull_request \
+    "My Docs/a b.md"
+  check "a Markdown file with a space under Sources runs every job" "$all_run" pull_request \
+    "Sources/My File.md"
+  # git prints a path with a non-ASCII character in quotes, and such a path is not a document.
+  check "a path that git quotes runs every job" "$all_run" pull_request \
+    '"Documentation/caf\303\251.md"'
   for event in push schedule workflow_dispatch workflow_call; do
     check "$event with README.md alone runs every job" "$all_run" "$event" README.md
   done
