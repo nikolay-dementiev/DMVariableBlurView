@@ -11,6 +11,13 @@ updates:
     # A release of an action is proposed a week after it appears, not on the day it does.
     cooldown:
       default-days: 7
+    # One pull request a week for all the minor and patch updates, so that a merge to main does
+    # not make Dependabot rebase several of them at once. A major update stays a pull request of
+    # its own: it needs its own lines in the changelog.
+    groups:
+      github-actions:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
   - package-ecosystem: swift
     directory: /Tools
     schedule:
@@ -18,3 +25,8 @@ updates:
     # A release of DMDevKit is proposed a week after it appears, as for an action.
     cooldown:
       default-days: 7
+    # As above: minor and patch updates in one pull request, a major one on its own.
+    groups:
+      swift:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
