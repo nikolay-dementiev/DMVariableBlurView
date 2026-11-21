@@ -34,10 +34,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
-      test: ${{ steps.filter.outputs.test }}
-      example: ${{ steps.filter.outputs.example }}
-      thread-sanitizer: ${{ steps.filter.outputs.thread-sanitizer }}
-      floor: ${{ steps.filter.outputs.floor }}
+      heavy: ${{ steps.filter.outputs.heavy }}
     steps:
       # The whole history, so that the commit the pull request is based on is there to compare with.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -97,7 +94,7 @@ jobs:
   test:
     name: test (${{ matrix.name }})
     needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.test != 'skip' }}
+    if: ${{ !cancelled() && needs.changes.outputs.heavy != 'skip' }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     permissions:
@@ -230,7 +227,7 @@ jobs:
     # failure handler runs in a task. Debug, no coverage, no example app.
     name: thread-sanitizer
     needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.thread-sanitizer != 'skip' }}
+    if: ${{ !cancelled() && needs.changes.outputs.heavy != 'skip' }}
     runs-on: macos-26
     timeout-minutes: 30
     env:
@@ -307,7 +304,7 @@ jobs:
     # runners of this image do not always offer ("iOS 18.0 is not installed").
     name: floor
     needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.floor != 'skip' }}
+    if: ${{ !cancelled() && needs.changes.outputs.heavy != 'skip' }}
     runs-on: macos-15
     timeout-minutes: 20
     env:
@@ -477,7 +474,7 @@ jobs:
   example:
     name: example (${{ matrix.name }})
     needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.example != 'skip' }}
+    if: ${{ !cancelled() && needs.changes.outputs.heavy != 'skip' }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     strategy:
