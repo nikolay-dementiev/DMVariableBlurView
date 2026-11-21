@@ -72,6 +72,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Restore the tools build
+        uses: ./.github/actions/tools-cache
       - name: Lint
         run: Scripts/lint.sh
       # A rule that never matches reports nothing, so the fixtures prove that each one fires.
@@ -118,6 +120,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # The tools are restored first: the script that boots the simulator calls devkit, and a build
+      # of devkit there would delay the boot.
+      - name: Restore the tools build
+        uses: ./.github/actions/tools-cache
       # The simulator boots while the package builds: the build does not need it, and the boot is
       # one of the longest steps of the job. The script boots the device, waits for it and prints
       # its udid, which the Wait step reads. Every descriptor of the process goes to a file, so
@@ -237,6 +243,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Restore the tools build
+        uses: ./.github/actions/tools-cache
       # The simulator boots while the package builds, as in the test job.
       - name: Start the simulator
         env:
@@ -398,6 +406,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Restore the tools build
+        uses: ./.github/actions/tools-cache
       - name: Check the normalisation of the interface
         run: Scripts/check-api.sh --self-test
       # The release check refuses a release on what it reads in the changelog, the tags and the
@@ -514,6 +524,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Restore the tools build
+        uses: ./.github/actions/tools-cache
       # The device comes from the script, as in the test job, and boots while the example builds.
       - name: Start the simulator
         env:
