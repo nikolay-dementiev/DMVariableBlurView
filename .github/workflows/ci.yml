@@ -23,12 +23,13 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # Which jobs a pull request needs. Scripts/ci-changes.sh decides, for two groups: the heavy jobs
+  # Which jobs a change needs. Scripts/ci-changes.sh decides, for two groups: the heavy jobs
   # (test, example, thread-sanitizer and floor), which build and test the code on simulators, and
-  # the light ones (lint, docs, api, consumer and podspec). A pull request that changes documents
-  # only skips the heavy jobs, and one that changes only files that no job reads skips both groups.
-  # Any other event runs every job. A job runs when this job fails or gives no answer, so a fault
-  # here costs time and never skips a check.
+  # the light ones (lint, docs, api, consumer and podspec). A pull request or a push to main that
+  # changes documents only skips the heavy jobs, and one that changes only files that no job reads
+  # skips both groups. Any other event runs every job: a tag, a schedule, a manual run and the
+  # release. A job runs when this job fails or gives no answer, so a fault here costs time and
+  # never skips a check.
   changes:
     name: changes
     runs-on: ubuntu-24.04
@@ -37,7 +38,7 @@ jobs:
       light: ${{ steps.filter.outputs.light }}
       heavy: ${{ steps.filter.outputs.heavy }}
     steps:
-      # The whole history, so that the commit the pull request is based on is there to compare with.
+      # The whole history, so that the commit the change is based on is there to compare with.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -46,28 +47,20 @@ jobs:
       # lists of paths that must skip and on lists that must not, on every run, before the real one.
       - name: Check the change filter
         run: Scripts/ci-changes.sh --self-test
-      # A rename lists both paths: the old one may be code that the new one hides. A diff that fails
-      # is passed on as a path that is not a document, so that every job runs, and it is a warning:
-      # a diff that always fails would otherwise end the saving with no sign. The paths are indented
-      # in the log, so that a file name that starts with :: is not read as a workflow command.
+      # The script lists the paths in this log, and a rename lists both: the old one may be code that
+      # the new one hides. A diff that fails is a warning and runs every job, so that a diff that
+      # always fails does not end the saving with no sign. The base is the one a pull request is
+      # based on, or the commit main was at before a push; a tag, a schedule and a manual run have
+      # no use for it and are not filtered.
       - name: List what the change touches
         id: filter
         env:
           EVENT: ${{ github.event_name }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          REF: ${{ github.ref }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
           set -o pipefail
-          paths=""
-          if [ "$EVENT" = pull_request ]; then
-            if ! paths="$(git diff --no-renames --name-only "$BASE_SHA...HEAD")"; then
-              echo "::warning title=Change filter::The diff failed, so every job runs."
-              paths="the diff failed"
-            fi
-          fi
-          printf '%s\n' "$paths" > "$RUNNER_TEMP/changed-paths.txt"
-          echo "Changed paths:"
-          sed 's/^/    /' "$RUNNER_TEMP/changed-paths.txt"
-          Scripts/ci-changes.sh "$EVENT" < "$RUNNER_TEMP/changed-paths.txt" | tee -a "$GITHUB_OUTPUT"
+          Scripts/ci-changes.sh "$EVENT" "$BASE" "$REF" | tee -a "$GITHUB_OUTPUT"
 
   lint:
     name: lint

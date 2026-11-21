@@ -1,6 +1,7 @@
 #!/bin/bash
 #
-#   Scripts/ci-changes.sh <event> < <changed paths, one per line>
+#   Scripts/ci-changes.sh <event> <base> <ref>
+#   Scripts/ci-changes.sh --classify <event> <ref> < <changed paths, one per line>
 #   Scripts/ci-changes.sh --self-test
 #
 # Tells the CI workflow which jobs a change needs, so that a pull request that changes documents
@@ -17,16 +18,24 @@
 # otherwise. A change of inert files alone skips both groups, a change of documents and inert files
 # skips the heavy group, and any code runs both.
 #
-# Only a pull request is filtered. Any other event (push, schedule, workflow_dispatch and
-# workflow_call, which is how a release runs CI) runs every job, and so does a list with no path.
-# --self-test proves the rules on fixture lists, and that every job of ci.yml is in a group and asks
-# for the answer of its group.
+# A pull request and a push to refs/heads/main are filtered: the first form lists what HEAD changes
+# against <base>, the commit the pull request is based on or the one main was at before the push,
+# and decides from the paths. --classify decides for the paths on standard input. Any other event
+# runs every job: a push to another branch, a push of a tag (which is how the release reaches this
+# script: a workflow that ci.yml calls sees the event of its caller), schedule and
+# workflow_dispatch. So does a list with no path, and a base that is not a commit of this clone (a
+# new branch, a forced push): a path that no rule lists stands for the change that could not be
+# listed. --self-test proves the rules on fixture lists and on a scratch repository, and that every
+# job of ci.yml is in a group and asks for the answer of its group.
 
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 readonly LIGHT_JOBS="lint docs api consumer podspec"
 readonly HEAVY_JOBS="test example thread-sanitizer floor"
+# A full commit name. Anything else is not handed to git: a base that starts with a dash is read as
+# an option (--output=file writes a file), and a branch name is not the commit the change is based on.
+readonly COMMIT_NAME='^[0-9a-f]{40}([0-9a-f]{24})?$'
 
 # inert, document or code. A directory of code wins over the extension: a Markdown file under
 # Sources is a DocC article, and .github holds the workflows, so it stays whole.
@@ -39,17 +48,24 @@ classify() {
   esac
 }
 
-# decide <event>, with the changed paths on standard input. A list is read for a pull request only.
+# is_filtered <event> <ref>. A scheduled run is on refs/heads/main too, so the event decides first.
+is_filtered() {
+  [ "$1" = pull_request ] || { [ "$1" = push ] && [ "$2" = refs/heads/main ]; }
+}
+
+# decide <event> <ref>, with the changed paths on standard input. A list is read when the event is
+# filtered. Only an answer of inert or document, spelt as classify spells it, lowers the answer: any
+# other word stands for code, so that a mistake in classify cannot skip a job.
 decide() {
-  local event="$1" path count=0 mode=inert
-  if [ "$event" = pull_request ]; then
+  local event="$1" ref="$2" path count=0 mode=inert
+  if is_filtered "$event" "$ref"; then
     while IFS= read -r path || [ -n "$path" ]; do
       [ -n "$path" ] || continue
       count=$((count + 1))
       case "$(classify "$path")" in
-        code) mode=code ;;
+        inert) ;;
         document) [ "$mode" = code ] || mode=document ;;
-        *) ;;
+        *) mode=code ;;
       esac
     done
   fi
@@ -59,6 +75,34 @@ decide() {
     document) echo "light=run"; echo "heavy=skip" ;;
     *) echo "light=skip"; echo "heavy=skip" ;;
   esac
+}
+
+# run_diff <event> <base> <ref> [<repository>]. The repository is a parameter so that the self-test
+# can run the real diff on a scratch one. The answer is the only thing on standard output. The log
+# shows the paths, each after a bar: the runner reads a workflow command after the blanks at the
+# start of a line, so that a file name that starts with :: would be one.
+run_diff() {
+  local event="$1" base="$2" ref="$3" repo="${4-$ROOT}" paths
+  if ! is_filtered "$event" "$ref"; then
+    decide "$event" "$ref" < /dev/null
+    return
+  fi
+  # Two dots compare the tree of the base with the one of HEAD, which lists the change whether or
+  # not the base is an ancestor of HEAD: three dots list less after a forced push of main, and fail
+  # when there is no merge base. --no-renames lists both paths of a moved file, so a source file
+  # moved into Documentation is still a source change; core.quotePath=false keeps a non-ASCII path
+  # as it is, not in quotes.
+  if [[ ! "$base" =~ $COMMIT_NAME ]] ||
+    ! git -C "$repo" rev-parse --verify --quiet "$base^{commit}" > /dev/null ||
+    ! paths="$(git -C "$repo" -c core.quotePath=false diff --no-renames --name-only "$base..HEAD")"; then
+    echo "::warning title=Change filter::The diff against the base failed, so every job runs." >&2
+    paths="unlisted/unknown-change"
+  elif [ -z "$paths" ]; then
+    echo "::warning title=Change filter::The change lists no path, so every job runs." >&2
+  fi
+  echo "Changed paths:" >&2
+  printf '%s\n' "$paths" | sed 's/^/  | /' >&2
+  decide "$event" "$ref" <<<"$paths"
 }
 
 # Every job of ci.yml but `changes` is in exactly one group and asks for the answer of its group, so
@@ -95,16 +139,138 @@ check_job_table() {
   done
 }
 
+# Runs the real diff on a scratch repository: the base and the head are commits of it. It counts
+# into the `failures` and `total` of self_test.
+check_real_diff() {
+  local dir base zero tree old_tip log
+  dir="$(mktemp -d)"
+  git -C "$dir" init -q
+  git -C "$dir" config user.name scratch
+  git -C "$dir" config user.email scratch@example.com
+  mkdir -p "$dir/Sources" "$dir/Documentation"
+  echo "let a = 1" > "$dir/Sources/A.swift"
+  echo "text" > "$dir/README.md"
+  echo "text" > "$dir/.coderabbit.yaml"
+  git -C "$dir" add -A
+  git -C "$dir" commit -q -m base
+  base="$(git -C "$dir" rev-parse HEAD)"
+  zero="0000000000000000000000000000000000000000"
+  tree="$(git -C "$dir" rev-parse 'HEAD^{tree}')"
+
+  # scratch_change <file> <content>: HEAD becomes one commit on top of the base that writes the file.
+  scratch_change() {
+    git -C "$dir" checkout -q -B scratch "$base"
+    mkdir -p "$(dirname "$dir/$1")"
+    echo "$2" > "$dir/$1"
+    git -C "$dir" add -A
+    git -C "$dir" commit -q -m change
+  }
+  # scratch_try <label> <expected output> <event> <base> <ref>
+  scratch_try() {
+    local actual
+    actual="$(run_diff "$3" "$4" "$5" "$dir" 2>/dev/null | tr '\n' ' ')"
+    actual="${actual% }"
+    total=$((total + 1))
+    if [ "$actual" = "$2" ]; then
+      echo "ok: $1"
+    else
+      echo "FAIL: $1" >&2
+      echo "  expected: $2" >&2
+      echo "  actual:   $actual" >&2
+      failures=$((failures + 1))
+    fi
+  }
+  # scratch_warns <label> <event> <base> <ref>: the log holds a ::warning.
+  scratch_warns() {
+    total=$((total + 1))
+    log="$(run_diff "$2" "$3" "$4" "$dir" 2>&1 >/dev/null)"
+    if grep -q '^::warning' <<<"$log"; then
+      echo "ok: $1"
+    else
+      echo "FAIL: $1" >&2
+      failures=$((failures + 1))
+    fi
+  }
+
+  local both="light=run heavy=run" docs="light=run heavy=skip" none="light=skip heavy=skip"
+  scratch_change README.md changed
+  scratch_try "a pull request that changes a document skips the heavy group" "$docs" \
+    pull_request "$base" refs/pull/1/merge
+  scratch_try "a push to main that changes a document skips the heavy group" "$docs" \
+    push "$base" refs/heads/main
+  scratch_try "a push to another branch that changes a document runs both groups" "$both" \
+    push "$base" refs/heads/feature/x
+  scratch_try "a push of a tag that changes a document runs both groups" "$both" \
+    push "$base" refs/tags/v1.0.0
+  scratch_try "a scheduled run on main runs both groups" "$both" schedule "$base" refs/heads/main
+  scratch_try "a base that is not in the clone runs both groups" "$both" \
+    push 1111111111111111111111111111111111111111 refs/heads/main
+  scratch_try "a base of zeros, a new branch, runs both groups" "$both" \
+    push "$zero" refs/heads/main
+  scratch_try "a base that is a tree and not a commit runs both groups" "$both" \
+    push "$tree" refs/heads/main
+  scratch_try "a base that is a branch name runs both groups" "$both" push main refs/heads/main
+  scratch_try "an empty base runs both groups" "$both" push "" refs/heads/main
+  scratch_try "a base that is an option runs both groups" "$both" \
+    push "--output=$dir/written" refs/heads/main
+  total=$((total + 1))
+  if [ -e "$dir/written..HEAD" ] || [ -e "$dir/written" ]; then
+    echo "FAIL: a base that is an option was handed to git, and it wrote a file" >&2
+    failures=$((failures + 1))
+  else
+    echo "ok: a base that is an option is not handed to git"
+  fi
+  scratch_warns "a diff that fails is a warning" push "$zero" refs/heads/main
+  scratch_warns "a change that lists no path is a warning" push "$(git -C "$dir" rev-parse HEAD)" \
+    refs/heads/main
+  scratch_try "a change that lists no path runs both groups" "$both" \
+    push "$(git -C "$dir" rev-parse HEAD)" refs/heads/main
+  scratch_change .coderabbit.yaml changed
+  scratch_try "a push to main that changes the inert file alone skips both groups" "$none" \
+    push "$base" refs/heads/main
+  scratch_change Sources/A.swift "let a = 2"
+  old_tip="$(git -C "$dir" rev-parse HEAD)"
+  scratch_try "a push to main that changes a source file runs both groups" "$both" \
+    push "$base" refs/heads/main
+  # The old tip of main had a source change that the new one does not: the trees differ in it.
+  scratch_change README.md changed
+  scratch_try "a forced push of main that drops a source change runs both groups" "$both" \
+    push "$old_tip" refs/heads/main
+  git -C "$dir" checkout -q -B scratch "$base"
+  git -C "$dir" mv Sources/A.swift Documentation/A.md
+  git -C "$dir" commit -q -m moved
+  scratch_try "a source file moved to Documentation/*.md runs both groups" "$both" \
+    push "$base" refs/heads/main
+  scratch_change "Documentation/R$(printf '\303\251')sum$(printf '\303\251').md" text
+  scratch_try "a document with a non-ASCII name skips the heavy group" "$docs" \
+    push "$base" refs/heads/main
+  # The runner reads a workflow command after the blanks at the start of a line.
+  scratch_change "::notice::x.md" text
+  scratch_try "a document whose name starts with :: skips the heavy group" "$docs" \
+    push "$base" refs/heads/main
+  total=$((total + 1))
+  log="$(run_diff push "$base" refs/heads/main "$dir" 2>&1 >/dev/null)"
+  if grep -qF '::notice::x.md' <<<"$log" && ! grep -qE '^[[:space:]]*::' <<<"$log"; then
+    echo "ok: a file name that starts with :: is not a workflow command in the log"
+  else
+    echo "FAIL: a file name that starts with :: is a workflow command in the log, or is not listed" >&2
+    failures=$((failures + 1))
+  fi
+  rm -rf "$dir"
+}
+
 self_test() {
-  local failures=0 total=0 path event
+  local failures=0 total=0 path event ref actual stub
   local both=$'light=run\nheavy=run' docs=$'light=run\nheavy=skip' none=$'light=skip\nheavy=skip'
 
-  # check <name> <expected output> <event> [path...]
-  check() {
+  # check_ref <name> <expected output> <event> <ref> [path...]
+  check_ref() {
     local name="$1" expected="$2" actual
-    local changed_event="$3"
-    shift 3
-    actual="$(printf '%s\n' "$@" | decide "$changed_event")"
+    local changed_event="$3" changed_ref="$4"
+    shift 4
+    # The list goes in by process substitution: an event that is not filtered reads none, and a
+    # pipe to it would make printf fail, and the script with it, under pipefail.
+    actual="$(decide "$changed_event" "$changed_ref" < <(printf '%s\n' "$@"))"
     total=$((total + 1))
     if [ "$actual" = "$expected" ]; then
       echo "ok: $name"
@@ -114,6 +280,13 @@ self_test() {
       echo "  actual:   $(echo "$actual" | tr '\n' ' ')" >&2
       failures=$((failures + 1))
     fi
+  }
+
+  # check <name> <expected output> <event> [path...], on the ref of a pull request.
+  check() {
+    local name="$1" expected="$2" changed_event="$3"
+    shift 3
+    check_ref "$name" "$expected" "$changed_event" refs/pull/1/merge "$@"
   }
 
   for path in \
@@ -178,14 +351,46 @@ self_test() {
   for path in .coderabbit.yml .coderabbit.yaml.bak docs/.coderabbit.yaml; do
     check "$path is not the inert file, so it runs both groups" "$both" pull_request "$path"
   done
-
-  for event in push schedule workflow_dispatch workflow_call; do
-    check "$event with README.md alone runs both groups" "$both" "$event" README.md
-    check "$event with the inert file alone runs both groups" "$both" "$event" .coderabbit.yaml
-  done
   check "a list with no path runs both groups" "$both" pull_request
 
+  # A class that decide does not know stands for code, so a mistake in classify skips no job.
+  unknown_class() { echo bogus; }
+  no_class() { :; }
+  for stub in unknown_class no_class; do
+    total=$((total + 1))
+    actual="$(classify() { "$stub"; }; decide pull_request refs/pull/1/merge <<<"Sources/X.swift")"
+    if [ "$actual" = "$both" ]; then
+      echo "ok: $stub for a source file runs both groups"
+    else
+      echo "FAIL: $stub for a source file does not run both groups" >&2
+      failures=$((failures + 1))
+    fi
+  done
+
+  # A scheduled run is on refs/heads/main as well, so the event decides before the ref does.
+  # workflow_call is listed for a caller that passes it on: the release does not, it passes on a
+  # push of a tag.
+  for event in schedule workflow_dispatch workflow_call; do
+    check_ref "$event on main with README.md alone runs both groups" "$both" "$event" \
+      refs/heads/main README.md
+    check_ref "$event on main with the inert file alone runs both groups" "$both" "$event" \
+      refs/heads/main .coderabbit.yaml
+  done
+  check_ref "a push to main with README.md alone skips the heavy group" "$docs" push \
+    refs/heads/main README.md
+  check_ref "a push to main with the inert file alone skips both groups" "$none" push \
+    refs/heads/main .coderabbit.yaml
+  check_ref "a push to main with a Swift file runs both groups" "$both" push refs/heads/main \
+    Sources/DMVariableBlurView/DMVariableBlurView.swift
+  check_ref "a push to main with a list of no path runs both groups" "$both" push refs/heads/main
+  for ref in refs/heads/feature/x refs/heads/feature/main refs/heads/main2 refs/heads/mainline \
+    refs/tags/v1.2.3 refs/tags/main main ""; do
+    check_ref "a push to '$ref' with README.md alone runs both groups" "$both" push "$ref" \
+      README.md
+  done
+
   check_job_table
+  check_real_diff
   if [ "$failures" -ne 0 ]; then
     echo "ci-changes: $failures of $total cases failed." >&2
     return 1
@@ -193,8 +398,14 @@ self_test() {
   echo "ci-changes: all $total cases passed."
 }
 
+usage() {
+  echo "usage: ci-changes.sh <event> <base> <ref> | --classify <event> <ref> < paths | --self-test" >&2
+  exit 64
+}
+
 case "${1:-}" in
   --self-test) self_test ;;
-  "") echo "usage: ci-changes.sh <event> < paths | ci-changes.sh --self-test" >&2; exit 64 ;;
-  *) decide "$1" ;;
+  --classify) [ "$#" -eq 3 ] || usage; decide "$2" "$3" ;;
+  "" | -*) usage ;;
+  *) [ "$#" -eq 3 ] || usage; run_diff "$1" "$2" "$3" ;;
 esac
