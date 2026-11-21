@@ -23,17 +23,18 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # Which of the four jobs that cost the most macOS time (test, example, thread-sanitizer and
-  # floor) a pull request needs. Scripts/ci-changes.sh decides: a pull request that changes
-  # documents only skips them. The other jobs read the README, the changelog, the sources or the
-  # scripts, so they never skip and do not wait for this one. Any other event runs every job.
-  # The four run when this job fails or gives no answer, so a fault here costs time and never skips
-  # a check.
+  # Which jobs a pull request needs. Scripts/ci-changes.sh decides, for two groups: the heavy jobs
+  # (test, example, thread-sanitizer and floor), which build and test the code on simulators, and
+  # the light ones (lint, docs, api, consumer and podspec). A pull request that changes documents
+  # only skips the heavy jobs, and one that changes only files that no job reads skips both groups.
+  # Any other event runs every job. A job runs when this job fails or gives no answer, so a fault
+  # here costs time and never skips a check.
   changes:
     name: changes
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
+      light: ${{ steps.filter.outputs.light }}
       heavy: ${{ steps.filter.outputs.heavy }}
     steps:
       # The whole history, so that the commit the pull request is based on is there to compare with.
@@ -70,6 +71,8 @@ jobs:
 
   lint:
     name: lint
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.light != 'skip' }}
     runs-on: macos-26
     timeout-minutes: 10
     steps:
@@ -372,6 +375,8 @@ jobs:
 
   consumer:
     name: consumer
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.light != 'skip' }}
     runs-on: macos-26
     timeout-minutes: 20
     env:
@@ -390,6 +395,8 @@ jobs:
   api:
     # The interface text depends on the compiler, so this job runs on one pinned Xcode.
     name: api
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.light != 'skip' }}
     runs-on: macos-26
     timeout-minutes: 10
     env:
@@ -441,6 +448,8 @@ jobs:
   # sources as a pod and checks what a consumer of it would link.
   podspec:
     name: podspec
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.light != 'skip' }}
     runs-on: macos-26
     timeout-minutes: 30
     env:
@@ -454,6 +463,8 @@ jobs:
 
   docs:
     name: docs
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.light != 'skip' }}
     runs-on: macos-26
     timeout-minutes: 20
     env:

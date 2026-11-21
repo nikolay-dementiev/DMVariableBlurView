@@ -19,9 +19,14 @@
 #
 # Only a pull request is filtered. Any other event (push, schedule, workflow_dispatch and
 # workflow_call, which is how a release runs CI) runs every job, and so does a list with no path.
-# --self-test proves the rules on fixture lists.
+# --self-test proves the rules on fixture lists, and that every job of ci.yml is in a group and asks
+# for the answer of its group.
 
 set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+readonly LIGHT_JOBS="lint docs api consumer podspec"
+readonly HEAVY_JOBS="test example thread-sanitizer floor"
 
 # inert, document or code. A directory of code wins over the extension: a Markdown file under
 # Sources is a DocC article, and .github holds the workflows, so it stays whole.
@@ -54,6 +59,40 @@ decide() {
     document) echo "light=run"; echo "heavy=skip" ;;
     *) echo "light=skip"; echo "heavy=skip" ;;
   esac
+}
+
+# Every job of ci.yml but `changes` is in exactly one group and asks for the answer of its group, so
+# that a job added later cannot run unfiltered, or skip, by accident. It counts into the `failures`
+# and `total` of self_test.
+check_job_table() {
+  local workflow="$ROOT/.github/workflows/ci.yml" job group block names want
+  names="$(awk '/^jobs:/ { in_jobs = 1; next } in_jobs && /^  [A-Za-z_][A-Za-z0-9_-]*:$/ { sub(/^  /, ""); sub(/:$/, ""); print }' "$workflow" | tr '\n' ' ')"
+  for job in $names; do
+    [ "$job" = changes ] && continue
+    total=$((total + 1))
+    group=""
+    case " $LIGHT_JOBS " in *" $job "*) group=light ;; esac
+    case " $HEAVY_JOBS " in *" $job "*) group=heavy ;; esac
+    if [ -z "$group" ]; then
+      echo "FAIL: the job '$job' of ci.yml is in neither group" >&2
+      failures=$((failures + 1))
+      continue
+    fi
+    want="if: \${{ !cancelled() && needs.changes.outputs.$group != 'skip' }}"
+    block="$(awk -v job="$job" '$0 == "  " job ":" { on = 1; next } on && /^  [A-Za-z_][A-Za-z0-9_-]*:$/ { exit } on { print }' "$workflow")"
+    if ! grep -qF "$want" <<<"$block"; then
+      echo "FAIL: the job '$job' of ci.yml does not carry $want" >&2
+      failures=$((failures + 1))
+    fi
+  done
+  for job in $LIGHT_JOBS $HEAVY_JOBS; do
+    total=$((total + 1))
+    case " $names " in *" $job "*) ;; *)
+      echo "FAIL: '$job' is in a group but is not a job of ci.yml" >&2
+      failures=$((failures + 1))
+      ;;
+    esac
+  done
 }
 
 self_test() {
@@ -146,6 +185,7 @@ self_test() {
   done
   check "a list with no path runs both groups" "$both" pull_request
 
+  check_job_table
   if [ "$failures" -ne 0 ]; then
     echo "ci-changes: $failures of $total cases failed." >&2
     return 1
