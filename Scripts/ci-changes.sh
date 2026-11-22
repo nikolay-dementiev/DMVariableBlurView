@@ -33,9 +33,6 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 readonly LIGHT_JOBS="lint docs api consumer podspec"
 readonly HEAVY_JOBS="test example thread-sanitizer floor"
-# A full commit name. Anything else is not handed to git: a base that starts with a dash is read as
-# an option (--output=file writes a file), and a branch name is not the commit the change is based on.
-readonly COMMIT_NAME='^[0-9a-f]{40}([0-9a-f]{24})?$'
 
 # inert, document or code. A directory of code wins over the extension: a Markdown file under
 # Sources is a DocC article, and .github holds the workflows, so it stays whole.
@@ -77,6 +74,22 @@ decide() {
   esac
 }
 
+# is_commit_name <text>: a full commit name, 40 hex digits (SHA-1) or 64 (SHA-256), in lower case.
+# Anything else is not handed to git: a base that starts with a dash is read as an option
+# (--output=file writes a file), and a branch name is not the commit the change is based on. The
+# digits are listed and not given as a range, because the order of a range depends on the locale;
+# case and not a regular expression, because =~ and == in [[ ]] are not defined in POSIX sh, which
+# is how a linter reads this file.
+is_commit_name() {
+  case "$1" in
+    *[!0123456789abcdef]*) return 1 ;;
+  esac
+  case "${#1}" in
+    40 | 64) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 # run_diff <event> <base> <ref> [<repository>]. The repository is a parameter so that the self-test
 # can run the real diff on a scratch one. The answer is the only thing on standard output. The log
 # shows the paths, each after a bar: the runner reads a workflow command after the blanks at the
@@ -92,7 +105,7 @@ run_diff() {
   # when there is no merge base. --no-renames lists both paths of a moved file, so a source file
   # moved into Documentation is still a source change; core.quotePath=false keeps a non-ASCII path
   # as it is, not in quotes.
-  if [[ ! "$base" =~ $COMMIT_NAME ]] ||
+  if ! is_commit_name "$base" ||
     ! git -C "$repo" rev-parse --verify --quiet "$base^{commit}" > /dev/null ||
     ! paths="$(git -C "$repo" -c core.quotePath=false diff --no-renames --name-only "$base..HEAD")"; then
     echo "::warning title=Change filter::The diff against the base failed, so every job runs." >&2
@@ -141,6 +154,15 @@ job_table_faults() {
   done
 }
 
+# contains <text> <part>: the text holds the part, which is read as it is and not as a pattern.
+# case and not [[ == ]], because == in [[ ]] is not defined in POSIX sh.
+contains() {
+  case "$1" in
+    *"$2"*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 # check_job_table: ci.yml has no fault, and each fault that job_table_faults is for is found in a
 # copy of ci.yml that has it. It counts into the `failures` and `total` of self_test.
 check_job_table() {
@@ -164,7 +186,7 @@ check_job_table() {
     if cmp -s "$workflow" "$copy"; then
       echo "FAIL: $1: the change did not apply to the copy of ci.yml" >&2
       failures=$((failures + 1))
-    elif [[ "$(job_table_faults "$copy")" == *"$3"* ]]; then
+    elif contains "$(job_table_faults "$copy")" "$3"; then
       echo "ok: $1"
     else
       echo "FAIL: $1" >&2
@@ -321,6 +343,71 @@ check_real_diff() {
   rm -rf "$dir"
 }
 
+# check_commit_names: is_commit_name takes the two lengths of a commit name and the lower case hex
+# digits, and nothing next to them: each neighbour of a length and of the digit set is listed, so
+# that a limit that is one too wide or one too narrow is found. It counts into the `failures` and
+# `total` of self_test, through `verdict`.
+check_commit_names() {
+  local forty sixtyfour upper newline name expected
+  forty="0123456789abcdef0123456789abcdef01234567"
+  sixtyfour="${forty}89abcdef0123456789abcdef"
+  upper="$(printf '%s' "$forty" | tr 'a-f' 'A-F')"
+  newline='
+'
+  # name_case <label> <expected: yes or no> <text>
+  name_case() {
+    if is_commit_name "$3"; then expected=yes; else expected=no; fi
+    verdict "$1" "$2" "$expected"
+  }
+  name_case "a commit name of 40 digits is a name" yes "$forty"
+  name_case "a commit name of 64 digits is a name" yes "$sixtyfour"
+  name_case "a name of 40 zeros is a name" yes "0000000000000000000000000000000000000000"
+  name_case "a text of 32 digits is not a name" no "${forty%????????}"
+  name_case "a text of 39 digits is not a name" no "${forty%?}"
+  name_case "a text of 41 digits is not a name" no "${forty}0"
+  name_case "a text of 63 digits is not a name" no "${sixtyfour%?}"
+  name_case "a text of 65 digits is not a name" no "${sixtyfour}0"
+  name_case "an empty text is not a name" no ""
+  name_case "a name in upper case is not a name" no "$upper"
+  # The characters next to the digits: each upper case digit, the letters after f, and the two that
+  # stand next to 0 and 9 in the character set.
+  for name in A B C D E F g G / :; do
+    name_case "a text of 40 characters with a $name in place of a digit is not a name" no \
+      "${name}${forty#?}"
+  done
+  name_case "a text of 40 characters that starts with a dash is not a name" no "-${forty#?}"
+  name_case "a text of 40 characters with a space is not a name" no "${forty%?} "
+  name_case "a text of 40 characters with a line break is not a name" no "${forty%?}$newline"
+  name_case "a branch name is not a name" no "main"
+  name="${forty}${newline}${forty}"
+  name_case "two names on two lines are not a name" no "$name"
+}
+
+# check_contains: contains finds the part wherever it is, takes it as it is and not as a pattern,
+# and says no when it is not there. It counts into the `failures` and `total` of self_test, through
+# `verdict`.
+check_contains() {
+  local newline expected
+  newline='
+'
+  # contains_case <label> <expected: yes or no> <text> <part>
+  contains_case() {
+    if contains "$3" "$4"; then expected=yes; else expected=no; fi
+    verdict "$1" "$2" "$expected"
+  }
+  contains_case "a part in the middle is found" yes "abc" "b"
+  contains_case "a part at the start is found" yes "abc" "a"
+  contains_case "a part at the end is found" yes "abc" "c"
+  contains_case "the whole text is found" yes "abc" "abc"
+  contains_case "a part on a later line is found" yes "one${newline}two" "two"
+  contains_case "a part that is not there is not found" no "abc" "d"
+  contains_case "a part that is longer than the text is not found" no "a" "ab"
+  contains_case "an empty part is found" yes "abc" ""
+  contains_case "a star in the part is a star" yes "a*b" "*"
+  contains_case "a star in the part is not a pattern" no "ab" "a*b"
+  contains_case "a star alone is not found in a text that has none" no "ab" "*"
+}
+
 self_test() {
   local failures=0 total=0 path event ref actual stub
   local both=$'light=run\nheavy=run' docs=$'light=run\nheavy=skip' none=$'light=skip\nheavy=skip'
@@ -465,6 +552,8 @@ self_test() {
       README.md
   done
 
+  check_commit_names
+  check_contains
   check_job_table
   check_real_diff
   if [ "$failures" -ne 0 ]; then
