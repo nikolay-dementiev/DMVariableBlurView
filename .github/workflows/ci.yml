@@ -23,23 +23,22 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # Which of the four jobs that cost the most macOS time (test, example, thread-sanitizer and
-  # floor) a pull request needs. Scripts/ci-changes.sh decides: a pull request that changes
-  # documents only skips them. The other jobs read the README, the changelog, the sources or the
-  # scripts, so they never skip and do not wait for this one. Any other event runs every job.
-  # The four run when this job fails or gives no answer, so a fault here costs time and never skips
-  # a check.
+  # Which jobs a change needs. Scripts/ci-changes.sh decides, for two groups: the heavy jobs
+  # (test, example, thread-sanitizer and floor), which build and test the code on simulators, and
+  # the light ones (lint, docs, api, consumer and podspec). A pull request or a push to main that
+  # changes documents only skips the heavy jobs, and one that changes only files that no job reads
+  # skips both groups. Any other event runs every job: a tag, a schedule, a manual run and the
+  # release. A job runs when this job fails or gives no answer, so a fault here costs time and
+  # never skips a check.
   changes:
     name: changes
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
-      test: ${{ steps.filter.outputs.test }}
-      example: ${{ steps.filter.outputs.example }}
-      thread-sanitizer: ${{ steps.filter.outputs.thread-sanitizer }}
-      floor: ${{ steps.filter.outputs.floor }}
+      light: ${{ steps.filter.outputs.light }}
+      heavy: ${{ steps.filter.outputs.heavy }}
     steps:
-      # The whole history, so that the commit the pull request is based on is there to compare with.
+      # The whole history, so that the commit the change is based on is there to compare with.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -48,37 +47,33 @@ jobs:
       # lists of paths that must skip and on lists that must not, on every run, before the real one.
       - name: Check the change filter
         run: Scripts/ci-changes.sh --self-test
-      # A rename lists both paths: the old one may be code that the new one hides. A diff that fails
-      # is passed on as a path that is not a document, so that every job runs, and it is a warning:
-      # a diff that always fails would otherwise end the saving with no sign. The paths are indented
-      # in the log, so that a file name that starts with :: is not read as a workflow command.
+      # The script lists the paths in this log, and a rename lists both: the old one may be code that
+      # the new one hides. A diff that fails is a warning and runs every job, so that a diff that
+      # always fails does not end the saving with no sign. The base is the one a pull request is
+      # based on, or the commit main was at before a push; a tag, a schedule and a manual run have
+      # no use for it and are not filtered.
       - name: List what the change touches
         id: filter
         env:
           EVENT: ${{ github.event_name }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          REF: ${{ github.ref }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
           set -o pipefail
-          paths=""
-          if [ "$EVENT" = pull_request ]; then
-            if ! paths="$(git diff --no-renames --name-only "$BASE_SHA...HEAD")"; then
-              echo "::warning title=Change filter::The diff failed, so every job runs."
-              paths="the diff failed"
-            fi
-          fi
-          printf '%s\n' "$paths" > "$RUNNER_TEMP/changed-paths.txt"
-          echo "Changed paths:"
-          sed 's/^/    /' "$RUNNER_TEMP/changed-paths.txt"
-          Scripts/ci-changes.sh "$EVENT" < "$RUNNER_TEMP/changed-paths.txt" | tee -a "$GITHUB_OUTPUT"
+          Scripts/ci-changes.sh "$EVENT" "$BASE" "$REF" | tee -a "$GITHUB_OUTPUT"
 
   lint:
     name: lint
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.light != 'skip' }}
     runs-on: macos-26
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Restore the tools build
+        uses: ./.github/actions/tools-cache
       - name: Lint
         run: Scripts/lint.sh
       # A rule that never matches reports nothing, so the fixtures prove that each one fires.
@@ -97,7 +92,7 @@ jobs:
   test:
     name: test (${{ matrix.name }})
     needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.test != 'skip' }}
+    if: ${{ !cancelled() && needs.changes.outputs.heavy != 'skip' }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     permissions:
@@ -125,6 +120,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # The tools are restored first: the script that boots the simulator calls devkit, and a build
+      # of devkit there would delay the boot.
+      - name: Restore the tools build
+        uses: ./.github/actions/tools-cache
       # The simulator boots while the package builds: the build does not need it, and the boot is
       # one of the longest steps of the job. The script boots the device, waits for it and prints
       # its udid, which the Wait step reads. Every descriptor of the process goes to a file, so
@@ -230,7 +229,7 @@ jobs:
     # failure handler runs in a task. Debug, no coverage, no example app.
     name: thread-sanitizer
     needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.thread-sanitizer != 'skip' }}
+    if: ${{ !cancelled() && needs.changes.outputs.heavy != 'skip' }}
     runs-on: macos-26
     timeout-minutes: 30
     env:
@@ -244,6 +243,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Restore the tools build
+        uses: ./.github/actions/tools-cache
       # The simulator boots while the package builds, as in the test job.
       - name: Start the simulator
         env:
@@ -307,7 +308,7 @@ jobs:
     # runners of this image do not always offer ("iOS 18.0 is not installed").
     name: floor
     needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.floor != 'skip' }}
+    if: ${{ !cancelled() && needs.changes.outputs.heavy != 'skip' }}
     runs-on: macos-15
     timeout-minutes: 20
     env:
@@ -375,6 +376,8 @@ jobs:
 
   consumer:
     name: consumer
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.light != 'skip' }}
     runs-on: macos-26
     timeout-minutes: 20
     env:
@@ -393,6 +396,8 @@ jobs:
   api:
     # The interface text depends on the compiler, so this job runs on one pinned Xcode.
     name: api
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.light != 'skip' }}
     runs-on: macos-26
     timeout-minutes: 10
     env:
@@ -401,6 +406,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Restore the tools build
+        uses: ./.github/actions/tools-cache
       - name: Check the normalisation of the interface
         run: Scripts/check-api.sh --self-test
       # The release check refuses a release on what it reads in the changelog, the tags and the
@@ -444,6 +451,8 @@ jobs:
   # sources as a pod and checks what a consumer of it would link.
   podspec:
     name: podspec
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.light != 'skip' }}
     runs-on: macos-26
     timeout-minutes: 30
     env:
@@ -457,6 +466,8 @@ jobs:
 
   docs:
     name: docs
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.light != 'skip' }}
     runs-on: macos-26
     timeout-minutes: 20
     env:
@@ -477,7 +488,7 @@ jobs:
   example:
     name: example (${{ matrix.name }})
     needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.example != 'skip' }}
+    if: ${{ !cancelled() && needs.changes.outputs.heavy != 'skip' }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     strategy:
@@ -513,6 +524,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Restore the tools build
+        uses: ./.github/actions/tools-cache
       # The device comes from the script, as in the test job, and boots while the example builds.
       - name: Start the simulator
         env:

@@ -1,0 +1,28 @@
+name: Tools build cache
+description: >-
+  Restores Tools/.build before the first call of devkit and saves it when the job ends, so that
+  a job does not build DMDevKit again. The key is the manifest of Tools and the compiler in use:
+  a build made by another compiler is not reused, and a key without the compiler would hit on every
+  run and keep a cache that the job rebuilds each time.
+runs:
+  using: composite
+  steps:
+    - name: Name the compiler
+      id: compiler
+      shell: bash
+      run: |
+        # A compiler that cannot be named leaves the cache out of the job: an empty name would give
+        # a key that every compiler shares, and the hash keeps the key short and free of odd characters.
+        if version="$(swift --version 2>&1)"; then
+          echo "$version"
+          echo "name=$(printf '%s' "$version" | shasum -a 256 | cut -c1-16)" >> "$GITHUB_OUTPUT"
+        else
+          echo "$version"
+          echo "::warning title=Tools build cache::swift --version failed, so the tools build is not cached."
+        fi
+    - name: Restore Tools/.build
+      if: ${{ steps.compiler.outputs.name != '' }}
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: Tools/.build
+        key: tools-${{ runner.os }}-${{ runner.arch }}-${{ steps.compiler.outputs.name }}-${{ hashFiles('Tools/Package.swift', 'Tools/Package.resolved') }}
