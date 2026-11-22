@@ -325,6 +325,19 @@ self_test() {
   local failures=0 total=0 path event ref actual stub
   local both=$'light=run\nheavy=run' docs=$'light=run\nheavy=skip' none=$'light=skip\nheavy=skip'
 
+  # verdict <name> <expected output> <actual output>
+  verdict() {
+    total=$((total + 1))
+    if [ "$3" = "$2" ]; then
+      echo "ok: $1"
+    else
+      echo "FAIL: $1" >&2
+      echo "  expected: $(echo "$2" | tr '\n' ' ')" >&2
+      echo "  actual:   $(echo "$3" | tr '\n' ' ')" >&2
+      failures=$((failures + 1))
+    fi
+  }
+
   # check_ref <name> <expected output> <event> <ref> [path...]
   check_ref() {
     local name="$1" expected="$2" actual
@@ -333,15 +346,13 @@ self_test() {
     # The list goes in by process substitution: an event that is not filtered reads none, and a
     # pipe to it would make printf fail, and the script with it, under pipefail.
     actual="$(decide "$changed_event" "$changed_ref" < <(printf '%s\n' "$@"))"
-    total=$((total + 1))
-    if [ "$actual" = "$expected" ]; then
-      echo "ok: $name"
-    else
-      echo "FAIL: $name" >&2
-      echo "  expected: $(echo "$expected" | tr '\n' ' ')" >&2
-      echo "  actual:   $(echo "$actual" | tr '\n' ' ')" >&2
-      failures=$((failures + 1))
-    fi
+    verdict "$name" "$expected" "$actual"
+  }
+
+  # check_text <name> <expected output> <list as text, with \n for a line break>, on a pull request:
+  # a list that check_ref cannot write, because it ends every path with a line break.
+  check_text() {
+    verdict "$1" "$2" "$(decide pull_request refs/pull/1/merge < <(printf '%b' "$3"))"
   }
 
   # check <name> <expected output> <event> [path...], on the ref of a pull request.
@@ -368,6 +379,7 @@ self_test() {
     CHANGELOG.md \
     LICENSE \
     Documentation/Review/README.md \
+    Documentation/Images/blur-modes.jpeg \
     .agents/skills/x/SKILL.md; do
     check "$path alone skips the heavy group" "$docs" pull_request "$path"
   done
@@ -398,6 +410,8 @@ self_test() {
   # git prints a path with a non-ASCII character in quotes, and such a path is not a document.
   check "a path that git quotes runs both groups" "$both" pull_request \
     '"Documentation/caf\303\251.md"'
+  check_text "a last path with no line break after it is read" "$docs" 'README.md'
+  check_text "a blank line is not a path" "$docs" '\nREADME.md\n\n'
 
   check "the inert file alone skips both groups" "$none" pull_request .coderabbit.yaml
   check "the inert file and a document skip the heavy group only" "$docs" pull_request \
