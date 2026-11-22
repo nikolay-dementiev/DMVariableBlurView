@@ -105,38 +105,100 @@ run_diff() {
   decide "$event" "$ref" <<<"$paths"
 }
 
-# Every job of ci.yml but `changes` is in exactly one group and asks for the answer of its group, so
-# that a job added later cannot run unfiltered, or skip, by accident. It counts into the `failures`
-# and `total` of self_test.
-check_job_table() {
-  local workflow="$ROOT/.github/workflows/ci.yml" job group block names want
+# job_table_faults <ci.yml>: one line for each way that the file lets a job run unfiltered, skip
+# without a reason or read the wrong group. Every job of ci.yml but `changes` is in exactly one group
+# and asks for the answer of its group, so that a job added later cannot run unfiltered, or skip, by
+# accident. A line is matched whole and at its own indent, so that a comment, a step that carries the
+# same condition, or the same words inside another key does not pass for the key of the job.
+job_table_faults() {
+  local workflow="$1" job group block names want
   names="$(awk '/^jobs:/ { in_jobs = 1; next } in_jobs && /^  [A-Za-z_][A-Za-z0-9_-]*:$/ { sub(/^  /, ""); sub(/:$/, ""); print }' "$workflow" | tr '\n' ' ')"
+  # job_block <job>: the lines under the key of the job, up to the key of the next one.
+  job_block() {
+    awk -v job="$1" '$0 == "  " job ":" { on = 1; next } on && /^  [A-Za-z_][A-Za-z0-9_-]*:$/ { exit } on { print }' "$workflow"
+  }
   for job in $names; do
     [ "$job" = changes ] && continue
-    total=$((total + 1))
     group=""
     case " $LIGHT_JOBS " in *" $job "*) group=light ;; esac
     case " $HEAVY_JOBS " in *" $job "*) group=heavy ;; esac
     if [ -z "$group" ]; then
-      echo "FAIL: the job '$job' of ci.yml is in neither group" >&2
-      failures=$((failures + 1))
+      echo "the job '$job' is in neither group"
       continue
     fi
-    want="if: \${{ !cancelled() && needs.changes.outputs.$group != 'skip' }}"
-    block="$(awk -v job="$job" '$0 == "  " job ":" { on = 1; next } on && /^  [A-Za-z_][A-Za-z0-9_-]*:$/ { exit } on { print }' "$workflow")"
-    if ! grep -qF "$want" <<<"$block"; then
-      echo "FAIL: the job '$job' of ci.yml does not carry $want" >&2
-      failures=$((failures + 1))
-    fi
+    block="$(job_block "$job")"
+    for want in "    needs: changes" "    if: \${{ !cancelled() && needs.changes.outputs.$group != 'skip' }}"; do
+      grep -qxF "$want" <<<"$block" || echo "the job '$job' does not carry the line \"$want\""
+    done
   done
   for job in $LIGHT_JOBS $HEAVY_JOBS; do
-    total=$((total + 1))
-    case " $names " in *" $job "*) ;; *)
-      echo "FAIL: '$job' is in a group but is not a job of ci.yml" >&2
-      failures=$((failures + 1))
-      ;;
-    esac
+    case " $names " in *" $job "*) ;; *) echo "'$job' is in a group but is not a job" ;; esac
   done
+  block="$(job_block changes)"
+  for want in "      light: \${{ steps.filter.outputs.light }}" "      heavy: \${{ steps.filter.outputs.heavy }}" \
+    "        id: filter"; do
+    grep -qxF "$want" <<<"$block" || echo "the job 'changes' does not carry the line \"$want\""
+  done
+}
+
+# check_job_table: ci.yml has no fault, and each fault that job_table_faults is for is found in a
+# copy of ci.yml that has it. It counts into the `failures` and `total` of self_test.
+check_job_table() {
+  local workflow="$ROOT/.github/workflows/ci.yml" faults fault dir job_range
+  total=$((total + 1))
+  faults="$(job_table_faults "$workflow")"
+  if [ -z "$faults" ]; then
+    echo "ok: every job of ci.yml is in one group and asks for the answer of its group"
+  else
+    while IFS= read -r fault; do echo "FAIL: ci.yml: $fault" >&2; done <<<"$faults"
+    failures=$((failures + 1))
+  fi
+
+  dir="$(mktemp -d)"
+  job_range='/^  lint:$/,/^  [A-Za-z_][A-Za-z0-9_-]*:$/'
+  # check_fault <name> <sed script> <the fault that the copy must show>
+  check_fault() {
+    local copy="$dir/ci.yml"
+    sed -e "$2" "$workflow" > "$copy"
+    total=$((total + 1))
+    if cmp -s "$workflow" "$copy"; then
+      echo "FAIL: $1: the change did not apply to the copy of ci.yml" >&2
+      failures=$((failures + 1))
+    elif [[ "$(job_table_faults "$copy")" == *"$3"* ]]; then
+      echo "ok: $1"
+    else
+      echo "FAIL: $1" >&2
+      failures=$((failures + 1))
+    fi
+  }
+  check_fault "a job without its needs line is found" \
+    "$job_range { /^    needs: changes\$/ d; }" \
+    "the job 'lint' does not carry the line \"    needs: changes\""
+  check_fault "a job with its condition commented out is found" \
+    "$job_range s/^    if: /    # if: /" \
+    "the job 'lint' does not carry the line \"    if: "
+  check_fault "a job with its condition at the indent of a step is found" \
+    "$job_range s/^    if: /        if: /" \
+    "the job 'lint' does not carry the line \"    if: "
+  check_fault "a job that asks for the answer of the other group is found" \
+    "$job_range s/outputs\\.light != /outputs.heavy != /" \
+    "the job 'lint' does not carry the line \"    if: \${{ !cancelled() && needs.changes.outputs.light != 'skip' }}\""
+  check_fault "an output of the changes job under a wrong name is found" \
+    "s/^      light: /      lite: /" \
+    "the job 'changes' does not carry the line \"      light: "
+  check_fault "a changes step without its id is found" \
+    "/^        id: filter\$/ d" \
+    "the job 'changes' does not carry the line \"        id: filter\""
+  check_fault "a job of a group that ci.yml does not have is found" \
+    "s/^  docs:\$/  documents:/" \
+    "'docs' is in a group but is not a job"
+  check_fault "a job that is in no group is found" \
+    "\$ a\\
+\\
+  stranger:\\
+    needs: changes" \
+    "the job 'stranger' is in neither group"
+  rm -rf "$dir"
 }
 
 # Runs the real diff on a scratch repository: the base and the head are commits of it. It counts
