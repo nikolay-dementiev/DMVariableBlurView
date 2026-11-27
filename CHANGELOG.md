@@ -19,6 +19,9 @@ Changelog 1.1.0, and versions follow Semantic Versioning 2.0.0.
   the next major version, which records the signposts. Swift Package Manager resolves it with the
   package. No public declaration names a type of it, and neither the public interface nor the iOS
   floor changes.
+- The package needs Swift 6.2, which is Xcode 26 or later: `Package.swift` declares
+  `swift-tools-version: 6.2`. 2.0.0 declared 6.0. CI builds and tests with Xcode 26.6 only, so the
+  jobs with Xcode 16 are gone.
 
 ### Removed
 

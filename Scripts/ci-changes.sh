@@ -32,7 +32,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 readonly LIGHT_JOBS="lint docs api consumer"
-readonly HEAVY_JOBS="test example thread-sanitizer floor"
+readonly HEAVY_JOBS="test example thread-sanitizer"
 
 # inert, document or code. A directory of code wins over the extension: a Markdown file under
 # Sources is a DocC article, and .github holds the workflows, so it stays whole.

@@ -42,8 +42,7 @@ format of [Documentation/Review/README.md](../../../Documentation/Review/README.
   (ENGINEERING.md, "The approval itself is a rule the reviewer applies")
   (AGENTS.md, "Add no dependency without the maintainer's approval")
 - A raised platform floor or `swift-tools-version`, which is a breaking change, or a
-  `defaultIsolation` in the manifest, in a change that edits the `floor` job to agree with the
-  manifest. A test framework other than XCTest.
+  `defaultIsolation` in the manifest. A test framework other than XCTest.
   (ENGINEERING.md, "Raising the platform floor")
   (ENGINEERING.md, "The manifest sets no `defaultIsolation`")
   (ENGINEERING.md, "XCTest is the test framework")
@@ -54,8 +53,7 @@ format of [Documentation/Review/README.md](../../../Documentation/Review/README.
   other import of `Domain`, and SwiftLint's own rules), `Scripts/check-lint-contract.sh` (that each
   rule of `devkit.conf` fires on the lines of its fixtures that expect it and on no other line),
   `Scripts/check-manifest.sh` (a dependency other than DMCore, a plugin, a plugin target or a
-  binary target with a url in a manifest) and the `floor` job (a manifest that the oldest compiler
-  cannot load, or whose platform, language mode or Swift settings differ from the flags of the job).
+  binary target with a url in a manifest).
 - How a view behaves: that is the lane correctness-and-concurrency.
 - The class of a change and its documentation: that is the lane public-api-and-documentation.
 - The quality of a test: that is the lane test-discrimination.

@@ -6,9 +6,8 @@ compatibility and release policy.
 
 ## Build and test
 
-You need Xcode 16.0 or later (Swift 6.0) and an iOS simulator. CI tests with Xcode 16.4 and 26.6,
-and compiles the library with Xcode 16.0. The
-library is for iOS only, so its tests run on a simulator, with warnings as errors:
+You need Xcode 26 or later (Swift 6.2) and an iOS simulator. CI builds and tests with Xcode 26.6.
+The library is for iOS only, so its tests run on a simulator, with warnings as errors:
 
 ```bash
 xcodebuild test -scheme DMVariableBlurView -destination 'platform=iOS Simulator,name=iPhone 17,OS=26.5' -enableCodeCoverage YES SWIFT_TREAT_WARNINGS_AS_ERRORS=YES SWIFT_SUPPRESS_WARNINGS=NO
@@ -38,7 +37,7 @@ fault of the script cannot turn the check into another one.
 | `Scripts/export-coverage.sh <result bundle> <target> <output>` | not a check: it exports the line coverage of the library from a result bundle to LCOV, for CI to upload to Codecov; the tests of the exporter are DMDevKit's |
 | `Scripts/count-tests.sh [--label <text>] <result bundle> <glob>...` | that every test method of the files the globs name ran and passed in the result bundle: a run that lost a test class or skipped a test passes the build and the coverage floor too |
 | `Scripts/check-example-project.sh` | that the Xcode project of the example matches its XcodeGen spec |
-| `Scripts/ci-changes.sh --self-test` | not a check of the code: the rules by which CI decides which jobs a pull request or a push to `main` needs. A pull request that changes documents only (Markdown files, `Documentation/` and the `LICENSE`, outside `Sources/`, `Tests/`, `Examples/`, `Fixtures/`, `Tools/`, `Scripts/` and `.github/`), or `.coderabbit.yaml` and documents, skips the jobs `test`, `example`, `thread-sanitizer` and `floor`. A push to `main` is decided the same way, from the paths the push changes. Any other path, one that no rule lists included, and any other event (a push to another branch or of a tag, a schedule, a manual run and the release) runs them all, and so does a change that cannot be listed. A pull request that changes `.coderabbit.yaml` alone, a file that no job reads, skips `lint`, `docs`, `api` and `consumer` too. `--self-test` runs the rules on fixture lists of paths and checks that every job of `ci.yml` is in one of the two groups and asks for the answer of its group, and CI runs it on every run. To see what your branch would skip, run `Scripts/ci-changes.sh pull_request "$(git rev-parse origin/main)" refs/pull/0/merge` on it: the base is a full commit name, as CI passes it, and the script lists the paths as CI does, both names of a renamed file included. `Scripts/ci-changes.sh --classify pull_request refs/pull/0/merge` decides for a list of paths on standard input |
+| `Scripts/ci-changes.sh --self-test` | not a check of the code: the rules by which CI decides which jobs a pull request or a push to `main` needs. A pull request that changes documents only (Markdown files, `Documentation/` and the `LICENSE`, outside `Sources/`, `Tests/`, `Examples/`, `Fixtures/`, `Tools/`, `Scripts/` and `.github/`), or `.coderabbit.yaml` and documents, skips the jobs `test`, `example` and `thread-sanitizer`. A push to `main` is decided the same way, from the paths the push changes. Any other path, one that no rule lists included, and any other event (a push to another branch or of a tag, a schedule, a manual run and the release) runs them all, and so does a change that cannot be listed. A pull request that changes `.coderabbit.yaml` alone, a file that no job reads, skips `lint`, `docs`, `api` and `consumer` too. `--self-test` runs the rules on fixture lists of paths and checks that every job of `ci.yml` is in one of the two groups and asks for the answer of its group, and CI runs it on every run. To see what your branch would skip, run `Scripts/ci-changes.sh pull_request "$(git rev-parse origin/main)" refs/pull/0/merge` on it: the base is a full commit name, as CI passes it, and the script lists the paths as CI does, both names of a renamed file included. `Scripts/ci-changes.sh --classify pull_request refs/pull/0/merge` decides for a list of paths on standard input |
 
 The checks run code that the branch contains: `Package.swift`, every `Package@swift-*.swift` and the
 manifest blocks of the README are evaluated by Swift Package Manager, and `project.yml` by XcodeGen.
@@ -69,10 +68,9 @@ the root. The other scripts of `Scripts/` have not moved: `check-manifest.sh`,
   compiles first (`DEPENDENCIES`, which `PREPARE` fetches), and the list of the wrappers
   (`WRAPPERS`). A few values are also written elsewhere, and no check compares them with
   `devkit.conf`, so change both: `MODULE` in `Scripts/check-manifest.sh`, which does not run
-  devkit; `SWIFT_FLAGS` in `Package.swift` and in the compiler calls of the `floor` job of
-  `ci.yml`; `SOURCE_DIR` in that job and in `.swiftlint.yml`; the source folder of DMCore in that
-  job. A change to a command is a change to DMDevKit. The messages of a command name it as
-  `devkit <command>`, and the script of the same name runs it.
+  devkit; `SWIFT_FLAGS` in `Package.swift`; `SOURCE_DIR` in `.swiftlint.yml`. A change to a
+  command is a change to DMDevKit. The messages of a command name it as `devkit <command>`, and
+  the script of the same name runs it.
 - The first run builds `devkit`, takes several seconds and prints the lines that SwiftPM writes
   while it fetches DMDevKit; each next run adds about a second to the script. If `swift run`
   itself fails, a fetch or a build, the script ends with its status, which can be 1, the status
@@ -187,14 +185,13 @@ merge first, then tag. Before the tag is pushed:
    count. Run `Scripts/check-api.sh` first, since the baseline is the interface of the library
    only while that check passes.
 3. The tests of the package and of the example app pass on an iOS 17 simulator, the oldest version
-   the package supports. CI's oldest runtime is iOS 18.5, so this run is local:
+   the package supports. CI runs iOS 26.5 only, so this run is local:
    `xcodebuild test -scheme DMVariableBlurView -destination 'platform=iOS Simulator,name=iPhone 14,OS=17.5'`,
    and the same destination for the example's scheme. The snapshot references of iOS 17.5 were
    recorded on that iPhone 14 and only this local run compares them: CI compares the set of the
-   iPhone 17 on iOS 26.5, and its iOS 18.5 cell, an iPhone 16, has no set and skips the snapshot
-   tests. The references of iOS 18.6 were recorded on an iPhone 16 and are local too: the same
-   command with `name=iPhone 16,OS=18.6` compares them. Another device records a set of its own
-   on its first run and fails once.
+   iPhone 17 on iOS 26.5. The references of iOS 18.6 were recorded on an iPhone 16 and are local
+   too: the same command with `name=iPhone 16,OS=18.6` compares them. Another device records a set
+   of its own on its first run and fails once.
 
 On the tag, the release workflow runs the check, makes sure the tagged commit is on `main`, runs the
 whole CI workflow, makes sure the tag still points at the commit CI tested, and drafts a GitHub

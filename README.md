@@ -3,7 +3,7 @@
 A blur whose radius changes from row to row, for SwiftUI and UIKit.
 
 [![CI](https://github.com/nikolay-dementiev/DMVariableBlurView/actions/workflows/ci.yml/badge.svg)](https://github.com/nikolay-dementiev/DMVariableBlurView/actions/workflows/ci.yml)
-[![Swift 6.0+](https://img.shields.io/badge/Swift-6.0%2B-orange?style=flat-square)](#requirements)
+[![Swift 6.2+](https://img.shields.io/badge/Swift-6.2%2B-orange?style=flat-square)](#requirements)
 [![Platforms](https://img.shields.io/badge/Platforms-iOS_17%2B-yellowgreen?style=flat-square)](#requirements)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fnikolay-dementiev%2FDMVariableBlurView.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fnikolay-dementiev%2FDMVariableBlurView?ref=badge_shield)
@@ -88,17 +88,16 @@ Whether to ship it is your decision.
 
 ## Requirements
 
-- Swift 6.0 or later, which is Xcode 16 or later.
+- Swift 6.2 or later, which is Xcode 26 or later.
 - iOS 17 or later.
 
 What each version is verified with:
 
 | What | How |
 |---|---|
-| iOS 26.5 (Xcode 26.6), iOS 18.5 (Xcode 16.4) | the tests of the package and of the example app run on simulators in CI; the snapshot tests compare on iOS 26.5 only |
+| iOS 26.5 (Xcode 26.6) | the tests of the package and of the example app, the snapshot tests among them, run on simulators in CI |
 | iOS 17.5 (Xcode 27.2) | the same tests run on a simulator before each release; they ran for 2.0.0 |
 | iOS 18.6 (Xcode 27.2) | the same tests, with the snapshot references of that runtime, ran on a simulator for 2.0.0 |
-| Swift 6.0 (Xcode 16.0) | CI compiles the library with that compiler; no test runs with it |
 
 ## Installation
 
@@ -108,7 +107,7 @@ In Xcode, choose File > Add Package Dependencies and enter
 `https://github.com/nikolay-dementiev/DMVariableBlurView`. In a package manifest:
 
 ```swift
-// swift-tools-version: 6.0
+// swift-tools-version: 6.2
 import PackageDescription
 
 let package = Package(

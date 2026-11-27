@@ -58,8 +58,7 @@ the format of [Documentation/Review/README.md](../../../Documentation/Review/REA
   `preconditionFailure`, `assertionFailure`, `precondition`, `assert`, `dispatchPrecondition`,
   `abort` and `exit` followed by a parenthesis, force unwraps, implicitly unwrapped optionals,
   `try!` and `as!`), `Scripts/check-api.sh` (a declaration that loses its isolation while the
-  baseline still holds it), the `thread-sanitizer` job (a race that a test run shows) and the
-  `floor` job (a warning of the oldest compiler).
+  baseline still holds it) and the `thread-sanitizer` job (a race that a test run shows).
 - The layers and the dependencies: that is the lane architecture-and-dependencies.
 - The class of a change and its documentation: that is the lane public-api-and-documentation.
 - The quality of a test: that is the lane test-discrimination.
