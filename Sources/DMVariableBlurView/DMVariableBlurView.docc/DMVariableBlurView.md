@@ -32,3 +32,7 @@ it.
 
 - <doc:HandlingFailures>
 - ``DMVariableBlurError``
+
+### Performance
+
+- <doc:Signposts>
