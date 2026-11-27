@@ -2,6 +2,7 @@
 // (https://github.com/jtrivedi/VariableBlurView) and VariableBlur by nikstar
 // (https://github.com/nikstar/VariableBlur), both under the MIT licence.
 
+package import DMCore
 import UIKit
 
 /// A UIKit view that blurs what lies behind it, with a blur radius that changes from row to
@@ -29,6 +30,7 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
     private let installer: any VariableBlurInstaller
     private let failureLog: any FailureLog
     private let reduceTransparency: any ReduceTransparencySetting
+    private let tracing: any Tracing
 
     /// The reason the view cannot show the variable blur it was asked for, or `nil` when
     /// nothing prevents it.
@@ -108,12 +110,14 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
         maskRenderer: any MaskImageRenderer,
         installer: any VariableBlurInstaller,
         failureLog: any FailureLog,
-        reduceTransparency: any ReduceTransparencySetting
+        reduceTransparency: any ReduceTransparencySetting,
+        tracing: any Tracing
     ) {
         self.maskRenderer = maskRenderer
         self.installer = installer
         self.failureLog = failureLog
         self.reduceTransparency = reduceTransparency
+        self.tracing = tracing
         super.init(effect: UIBlurEffect(style: .regular))
         reduceTransparency.onChange { [weak self] in
             // With the option off the view ignores the setting, its changes included.
@@ -133,7 +137,8 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
             maskRenderer: collaborators.maskRenderer,
             installer: collaborators.installer,
             failureLog: collaborators.failureLog,
-            reduceTransparency: collaborators.reduceTransparency
+            reduceTransparency: collaborators.reduceTransparency,
+            tracing: collaborators.tracing
         )
     }
 
@@ -248,10 +253,12 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
         preparedBlur = nil
 
         if case .rejected(let error) = request {
+            tracing.emitEvent("apply", .label("rejected"))
             showPlainBlur()
             record(error, detail: nil)
             return true
         }
+        tracing.emitEvent("apply", .label("accepted"))
         present()
         return true
     }
@@ -299,6 +306,8 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
               !installer.isInstalled(maxBlurRadius: installedBlur.maxBlurRadius, mask: installedBlur.mask, on: self)
         else { return }
         let installation = installer.install(maxBlurRadius: installedBlur.maxBlurRadius, mask: installedBlur.mask, on: self)
+        // Only here, where an install runs: layout passes that find the blur in place stay silent.
+        tracing.emitEvent("reinstall")
         if case .unavailable(let reason) = installation {
             // Trying again in every layout pass would not change the answer of the system. The
             // layer holds what it held before the attempt, which can be the standard filters
@@ -351,7 +360,7 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
             do {
                 blur = InstalledBlur(
                     maxBlurRadius: configuration.maxBlurRadius,
-                    mask: try maskRenderer.makeMaskImage(for: profile)
+                    mask: try tracing.measure("maskRender") { try maskRenderer.makeMaskImage(for: profile) }
                 )
             } catch {
                 showPlainBlur()
@@ -369,6 +378,7 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
             return
         }
         let installation = installer.install(maxBlurRadius: blur.maxBlurRadius, mask: blur.mask, on: self)
+        tracing.emitEvent("install", .label(installation.traceLabel))
         if case .unavailable(let reason) = installation {
             showPlainBlur()
             record(.effectUnavailable, detail: String(describing: reason))
@@ -399,6 +409,7 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
 
     private func record(_ error: DMVariableBlurError, detail: String?) {
         failure = error
+        tracing.emitEvent("failure")
         guard let failureHandler else {
             failureLog.record(error, detail: detail)
             return
@@ -407,6 +418,22 @@ public final class DMVariableBlurUIView: UIVisualEffectView {
         // host. The task holds the handler of this moment and not the view.
         Task { @MainActor in
             failureHandler(error)
+        }
+    }
+}
+
+private extension VariableBlurInstallation {
+    /// The outcome as the label of a signpost. A label is a constant of the library, so each
+    /// reason is spelt here.
+    var traceLabel: StaticString {
+        switch self {
+        case .installed: "installed"
+        case .unavailable(.filterClassMissing): "filterClassMissing"
+        case .unavailable(.filterFactoryMissing): "filterFactoryMissing"
+        case .unavailable(.filterTypeMissing): "filterTypeMissing"
+        case .unavailable(.filterCreationFailed): "filterCreationFailed"
+        case .unavailable(.backdropMissing): "backdropMissing"
+        case .unavailable(.notApplied): "notApplied"
         }
     }
 }
