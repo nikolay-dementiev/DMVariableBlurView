@@ -96,8 +96,8 @@ What each version is verified with:
 | What | How |
 |---|---|
 | iOS 26.5 (Xcode 26.6) | the tests of the package and of the example app, the snapshot tests among them, run on simulators in CI |
-| iOS 17.5 (Xcode 27.2) | the same tests run on a simulator before each release; they ran for 2.0.0 |
-| iOS 18.6 (Xcode 27.2) | the same tests, with the snapshot references of that runtime, ran on a simulator for 2.0.0 |
+| iOS 17.5 (Xcode 27.2) | the same tests run on a simulator before each release; they ran for 2.1.0 |
+| iOS 18.6 (Xcode 27.2) | the same tests, with the snapshot references of that runtime, ran on a simulator for 2.1.0 |
 
 ## Installation
 
