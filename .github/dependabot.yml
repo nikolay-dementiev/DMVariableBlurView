@@ -1,7 +1,8 @@
 # The actions of the workflows are pinned to commits. Dependabot proposes the newer ones.
-# The package itself has no dependency to watch, and the snapshot library of the example's
-# tests is pinned to an exact release that is changed by hand. The tools manifest in Tools/ pins
-# DMDevKit, and Dependabot proposes its newer releases too.
+# No entry watches DMCore, the one dependency of the package, which the manifest requires as a
+# range, and the snapshot library of the example's tests is pinned to an exact release that is
+# changed by hand. The tools manifest in Tools/ pins DMDevKit, and Dependabot proposes its newer
+# releases too.
 version: 2
 updates:
   - package-ecosystem: github-actions

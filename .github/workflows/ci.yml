@@ -368,6 +368,7 @@ jobs:
           flags=(-target arm64-apple-ios17.0-simulator -sdk "$sdk" -swift-version 6
             -enable-upcoming-feature ExistentialAny -O -parse-as-library -whole-module-optimization)
           # The library imports DMCore, so that module comes first.
+          mkdir -p "$RUNNER_TEMP/modules"
           dependency=()
           while IFS= read -r -d '' file; do
             dependency+=("$file")
