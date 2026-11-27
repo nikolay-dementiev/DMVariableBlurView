@@ -300,8 +300,9 @@ jobs:
     # the library compile with the Swift 6.0 compiler of Xcode 16.0 against its iOS
     # simulator SDK, optimized, in the language mode, for the platform and with the
     # upcoming feature the manifest declares, warnings as errors. Object code is generated,
-    # so the diagnostics that run after type checking run too. What it does not prove:
-    # nothing is linked and no test runs here; the test job does that with newer toolchains.
+    # so the diagnostics that run after type checking run too. DMCore compiles with the same
+    # compiler and flags, its own warnings allowed. What it does not prove: nothing is
+    # linked and no test runs here; the test job does that with newer toolchains.
     #
     # The compiler is called directly, as devkit check-api does, because it needs the
     # SDK only. An xcodebuild destination of Xcode 16.0 needs a simulator platform that the
@@ -358,19 +359,30 @@ jobs:
               print(f"floor: the manifest no longer matches the compiler flags: {problem}")
           sys.exit(1 if problems else 0)
           PY
+      # The version that Package.resolved pins, or a failure: the compiler reads these sources.
+      - name: Fetch the dependency
+        run: xcrun swift package --force-resolved-versions resolve
       - name: Compile with Swift 6.0
         run: |
+          sdk="$(xcrun --sdk iphonesimulator --show-sdk-path)"
+          flags=(-target arm64-apple-ios17.0-simulator -sdk "$sdk" -swift-version 6
+            -enable-upcoming-feature ExistentialAny -O -parse-as-library -whole-module-optimization)
+          # The library imports DMCore, so that module comes first.
+          dependency=()
+          while IFS= read -r -d '' file; do
+            dependency+=("$file")
+          done < <(find .build/checkouts/DMCore/Sources/DMCore -name '*.swift' -print0)
+          xcrun --sdk iphonesimulator swiftc "${flags[@]}" \
+            -module-name DMCore -package-name DMCore \
+            -emit-module -emit-module-path "$RUNNER_TEMP/modules/DMCore.swiftmodule" \
+            "${dependency[@]}"
           sources=()
           while IFS= read -r -d '' file; do
             sources+=("$file")
           done < <(find Sources/DMVariableBlurView -name '*.swift' -print0)
-          xcrun --sdk iphonesimulator swiftc \
-            -target arm64-apple-ios17.0-simulator \
-            -sdk "$(xcrun --sdk iphonesimulator --show-sdk-path)" \
-            -module-name DMVariableBlurView \
-            -package-name DMVariableBlurView \
-            -swift-version 6 -enable-upcoming-feature ExistentialAny \
-            -O -parse-as-library -whole-module-optimization -warnings-as-errors \
+          xcrun --sdk iphonesimulator swiftc "${flags[@]}" \
+            -module-name DMVariableBlurView -package-name DMVariableBlurView \
+            -I "$RUNNER_TEMP/modules" -warnings-as-errors \
             -c -o "$RUNNER_TEMP/DMVariableBlurView.o" \
             "${sources[@]}"
 
