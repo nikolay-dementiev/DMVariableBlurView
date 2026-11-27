@@ -135,8 +135,8 @@ pod 'DMVariableBlurView', '1.1.0'
 ```
 
 Version 1.1.0 is the last release published to the CocoaPods trunk, which plans to become
-read-only on 2 December 2026. Later releases come through Swift Package Manager only. The
-podspec stays in the repository, and CI lints it.
+read-only on 2 December 2026. Later releases come through Swift Package Manager only, and the
+repository has no podspec for them; the tag 1.1.0 keeps the one of that release.
 
 ## Quick start
 
@@ -401,7 +401,7 @@ How the package is tested:
 - UI tests: the app switches to the dark appearance and a screenshot is measured, and a tap
   reaches a button under a blur that lets touches through.
 - CI also lints, checks the public interface against a committed baseline, builds a consumer
-  package and the documentation, lints the podspec, and fails below a coverage floor.
+  package and the documentation, and fails below a coverage floor.
 
 ## Versions and migration
 

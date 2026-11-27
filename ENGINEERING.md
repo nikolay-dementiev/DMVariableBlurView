@@ -202,8 +202,8 @@ is a breaking change too, and needs a major version.
 
 - The manifest declares `swift-tools-version: 6.0` and the Swift 6 language mode, so the package
   needs Xcode 16.0 or later. `ExistentialAny` is on in both targets.
-- The supported platform is iOS 17.0 and later. The manifest declares no other platform, and the
-  deployment target of the podspec is iOS 17.0. Raising the platform floor, or the
+- The supported platform is iOS 17.0 and later. The manifest declares no other platform.
+  Raising the platform floor, or the
   `swift-tools-version`, is a breaking change.
 - `.github/workflows/ci.yml` is the place that says what CI runs; this file does not restate it.
   The policy needs three facts. The oldest iOS runtime that CI runs is iOS 18.5. iOS 17.5 runs
@@ -217,8 +217,8 @@ is a breaking change too, and needs a major version.
   `thread-sanitizer` job with `halt_on_error=1` and without it: the sanitizer aborts the test
   process and the run fails. A snapshot reference that is missing in the newest cell of the
   `example` job fails the test and is not written. A warning in code that only a Release build
-  compiles fails three routes, the Release step of the `test` job, the `floor` job and the
-  `podspec` job, and none of the Debug routes sees it.
+  compiles fails two routes, the Release step of the `test` job and the `floor` job, and none of
+  the Debug routes sees it.
 - "Oldest tested runtime" and "oldest supported version" are different statements. The supported
   version is a promise: the platform the manifest declares. The tested runtime is evidence: the
   oldest runtime a test has run on. That is iOS 17.5 against a promise of iOS 17.0.
@@ -233,9 +233,9 @@ is a breaking change too, and needs a major version.
   sources, resolves and builds for the iOS simulator and that its consumer resolves this package
   only, that `Fixtures/Consumer` builds, that no resource bundle ships and that every Swift block
   of the README compiles, a manifest block being evaluated. The URL the README names must be the
-  `:git` source of the podspec, character for character, and its version that of the newest dated
-  release heading of `CHANGELOG.md`: the podspec is frozen, and a tag is not there before a
-  release, in a shallow clone or in a pull request from a fork. Its `--self-test` runs the readers
+  repository URL that the script holds, character for character, and its version that of the newest
+  dated release heading of `CHANGELOG.md`: a tag is not there before a release, in a shallow clone
+  or in a pull request from a fork. Its `--self-test` runs the readers
   of the manifest, of the README and of `Package.resolved` on built-in texts, and not the shell
   around them. The approval itself is a rule the reviewer applies.
 - XCTest is the test framework. A test goes through the public API and through the `package`
@@ -244,7 +244,7 @@ is a breaking change too, and needs a major version.
   maintainer's decision.
 - The manifest sets no `defaultIsolation`: it would change the inferred isolation of public
   declarations, which is observable behaviour.
-- The CocoaPods channel is frozen at 1.1.0 (README, "CocoaPods").
+- The CocoaPods channel ended with 1.1.0 (README, "CocoaPods"): the repository has no podspec.
 
 ## Where the rest lives
 
