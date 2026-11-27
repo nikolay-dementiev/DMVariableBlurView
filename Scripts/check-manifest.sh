@@ -24,16 +24,16 @@
 #    for the iOS simulator: a consumer that depends on the checkout by path cannot show a
 #    failure of a version requirement, and only a build shows a wrong product or package
 #    name, or a platform below the package's. The Package.resolved of that build pins the
-#    copy and a 1.x release of DMCore and nothing else, so a consumer of the package resolves
-#    these only: any other pin is named with its kind, version and location, and a file that
-#    cannot be read, that holds no pin or more than one pin of the copy, or that is not of
-#    format version 2 or 3 is a failure. The build keeps its own cache, so manifests and
-#    repositories cached on the machine of whoever runs this cannot stand in for what the
-#    build resolves. The copy is tagged with the version the README names, so the README
-#    is compared with what a consumer is told elsewhere: its URL must be REPOSITORY_URL
-#    below, character for character, and its version that of the newest release heading of
-#    CHANGELOG.md. A heading with nothing after its bracket, such as Unreleased, is not a
-#    release heading; any other must read '## [x.y.z] - YYYY-MM-DD', or it is named and
+#    copy, at most a 1.x release of DMCore beside it, and nothing else, so a consumer of the
+#    package resolves no other package: any other pin is named with its kind, version and
+#    location, and a file that cannot be read, that holds no pin or more than one pin of the
+#    copy, or that is not of format version 2 or 3 is a failure. The build keeps its own cache,
+#    so manifests and repositories cached on the machine of whoever runs this cannot stand in
+#    for what the build resolves. The copy is tagged with the version the README names, so the
+#    README is compared with what a consumer is told elsewhere: its URL must be
+#    REPOSITORY_URL below, character for character, and its version that of the newest release
+#    heading of CHANGELOG.md. A heading with nothing after its bracket, such as Unreleased, is
+#    not a release heading; any other must read '## [x.y.z] - YYYY-MM-DD', or it is named and
 #    not passed over for an older release.
 # 3. Fixtures/Consumer builds. It uses every call shape of the released API and every
 #    declaration added since, so if it stops building, a consumer's code stops building.
@@ -171,6 +171,8 @@ self_test() {
     check "a later minor of the approved dependency" 0 "" "{\"version\":3,\"pins\":[$dm,$(core_pin '{"revision":"abc","version":"1.12.0"}')]}"
     check "the next major of the approved dependency is named" 1 "dmcore (remoteSourceControl, 2.0.0," \
         "{\"version\":3,\"pins\":[$dm,$(core_pin '{"revision":"abc","version":"2.0.0"}')]}"
+    check "a major that starts with the same digit is named" 1 "dmcore (remoteSourceControl, 10.0.0," \
+        "{\"version\":3,\"pins\":[$dm,$(core_pin '{"revision":"abc","version":"10.0.0"}')]}"
     check "the approved dependency at a revision is named" 1 "dmcore (remoteSourceControl, abc," \
         "{\"version\":3,\"pins\":[$dm,$(core_pin '{"revision":"abc","branch":"main"}')]}"
     check "the approved dependency from another location is named" 1 "https://example.invalid/DMCore.git)" \
@@ -212,6 +214,7 @@ self_test() {
     manifest_case "the approved package by a local path is named" 1 "dependency 'dmcore' is declared" '{"dependencies":[{"fileSystem":[{"identity":"dmcore","path":"/x/DMCore"}]}],"targets":[]}'
     manifest_case "the approved name from a registry is named" 1 "dependency 'dmcore' is declared" '{"dependencies":[{"registry":[{"identity":"dmcore","requirement":{"range":[{"lowerBound":"1.0.0","upperBound":"2.0.0"}]}}]}],"targets":[]}'
     with_core="$(core)"
+    manifest_case "another package at the URL of the approved one is named" 1 "dependency 'other' is declared" "${with_core/dmcore/other}"
     manifest_case "another dependency beside the approved one is named" 1 "dependency 'swift-log' is declared" \
         "{\"dependencies\":[{\"sourceControl\":[$plain]},${with_core#'{"dependencies":['}"
     manifest_case "a dependency by path is named" 1 "dependency 'local' is declared" '{"dependencies":[{"fileSystem":[{"identity":"local","path":"/x"}]}],"targets":[]}'
