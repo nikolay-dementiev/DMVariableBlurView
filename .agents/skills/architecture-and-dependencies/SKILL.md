@@ -52,9 +52,9 @@ format of [Documentation/Review/README.md](../../../Documentation/Review/README.
 - What a CI script already enforces: `Scripts/lint.sh` (the rule `domain_imports` reports every
   other import of `Domain`, and SwiftLint's own rules), `Scripts/check-lint-contract.sh` (that each
   rule of `devkit.conf` fires on the lines of its fixtures that expect it and on no other line),
-  `Scripts/check-manifest.sh` (a dependency, a plugin, a plugin target or a binary target with a
-  url in a manifest) and the `floor` job (a manifest that the oldest compiler cannot load, or whose
-  platform, language mode or Swift settings differ from the flags of the job).
+  `Scripts/check-manifest.sh` (a dependency other than DMCore, a plugin, a plugin target or a
+  binary target with a url in a manifest) and the `floor` job (a manifest that the oldest compiler
+  cannot load, or whose platform, language mode or Swift settings differ from the flags of the job).
 - How a view behaves: that is the lane correctness-and-concurrency.
 - The class of a change and its documentation: that is the lane public-api-and-documentation.
 - The quality of a test: that is the lane test-discrimination.

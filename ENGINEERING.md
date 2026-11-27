@@ -33,7 +33,7 @@ than a reading of semantic versioning that allows a patch release for a fix of a
 | A new protocol requirement without a default implementation (the package declares no public protocol today) | breaking | major |
 | A new protocol requirement with a default implementation | additive or breaking, see below | minor or major |
 | An added overload | additive, or breaking if an existing call now resolves to it or becomes ambiguous | minor or major |
-| Depending on a new major version of a dependency (the package has none) | breaking | major |
+| Depending on a new major version of a dependency, DMCore being the one the package has | breaking | major |
 | Raising the minimum version of a dependency within the same major | additive or breaking, see below | minor or major |
 | A CI or tool pin that leaves the compiler of the `api` job alone, such as a runner image or the SwiftLint version | none | patch, or no release |
 | A pure refactor | none | patch, or no release |
@@ -50,11 +50,12 @@ Raising the minimum version of a dependency within the same major version is add
 moves no platform floor, changes no behaviour and asks nothing of a consumer. It then needs a minor
 release and its own line in the changelog. A raise that does any of these is breaking.
 
-The package has no dependency today. `Tools/Package.swift` depends on DMDevKit, the development
-tooling that the wrappers listed by `WRAPPERS` in `devkit.conf` forward to, but it is a package of
-its own: SwiftPM reads the manifest at the root of a dependency only, so a consumer of this package
-does not fetch DMDevKit, and the root manifest that this policy and `Scripts/check-manifest.sh`
-govern does not change.
+The package has one dependency, DMCore, a package of the same maintainer: it declares the tracing
+port that the views report their work to, and a spy for the tests. No public declaration names a
+type of it. `Tools/Package.swift` depends on DMDevKit, the development tooling that the wrappers
+listed by `WRAPPERS` in `devkit.conf` forward to, but it is a package of its own: SwiftPM reads the
+manifest at the root of a dependency only, so a consumer of this package does not fetch DMDevKit,
+and the root manifest that this policy and `Scripts/check-manifest.sh` govern does not change.
 
 Who checks. The `api` job of CI runs `Scripts/check-api.sh --self-test` and `Scripts/check-api.sh`
 on every pull request and fails it when the public interface differs from the baseline; on a pull
@@ -223,19 +224,20 @@ is a breaking change too, and needs a major version.
   version is a promise: the platform the manifest declares. The tested runtime is evidence: the
   oldest runtime a test has run on. That is iOS 17.5 against a promise of iOS 17.0.
 - No third-party dependency without the maintainer's approval. `Scripts/check-manifest.sh` fails on
-  any dependency, on a plugin used by any target, on a plugin target and on a binary target with a
-  url (code that is downloaded when the package is resolved), in `Package.swift` and in every
-  `Package@swift-*.swift`, which SwiftPM reads in place of it when a consumer's tools are newer,
-  and names the problem after its file: it keeps failing until the maintainer approves the
+  every dependency but the approved one, DMCore at the URL that the script holds, from 1.0.0 up to
+  the next major version, on a plugin used by any target, on a plugin target and on a binary target
+  with a url (code that is downloaded when the package is resolved), in `Package.swift` and in
+  every `Package@swift-*.swift`, which SwiftPM reads in place of it when a consumer's tools are
+  newer, and names the problem after its file: it keeps failing until the maintainer approves the
   dependency and the check changes in the same pull request. A binary target with a path is
   carried by the repository and is not refused. The script also checks that the installation
   manifest of the README, with its URL pointed at a tagged copy of the tracked manifest and
   sources, resolves and builds for the iOS simulator and that its consumer resolves this package
-  only, that `Fixtures/Consumer` builds, that no resource bundle ships and that every Swift block
-  of the README compiles, a manifest block being evaluated. The URL the README names must be the
-  repository URL that the script holds, character for character, and its version that of the newest
-  dated release heading of `CHANGELOG.md`: a tag is not there before a release, in a shallow clone
-  or in a pull request from a fork. Its `--self-test` runs the readers
+  and DMCore only, that `Fixtures/Consumer` builds, that no resource bundle ships and that every
+  Swift block of the README compiles, a manifest block being evaluated. The URL the README names
+  must be the repository URL that the script holds, character for character, and its version that of
+  the newest dated release heading of `CHANGELOG.md`: a tag is not there before a release, in a
+  shallow clone or in a pull request from a fork. Its `--self-test` runs the readers
   of the manifest, of the README and of `Package.resolved` on built-in texts, and not the shell
   around them. The approval itself is a rule the reviewer applies.
 - XCTest is the test framework. A test goes through the public API and through the `package`
