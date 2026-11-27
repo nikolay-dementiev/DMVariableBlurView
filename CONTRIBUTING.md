@@ -34,7 +34,7 @@ fault of the script cannot turn the check into another one.
 | `Scripts/check-lint-tool.sh` | that the helper which fetches SwiftLint (the `swiftlint-tool.sh` of DMDevKit) does so safely when two runs overlap: the tool stays whole while another run unpacks, two first-time runs both succeed, a wrong checksum never reaches the unpack, and a failed fetch leaves nothing behind. It needs no network and no SwiftLint |
 | `Scripts/check-wrappers.sh` | that the nine scripts which `WRAPPERS` in `devkit.conf` lists forward to `devkit` faithfully (`lint`, `check-lint-contract`, `check-lint-tool`, `prepare-simulator`, `check-api`, `check-release`, `export-coverage`, `count-tests` and this one): `devkit check-wrappers` copies each into a scratch repository whose path holds a space and, with a shim in place of `swift`, checks the command and the arguments that reach `devkit`, the directory, the exit status and both standard streams, that the script ends in an `exec`, that `DEVELOPER_DIR` and standard input reach `swift` as the caller had them, that the first line is `#!/bin/bash`, and that each script works from any directory. Without `WRAPPERS` it ends with status 2 |
 | `Scripts/coverage-gate.sh <result bundle>` | the line coverage of the library against its floor |
-| `Scripts/check-release.sh <version>` | that the newest heading of `CHANGELOG.md` is that version, with a release date that is a day of the calendar and notes under it, and that the podspec still names 1.1.0, the version the pod is frozen at; it also takes the previous release from the tags (the highest release tag below the version that the commit reaches) and refuses a changelog whose heading below the newest does not name it, is not lower than the version or skips a reachable tag; it compares the release with it and refuses a version that keeps its major version after a removed or changed line of the interface, a breaking-changes heading in the notes (a heading of any level, or a bold line, whose first word is "breaking") or a break reported by the digester where there is one; it refuses a release whose previous release is not an ancestor of the commit, and stops with exit 2 in a shallow clone. Under GitHub Actions the reminder for added lines is also a warning annotation. `--self-test` runs these decisions on scratch repositories |
+| `Scripts/check-release.sh <version>` | that the newest heading of `CHANGELOG.md` is that version, with a release date that is a day of the calendar and notes under it; it also takes the previous release from the tags (the highest release tag below the version that the commit reaches) and refuses a changelog whose heading below the newest does not name it, is not lower than the version or skips a reachable tag; it compares the release with it and refuses a version that keeps its major version after a removed or changed line of the interface, a breaking-changes heading in the notes (a heading of any level, or a bold line, whose first word is "breaking") or a break reported by the digester where there is one; it refuses a release whose previous release is not an ancestor of the commit, and stops with exit 2 in a shallow clone. Under GitHub Actions the reminder for added lines is also a warning annotation. `--self-test` runs these decisions on scratch repositories |
 | `Scripts/export-coverage.sh <result bundle> <target> <output>` | not a check: it exports the line coverage of the library from a result bundle to LCOV, for CI to upload to Codecov; the tests of the exporter are DMDevKit's |
 | `Scripts/count-tests.sh [--label <text>] <result bundle> <glob>...` | that every test method of the files the globs name ran and passed in the result bundle: a run that lost a test class or skipped a test passes the build and the coverage floor too |
 | `Scripts/check-example-project.sh` | that the Xcode project of the example matches its XcodeGen spec |
@@ -65,12 +65,14 @@ the root. The other scripts of `Scripts/` have not moved: `check-manifest.sh`,
   fetch DMDevKit.
 - `devkit.conf` holds the settings of this repository that the commands read: the module and the
   library folder, the compiler flags of the interface check, the lint rules and the folder of their
-  fixtures, the version the pod is frozen at, and the list of the wrappers (`WRAPPERS`). A few
-  values are also written elsewhere, and no check compares them with `devkit.conf`, so change
-  both: `MODULE` in `Scripts/check-manifest.sh`, which does not run devkit; `SWIFT_FLAGS` in
-  `Package.swift` and in the compiler call of the `floor` job of `ci.yml`; `SOURCE_DIR` in that
-  job and in `.swiftlint.yml`. A change to a command is a change to DMDevKit. The messages of a
-  command name it as `devkit <command>`, and the script of the same name runs it.
+  fixtures, the fact that there is no pod (`COCOAPODS`), the modules that the interface check
+  compiles first (`DEPENDENCIES`, which `PREPARE` fetches), and the list of the wrappers
+  (`WRAPPERS`). A few values are also written elsewhere, and no check compares them with
+  `devkit.conf`, so change both: `MODULE` in `Scripts/check-manifest.sh`, which does not run
+  devkit; `SWIFT_FLAGS` in `Package.swift` and in the compiler calls of the `floor` job of
+  `ci.yml`; `SOURCE_DIR` in that job and in `.swiftlint.yml`; the source folder of DMCore in that
+  job. A change to a command is a change to DMDevKit. The messages of a command name it as
+  `devkit <command>`, and the script of the same name runs it.
 - The first run builds `devkit`, takes several seconds and prints the lines that SwiftPM writes
   while it fetches DMDevKit; each next run adds about a second to the script. If `swift run`
   itself fails, a fetch or a build, the script ends with its status, which can be 1, the status
@@ -158,10 +160,9 @@ A release starts from a tag that is the version itself, such as `1.1.0`, on a co
 merge first, then tag. Before the tag is pushed:
 
 1. The newest heading of `CHANGELOG.md` is `## [<version>] -` with the release date and the notes
-   under it. `Scripts/check-release.sh <version>` checks it. The podspec stays at 1.1.0 because
-   the pod is frozen. The installation manifest in the README asks for `from: "<version>"` in the
-   same change as the heading: `Scripts/check-manifest.sh` compares it with the newest dated
-   heading.
+   under it. `Scripts/check-release.sh <version>` checks it. The installation manifest in the
+   README asks for `from: "<version>"` in the same change as the heading:
+   `Scripts/check-manifest.sh` compares it with the newest dated heading.
 2. Every breaking change, as ENGINEERING.md defines it, needs a new major version, with no
    exception for a small one. A removed or changed line of the interface is one:
    `Scripts/check-api.sh --since <previous version>` lists them. A change of behaviour is another,
