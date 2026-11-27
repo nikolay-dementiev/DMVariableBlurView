@@ -24,8 +24,9 @@ format of [Documentation/Review/README.md](../../../Documentation/Review/README.
   (ENGINEERING.md, "was renamed while the include of `domain_imports` was left alone")
 - A further layer, such as a view model or a coordinator.
   (ENGINEERING.md, "There is no further layer, no view model and no coordinator")
-- A collaborator protocol that is not `package`, or a concrete collaborator created in a file other
-  than `UI/VariableBlurCollaborators.swift`, where `VariableBlurCollaborators.system` creates them.
+- A collaborator protocol of this package that is not `package` (the tracing port is DMCore's), or
+  a concrete collaborator created in a file other than `UI/VariableBlurCollaborators.swift`, where
+  `VariableBlurCollaborators.system` creates them.
   (ENGINEERING.md, "Collaborators and the composition root")
 - A new private name of the system, such as a class, a selector, a filter type or a key, that the
   pull request does not name as the maintainer's decision, or that the README, "Private API", and

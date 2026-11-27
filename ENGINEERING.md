@@ -133,7 +133,10 @@ is a breaking change too, and needs a major version.
   an import restricts nothing inside one module; the reviewer applies it. There is no further
   layer, no view model and no coordinator.
 - **Collaborators and the composition root.** The four protocols have `package` access, so a test
-  inside the package replaces a collaborator and a consumer cannot. The concrete implementations
+  inside the package replaces a collaborator and a consumer cannot. The fifth collaborator is the
+  tracing port of DMCore, `Tracing`: DMCore declares it as public, and the files here that name it
+  write `package import DMCore` and take it through `package` declarations only, so a consumer
+  cannot replace it either. The concrete implementations, `SystemTracing` of DMCore among them,
   are created in one place, `VariableBlurCollaborators.system`
   (`UI/VariableBlurCollaborators.swift`), and the two public views take them from there; the
   reviewer applies that no other file of the library creates one.
@@ -241,8 +244,9 @@ is a breaking change too, and needs a major version.
   of the manifest, of the README and of `Package.resolved` on built-in texts, and not the shell
   around them. The approval itself is a rule the reviewer applies.
 - XCTest is the test framework. A test goes through the public API and through the `package`
-  declarations of the module, the four protocols, their implementations and the domain values; it
-  never uses `@testable import`, and the reviewer applies that. Another framework comes only by the
+  declarations of the module, the four protocols, their implementations and the domain values, and
+  reads the signposts of a view from the spy that DMCore provides in `DMCoreTesting`; it never
+  uses `@testable import`, and the reviewer applies that. Another framework comes only by the
   maintainer's decision.
 - The manifest sets no `defaultIsolation`: it would change the inferred isolation of public
   declarations, which is observable behaviour.
