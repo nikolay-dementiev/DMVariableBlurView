@@ -144,6 +144,9 @@ jobs:
       # The generic destination builds arm64 and x86_64 for the simulator, and ONLY_ACTIVE_ARCH does
       # not stop it. The runners and their simulators are arm64, and the destination with its udid
       # that this step replaced built that one only, so ARCHS keeps the build as short as it was.
+      # Xcode compiles a dependency resolved by URL with its warnings suppressed, which the compiler
+      # refuses beside warnings as errors. SWIFT_SUPPRESS_WARNINGS=NO ends that conflict, here and
+      # in the release build below, so a warning of DMCore fails the build too.
       - name: Build the package for testing
         run: |
           set -o pipefail
@@ -154,7 +157,7 @@ jobs:
             -destination 'generic/platform=iOS Simulator' \
             -enableCodeCoverage YES \
             ARCHS=arm64 \
-            SWIFT_TREAT_WARNINGS_AS_ERRORS=YES \
+            SWIFT_TREAT_WARNINGS_AS_ERRORS=YES SWIFT_SUPPRESS_WARNINGS=NO \
             | tee .build/results/ci/package.log
       # The rule that finds unused imports needs the compiler commands of a clean build. It reads
       # the log of the build and not the simulator, so it runs while the simulator still boots.
@@ -194,7 +197,7 @@ jobs:
             -configuration Release \
             -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' \
-            SWIFT_TREAT_WARNINGS_AS_ERRORS=YES
+            SWIFT_TREAT_WARNINGS_AS_ERRORS=YES SWIFT_SUPPRESS_WARNINGS=NO
       # The floor was measured with the toolchain of this cell, Xcode 26.6.
       - name: Check the coverage floor
         if: matrix.newest

@@ -11,8 +11,12 @@ and compiles the library with Xcode 16.0. The
 library is for iOS only, so its tests run on a simulator, with warnings as errors:
 
 ```bash
-xcodebuild test -scheme DMVariableBlurView -destination 'platform=iOS Simulator,name=iPhone 17,OS=26.5' -enableCodeCoverage YES SWIFT_TREAT_WARNINGS_AS_ERRORS=YES
+xcodebuild test -scheme DMVariableBlurView -destination 'platform=iOS Simulator,name=iPhone 17,OS=26.5' -enableCodeCoverage YES SWIFT_TREAT_WARNINGS_AS_ERRORS=YES SWIFT_SUPPRESS_WARNINGS=NO
 ```
+
+Xcode compiles a dependency resolved by URL, here DMCore, with its warnings suppressed, and the
+compiler refuses that beside warnings as errors. `SWIFT_SUPPRESS_WARNINGS=NO` ends the conflict, so
+a warning of DMCore fails the run too.
 
 ## The checks CI runs
 
