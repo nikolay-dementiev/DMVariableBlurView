@@ -57,7 +57,7 @@ final class BlurUIViewTracingTests: XCTestCase {
             (.filterTypeMissing, "filterTypeMissing"),
             (.filterCreationFailed, "filterCreationFailed"),
             (.backdropMissing, "backdropMissing"),
-            (.notApplied, "notApplied"),
+            (.notApplied, "notApplied")
         ]
         for (reason, label) in reasons {
             let sut = try makeSUT()
@@ -100,11 +100,69 @@ final class BlurUIViewTracingTests: XCTestCase {
         XCTAssertEqual(sut.tracing.calls, [applyAccepted, maskBegan, maskEnded, installed])
     }
 
-    func test_layout_blurReplaced_tracesAReinstall() throws {
+    func test_apply_maskRender_runsInsideItsInterval() throws {
+        let sut = try makeSUT()
+        var callsDuringTheRender: [TracingSpy.Call] = []
+        sut.renderer.onRender = { [tracing = sut.tracing] in callsDuringTheRender = tracing.calls }
+
+        sut.view.apply(validConfiguration)
+
+        XCTAssertEqual(callsDuringTheRender, [applyAccepted, maskBegan])
+    }
+
+    func test_settingChange_viewThatFollowsReduceTransparency_tracesTheInstallsWithoutAnApply() throws {
+        let sut = try makeSUT(reduceTransparencyEnabled: true)
+        sut.view.respectsReduceTransparency = true
+        sut.view.apply(validConfiguration)
+
+        sut.setting.simulateChange(to: false)
+        sut.setting.simulateChange(to: true)
+        sut.setting.simulateChange(to: false)
+
+        XCTAssertEqual(sut.tracing.calls, [applyAccepted, maskBegan, maskEnded, installed, installed])
+    }
+
+    func test_optionTurnedOff_whileTheSettingIsOn_tracesTheRenderAndTheInstallWithoutAnApply() throws {
+        let sut = try makeSUT(reduceTransparencyEnabled: true)
+        sut.view.respectsReduceTransparency = true
+        sut.view.apply(validConfiguration)
+
+        sut.view.respectsReduceTransparency = false
+
+        XCTAssertEqual(sut.tracing.calls, [applyAccepted, maskBegan, maskEnded, installed])
+    }
+
+    func test_layout_effectRemovedAndBack_tracesTheInstallAsAReinstall() throws {
+        let sut = try makeSUT()
+        sut.view.effect = nil
+        sut.view.apply(validConfiguration)
+        layOut(sut.view)
+
+        XCTAssertEqual(
+            sut.tracing.calls,
+            [applyAccepted, maskBegan, maskEnded],
+            "a view without an effect draws the mask and installs nothing, in a layout pass too"
+        )
+
+        // The effect that comes back has a new backdrop, which does not carry the blur.
+        sut.installer.blurIsStillInstalled = false
+        sut.view.effect = UIBlurEffect(style: .regular)
+        layOut(sut.view)
+
+        XCTAssertEqual(
+            sut.tracing.calls,
+            [applyAccepted, maskBegan, maskEnded, reinstalled],
+            "the first layout pass with an effect installs and traces a reinstall"
+        )
+    }
+
+    func test_layout_blurReplaced_tracesOneReinstall() throws {
         let sut = try makeSUT()
         sut.view.apply(validConfiguration)
         sut.installer.blurIsStillInstalled = false
 
+        layOut(sut.view)
+        sut.installer.blurIsStillInstalled = true
         layOut(sut.view)
 
         XCTAssertEqual(sut.tracing.calls, [applyAccepted, maskBegan, maskEnded, installed, reinstalled])
@@ -147,7 +205,9 @@ final class BlurUIViewTracingTests: XCTestCase {
 
     private struct SUT {
         let view: DMVariableBlurUIView
+        let renderer: MaskImageRendererSpy
         let installer: VariableBlurInstallerSpy
+        let setting: ReduceTransparencySettingSpy
         let tracing: TracingSpy
     }
 
@@ -157,16 +217,18 @@ final class BlurUIViewTracingTests: XCTestCase {
         renderer: MaskImageRendererSpy? = nil,
         reduceTransparencyEnabled: Bool = false
     ) throws -> SUT {
+        let renderer = try renderer ?? MaskImageRendererSpy(result: .success(makeMaskImage()))
         let installer = VariableBlurInstallerSpy()
+        let setting = ReduceTransparencySettingSpy(isEnabled: reduceTransparencyEnabled)
         let tracing = TracingSpy()
         let view = DMVariableBlurUIView(
-            maskRenderer: try renderer ?? MaskImageRendererSpy(result: .success(makeMaskImage())),
+            maskRenderer: renderer,
             installer: installer,
             failureLog: FailureLogSpy(),
-            reduceTransparency: ReduceTransparencySettingSpy(isEnabled: reduceTransparencyEnabled),
+            reduceTransparency: setting,
             tracing: tracing
         )
-        return SUT(view: view, installer: installer, tracing: tracing)
+        return SUT(view: view, renderer: renderer, installer: installer, setting: setting, tracing: tracing)
     }
 
     private func layOut(_ view: DMVariableBlurUIView) {

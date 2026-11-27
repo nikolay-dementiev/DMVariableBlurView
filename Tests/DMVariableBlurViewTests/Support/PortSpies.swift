@@ -48,6 +48,8 @@ final class MaskImageRendererSpy: MaskImageRenderer {
     private(set) var profiles: [BlurMaskProfile] = []
     /// What the spy answers to the next request.
     var result: Result<CGImage, any Error>
+    /// Runs while a request is being answered, for a test that looks at that moment.
+    var onRender: (() -> Void)?
 
     init(result: Result<CGImage, any Error>) {
         self.result = result
@@ -55,6 +57,7 @@ final class MaskImageRendererSpy: MaskImageRenderer {
 
     func makeMaskImage(for profile: BlurMaskProfile) throws -> CGImage {
         profiles.append(profile)
+        onRender?()
         return try result.get()
     }
 }
