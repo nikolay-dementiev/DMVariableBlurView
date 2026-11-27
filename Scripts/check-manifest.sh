@@ -28,12 +28,11 @@
 #    version 2 or 3 is a failure. The build keeps its own cache, so manifests and
 #    repositories cached on the machine of whoever runs this cannot stand in for what the
 #    build resolves. The copy is tagged with the version the README names, so the README
-#    is compared with what a consumer is told elsewhere: its URL must be the podspec's
-#    :git source (the one on a line that is not a comment), character for character, and
-#    its version that of the newest release heading of CHANGELOG.md. A heading with
-#    nothing after its bracket, such as Unreleased, is not a release heading; any other
-#    must read '## [x.y.z] - YYYY-MM-DD', or it is named and not passed over for an older
-#    release.
+#    is compared with what a consumer is told elsewhere: its URL must be REPOSITORY_URL
+#    below, character for character, and its version that of the newest release heading of
+#    CHANGELOG.md. A heading with nothing after its bracket, such as Unreleased, is not a
+#    release heading; any other must read '## [x.y.z] - YYYY-MM-DD', or it is named and
+#    not passed over for an older release.
 # 3. Fixtures/Consumer builds. It uses every call shape of the released API and every
 #    declaration added since, so if it stops building, a consumer's code stops building.
 # 4. The library ships no resource bundle.
@@ -49,11 +48,10 @@
 # path, or with its dependencies and targets as something other than lists, and several
 # manifest files with a problem in the first, in the second, in both, or in a dump that is not
 # JSON; a README with no package manifest, two, exact: for from:, or two requirements, a URL
-# that is not the podspec's or differs from it by .git, a version that is not the newest
-# release's, a podspec or a changelog that cannot be read, a podspec with no source, a source in
-# a comment or two sources, a changelog with no release heading or whose newest heading is not
-# a release date; a Package.resolved with an extra pin, no pin, the copy twice, a format other
-# than 2 and 3, or that is not a resolution at all. A reader that was changed to pass one of
+# that is not the repository's or differs from it by .git, a version that is not the newest
+# release's, a changelog that cannot be read, that has no release heading or whose newest
+# heading is not a release date; a Package.resolved with an extra pin, no pin, the copy twice,
+# a format other than 2 and 3, or that is not a resolution at all. A reader changed to pass one of
 # these fails the self-test. It does not run the shell around the readers: the lines that set
 # FAILED, and the ones that find each manifest file, copy it and ask swift to dump it.
 #
@@ -66,6 +64,8 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MODULE="DMVariableBlurView"
+# Where a consumer fetches the package from: the installation manifest of README.md must name it.
+REPOSITORY_URL="https://github.com/nikolay-dementiev/DMVariableBlurView.git"
 
 # Takes the python block that follows the line "# <marker>" out of this script into <output file>:
 # the very text that the check runs. The marker must appear once, directly under the line that
@@ -503,12 +503,12 @@ probe_git() {
         "$@"
 }
 # Writes the consumer's manifest, and prints the version the README asks for and the name of the copy.
-if ! ANSWER="$(python3 - "$ROOT/README.md" "$PROBE" "$ROOT/$MODULE.podspec" "$ROOT/CHANGELOG.md" <<'PY'
+if ! ANSWER="$(python3 - "$ROOT/README.md" "$PROBE" "$REPOSITORY_URL" "$ROOT/CHANGELOG.md" <<'PY'
 # readme-consumer
 import re
 import sys
 
-readme, probe, podspec, changelog = sys.argv[1:5]
+readme, probe, repository, changelog = sys.argv[1:5]
 blocks = re.findall(r"^```swift\n(.*?)^```$", open(readme, encoding="utf-8").read(), re.S | re.M)
 manifests = [block for block in blocks if "Package(" in block]
 if len(manifests) != 1:
@@ -517,32 +517,21 @@ requirements = re.findall(r'\.package\(url: "([^"]+)", from: "([^"]+)"\)', manif
 if len(requirements) != 1:
     sys.exit("check-manifest: the manifest of README.md does not ask for the package with url: and from:")
 url, version = requirements[0]
-texts = {}
-for path in (podspec, changelog):
-    try:
-        with open(path, encoding="utf-8") as handle:
-            texts[path] = handle.read()
-    except (OSError, ValueError) as error:
-        sys.exit(f"check-manifest: {path} cannot be read: {error}")
-# The source of the pod is the one :git on a line that is not a comment: an old source that was
-# commented out after the repository moved says nothing about where the pod is.
-spec_lines = [line for line in texts[podspec].splitlines() if not line.lstrip().startswith("#")]
-spec_urls = re.findall(r":git\s*=>\s*'([^']+)'", "\n".join(spec_lines))
-# The pod is frozen, so the podspec no longer follows the releases. The version is that of the
-# newest release heading, '## [x.y.z] - YYYY-MM-DD'. A heading with nothing after its bracket,
-# such as Unreleased, is passed over: it is a normal state between two releases, and a tag is not
-# there before the release, in a shallow clone, or in a pull request from a fork. Any other
-# heading is a release heading and must have that form: one that is passed over for a space or a
-# note after its date would let an older release stand in for the newest.
-headings = re.findall(r"^ {0,3}## \[[^\]\n]*\][ \t]*[^ \t\n].*$", texts[changelog], re.M)
+try:
+    with open(changelog, encoding="utf-8") as handle:
+        history = handle.read()
+except (OSError, ValueError) as error:
+    sys.exit(f"check-manifest: {changelog} cannot be read: {error}")
+# The version is that of the newest release heading, '## [x.y.z] - YYYY-MM-DD'. A heading with
+# nothing after its bracket, such as Unreleased, is passed over: it is a normal state between two
+# releases, and a tag is not there before the release, in a shallow clone, or in a pull request
+# from a fork. Any other heading is a release heading and must have that form: one that is passed
+# over for a space or a note after its date would let an older release stand in for the newest.
+headings = re.findall(r"^ {0,3}## \[[^\]\n]*\][ \t]*[^ \t\n].*$", history, re.M)
 release = re.fullmatch(r"## \[([0-9]+\.[0-9]+\.[0-9]+)\] - [0-9]{4}-[0-9]{2}-[0-9]{2}", headings[0]) if headings else None
 problems = []
-if not spec_urls:
-    problems.append("the podspec has no source of the form :git => '<url>'")
-elif len(spec_urls) > 1:
-    problems.append(f"the podspec has {len(spec_urls)} sources of the form :git => '<url>'; it must have one")
-elif url != spec_urls[0]:
-    problems.append(f"README.md installs from {url}, the podspec's source is {spec_urls[0]}")
+if url != repository:
+    problems.append(f"README.md installs from {url}, the repository of the package is {repository}")
 if not headings:
     problems.append("CHANGELOG.md has no release heading of the form '## [x.y.z] - YYYY-MM-DD'")
 elif not release:
