@@ -14,7 +14,7 @@ nothing, and the package has no public setting for them.
 | `apply` | event | `accepted` or `rejected` | the view takes values that differ from the last ones, those of its initializer included |
 | `maskRender` | interval | none | the view draws the mask of a blur, also when the drawing fails |
 | `install` | event | `installed`, or a reason below | new values, or a change of the Reduce Transparency setting or option, make the view put the blur on |
-| `reinstall` | event | none | a layout pass puts the blur on: the system had replaced it, or the effect of the view had been removed and is back |
+| `reinstall` | event | none | a layout pass tries to put the blur on: the system had replaced it, or the effect of the view had been removed and is back |
 | `failure` | event | none | the view records a reason for not showing the variable blur |
 
 An `install` that does not succeed names one of these reasons: `filterClassMissing`,
