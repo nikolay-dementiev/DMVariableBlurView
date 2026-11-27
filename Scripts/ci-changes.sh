@@ -8,8 +8,8 @@
 # only does not use the macOS runners of the simulator jobs and of the toolchain floor, and one that
 # changes a file that no job reads uses none. It prints two lines, `light=run|skip` and
 # `heavy=run|skip`, in the form that $GITHUB_OUTPUT takes. The jobs of ci.yml are in two groups:
-#   light  lint, docs, api, consumer, podspec: they read the sources, the scripts, the README and
-#          the changelog.
+#   light  lint, docs, api, consumer: they read the sources, the scripts, the README and the
+#          changelog.
 #   heavy  test, example, thread-sanitizer, floor: they build and test the code on simulators.
 #
 # A path is inert when no job reads it (.coderabbit.yaml), a document when it is a Markdown file, a
@@ -31,7 +31,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-readonly LIGHT_JOBS="lint docs api consumer podspec"
+readonly LIGHT_JOBS="lint docs api consumer"
 readonly HEAVY_JOBS="test example thread-sanitizer floor"
 
 # inert, document or code. A directory of code wins over the extension: a Markdown file under

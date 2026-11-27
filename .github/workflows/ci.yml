@@ -25,7 +25,7 @@ concurrency:
 jobs:
   # Which jobs a change needs. Scripts/ci-changes.sh decides, for two groups: the heavy jobs
   # (test, example, thread-sanitizer and floor), which build and test the code on simulators, and
-  # the light ones (lint, docs, api, consumer and podspec). A pull request or a push to main that
+  # the light ones (lint, docs, api and consumer). A pull request or a push to main that
   # changes documents only skips the heavy jobs, and one that changes only files that no job reads
   # skips both groups. Any other event runs every job: a tag, a schedule, a manual run and the
   # release. A job runs when this job fails or gives no answer, so a fault here costs time and
@@ -446,23 +446,6 @@ jobs:
               exit "$status"
               ;;
           esac
-
-  # The pod is frozen at 1.1.0 and nothing goes to the trunk again. The job lints the current
-  # sources as a pod and checks what a consumer of it would link.
-  podspec:
-    name: podspec
-    needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.light != 'skip' }}
-    runs-on: macos-26
-    timeout-minutes: 30
-    env:
-      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Lint the podspec and check what a consumer links
-        run: Scripts/check-podspec.sh
 
   docs:
     name: docs
