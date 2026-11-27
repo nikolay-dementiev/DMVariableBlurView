@@ -1,3 +1,4 @@
+import DMCore
 import DMVariableBlurView
 import UIKit
 import XCTest
@@ -146,7 +147,8 @@ final class BlurViewReapplicationTests: XCTestCase {
             maskRenderer: CoreGraphicsMaskImageRenderer(),
             installer: SystemVariableBlurInstaller(),
             failureLog: SystemFailureLog(),
-            reduceTransparency: SystemReduceTransparencySetting()
+            reduceTransparency: SystemReduceTransparencySetting(),
+            tracing: NoTracing()
         )
         sut.frame = controller.view.bounds
         controller.view.addSubview(sut)

@@ -1,3 +1,4 @@
+import DMCore
 import DMVariableBlurView
 import UIKit
 import XCTest
@@ -164,7 +165,8 @@ final class BlurViewReinstallationTests: XCTestCase {
             maskRenderer: CoreGraphicsMaskImageRenderer(),
             installer: installer,
             failureLog: SystemFailureLog(),
-            reduceTransparency: SystemReduceTransparencySetting()
+            reduceTransparency: SystemReduceTransparencySetting(),
+            tracing: NoTracing()
         )
         let hosted = HostedBlurView(placing: view)
         // Light first, whatever the simulator is set to, so that dark is a change. The change is

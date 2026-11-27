@@ -1,3 +1,4 @@
+import DMCore
 import DMVariableBlurView
 import UIKit
 import XCTest
@@ -509,7 +510,8 @@ final class BlurUIViewCollaborationTests: XCTestCase {
             maskRenderer: collaborators.renderer,
             installer: collaborators.installer,
             failureLog: collaborators.log,
-            reduceTransparency: collaborators.reduceTransparency
+            reduceTransparency: collaborators.reduceTransparency,
+            tracing: NoTracing()
         )
         return (sut, collaborators)
     }

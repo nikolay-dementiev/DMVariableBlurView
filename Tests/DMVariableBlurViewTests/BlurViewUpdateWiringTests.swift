@@ -1,3 +1,4 @@
+import DMCore
 import DMVariableBlurView
 import XCTest
 
@@ -64,7 +65,8 @@ final class BlurViewUpdateWiringTests: XCTestCase {
                     maskRenderer: spies.renderer,
                     installer: spies.installer,
                     failureLog: spies.log,
-                    reduceTransparency: spies.reduceTransparency
+                    reduceTransparency: spies.reduceTransparency,
+                    tracing: NoTracing()
                 )
             }
     }

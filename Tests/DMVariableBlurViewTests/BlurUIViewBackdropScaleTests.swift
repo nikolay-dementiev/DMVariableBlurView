@@ -1,3 +1,4 @@
+import DMCore
 import DMVariableBlurView
 import UIKit
 import XCTest
@@ -183,7 +184,8 @@ final class BlurUIViewBackdropScaleTests: XCTestCase {
             maskRenderer: MaskImageRendererSpy(result: .success(try makeMaskImage())),
             installer: installer,
             failureLog: FailureLogSpy(),
-            reduceTransparency: ReduceTransparencySettingSpy()
+            reduceTransparency: ReduceTransparencySettingSpy(),
+            tracing: NoTracing()
         )
         return (sut, installer)
     }

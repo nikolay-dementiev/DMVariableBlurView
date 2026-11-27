@@ -16,16 +16,25 @@ let package = Package(
             targets: ["DMVariableBlurView"]
         ),
     ],
+    dependencies: [
+        // The tracing port the views report their work to, and its spy for the tests.
+        .package(url: "https://github.com/nikolay-dementiev/DMCore.git", from: "1.0.0"),
+    ],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
         // Targets can depend on other targets in this package and products from dependencies.
         .target(
             name: "DMVariableBlurView",
+            dependencies: [.product(name: "DMCore", package: "DMCore")],
             swiftSettings: [.enableUpcomingFeature("ExistentialAny")]
         ),
         .testTarget(
             name: "DMVariableBlurViewTests",
-            dependencies: ["DMVariableBlurView"],
+            dependencies: [
+                "DMVariableBlurView",
+                .product(name: "DMCore", package: "DMCore"),
+                .product(name: "DMCoreTesting", package: "DMCore"),
+            ],
             swiftSettings: [.enableUpcomingFeature("ExistentialAny")]
         )
     ],
