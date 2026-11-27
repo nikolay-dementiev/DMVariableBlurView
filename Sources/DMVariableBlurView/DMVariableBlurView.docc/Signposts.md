@@ -9,6 +9,10 @@ A performance tool shows them: profile the app with an instrument that shows sig
 the `os_signpost` instrument of Instruments, and filter by the subsystem. The app configures
 nothing, and the package has no public setting for them.
 
+DMCore records the signposts. A recording shows each one with the signpost name `event` or
+`interval`: the name in the table below starts its message, followed by a colon and the detail
+where there is one. Look for a name in the message.
+
 | Name | Kind | Detail | Emitted when |
 |---|---|---|---|
 | `apply` | event | `accepted` or `rejected` | the view takes values that differ from the last ones, those of its initializer included |
