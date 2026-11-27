@@ -90,7 +90,7 @@ extract_block() {  # <marker> <output file>
 # Runs the readers of step 1 (the manifest) and of step 2 (Package.resolved) on built-in texts, and exits.
 SELF_TEST_WORK=""
 self_test() {
-    local total=0 failures=0 dm plain got output fence app app_two repository changelog_text padded dash clean with_dependency with_plugin
+    local total=0 failures=0 dm plain got output fence app app_two repository changelog_text padded dash clean with_dependency with_plugin core_url core_from with_core released
     if ! command -v python3 > /dev/null; then
         echo "check-manifest: self-test: python3 is not installed" >&2
         exit 2
@@ -158,6 +158,21 @@ self_test() {
     check "an extra pin after the copy is named" 1 "second (localSourceControl, 1.0.0, /x/second)" "{\"version\":3,\"pins\":[$dm,$(pin second 1.0.0)]}"
     check "another pin only" 1 "dmvariableblurview, the tagged copy, is not among the resolved packages" "{\"version\":3,\"pins\":[$(pin second 1.0.0)]}"
     check "no pin at all" 1 "is not among the resolved packages" '{"version":3,"pins":[]}'
+    core_pin() {  # <version state> [<kind>] [<location>]: a pin of DMCore
+        printf '{"identity":"dmcore","kind":"%s","location":"%s","state":%s}' \
+            "${2-remoteSourceControl}" "${3-https://github.com/nikolay-dementiev/DMCore.git}" "$1"
+    }
+    released='{"revision":"abc","version":"1.0.0"}'
+    check "the copy and the approved dependency" 0 "" "{\"version\":3,\"pins\":[$(core_pin "$released"),$dm]}"
+    check "a later minor of the approved dependency" 0 "" "{\"version\":3,\"pins\":[$dm,$(core_pin '{"revision":"abc","version":"1.12.0"}')]}"
+    check "the next major of the approved dependency is named" 1 "dmcore (remoteSourceControl, 2.0.0," \
+        "{\"version\":3,\"pins\":[$dm,$(core_pin '{"revision":"abc","version":"2.0.0"}')]}"
+    check "the approved dependency at a revision is named" 1 "dmcore (remoteSourceControl, abc," \
+        "{\"version\":3,\"pins\":[$dm,$(core_pin '{"revision":"abc","branch":"main"}')]}"
+    check "the approved dependency from another location is named" 1 "https://example.invalid/DMCore.git)" \
+        "{\"version\":3,\"pins\":[$dm,$(core_pin "$released" remoteSourceControl https://example.invalid/DMCore.git)]}"
+    check "the approved dependency from a local folder is named" 1 "dmcore (localSourceControl, 1.0.0," \
+        "{\"version\":3,\"pins\":[$dm,$(core_pin "$released" localSourceControl)]}"
     check "format 1" 1 "not of format version 2 or 3" '{"object":{"pins":[{"package":"DMVariableBlurView"}]},"version":1}'
     check "format 4" 1 "not of format version 2 or 3" "{\"version\":4,\"pins\":[$dm]}"
     check "no list of pins" 1 "not of format version 2 or 3" '{"version":3}'
@@ -171,6 +186,27 @@ self_test() {
     plain='{"identity":"swift-log","requirement":{"range":[{"lowerBound":"1.0.0","upperBound":"2.0.0"}]}}'
     manifest_case "no dependency and no plugin" 0 "" '{"dependencies":[],"targets":[{"name":"Library","type":"regular","pluginUsages":null}]}'
     manifest_case "a dependency by version is named" 1 "dependency 'swift-log' is declared: a dependency needs the maintainer's approval" "{\"dependencies\":[{\"sourceControl\":[$plain]}],\"targets\":[]}"
+    # DMCore is the one approved dependency: only as a remote repository, required from 1.0.0 up to
+    # the next major version.
+    core_url='https://github.com/nikolay-dementiev/DMCore.git'
+    core() {  # [<URL>] [<requirement>]: DMCore as `swift package dump-package` prints it, in a manifest
+        printf '{"dependencies":[{"sourceControl":[{"identity":"dmcore","location":{"remote":[{"urlString":"%s"}]},"requirement":%s}]}],"targets":[]}' \
+            "${1-$core_url}" "${2-$core_from}"
+    }
+    core_from='{"range":[{"lowerBound":"1.0.0","upperBound":"2.0.0"}]}'
+    manifest_case "the approved dependency is not named" 0 "" "$(core)"
+    manifest_case "the approved package from another URL is named" 1 "dependency 'dmcore' is declared" "$(core https://example.invalid/DMCore.git)"
+    manifest_case "the approved package by branch is named" 1 "dependency 'dmcore' is required by branch" "$(core "$core_url" '{"branch":["main"]}')"
+    manifest_case "the approved package at an exact version is named" 1 "dependency 'dmcore' is declared" "$(core "$core_url" '{"exact":["1.0.0"]}')"
+    manifest_case "the approved package up to the next minor version is named" 1 "dependency 'dmcore' is declared" \
+        "$(core "$core_url" '{"range":[{"lowerBound":"1.0.0","upperBound":"1.1.0"}]}')"
+    manifest_case "the approved package from another floor is named" 1 "dependency 'dmcore' is declared" \
+        "$(core "$core_url" '{"range":[{"lowerBound":"0.1.0","upperBound":"2.0.0"}]}')"
+    manifest_case "the approved package by a local path is named" 1 "dependency 'dmcore' is declared" '{"dependencies":[{"fileSystem":[{"identity":"dmcore","path":"/x/DMCore"}]}],"targets":[]}'
+    manifest_case "the approved name from a registry is named" 1 "dependency 'dmcore' is declared" '{"dependencies":[{"registry":[{"identity":"dmcore","requirement":{"range":[{"lowerBound":"1.0.0","upperBound":"2.0.0"}]}}]}],"targets":[]}'
+    with_core="$(core)"
+    manifest_case "another dependency beside the approved one is named" 1 "dependency 'swift-log' is declared" \
+        "{\"dependencies\":[{\"sourceControl\":[$plain]},${with_core#'{"dependencies":['}"
     manifest_case "a dependency by path is named" 1 "dependency 'local' is declared" '{"dependencies":[{"fileSystem":[{"identity":"local","path":"/x"}]}],"targets":[]}'
     manifest_case "a dependency by branch is named for its requirement" 1 "dependency 'swift-log' is required by branch" '{"dependencies":[{"sourceControl":[{"identity":"swift-log","requirement":{"branch":["main"]}}]}],"targets":[]}'
     manifest_case "a dependency by revision is named for its requirement" 1 "dependency 'swift-log' is required by revision" '{"dependencies":[{"sourceControl":[{"identity":"swift-log","requirement":{"revision":["abc"]}}]}],"targets":[]}'
