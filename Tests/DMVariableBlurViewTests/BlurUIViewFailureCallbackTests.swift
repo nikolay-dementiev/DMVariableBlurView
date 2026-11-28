@@ -1,3 +1,4 @@
+import DMCore
 import DMVariableBlurView
 import UIKit
 import XCTest
@@ -76,7 +77,8 @@ final class BlurUIViewFailureCallbackTests: XCTestCase {
             maskRenderer: CoreGraphicsMaskImageRenderer(),
             installer: installer,
             failureLog: SystemFailureLog(),
-            reduceTransparency: SystemReduceTransparencySetting()
+            reduceTransparency: SystemReduceTransparencySetting(),
+            tracing: NoTracing()
         )
         let view = DMVariableBlurUIView(
             collaborators,
@@ -195,7 +197,8 @@ final class BlurUIViewFailureCallbackTests: XCTestCase {
             maskRenderer: MaskImageRendererSpy(result: .success(try makeMaskImage())),
             installer: installer,
             failureLog: log,
-            reduceTransparency: ReduceTransparencySettingSpy(isEnabled: false)
+            reduceTransparency: ReduceTransparencySettingSpy(isEnabled: false),
+            tracing: NoTracing()
         )
         let sut = DMVariableBlurUIView(
             collaborators,

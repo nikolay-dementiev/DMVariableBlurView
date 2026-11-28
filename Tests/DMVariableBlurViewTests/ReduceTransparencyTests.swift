@@ -1,3 +1,4 @@
+import DMCore
 import DMVariableBlurView
 import UIKit
 import XCTest
@@ -29,7 +30,8 @@ final class ReduceTransparencyTests: XCTestCase {
             maskRenderer: CoreGraphicsMaskImageRenderer(),
             installer: SystemVariableBlurInstaller(),
             failureLog: FailureLogSpy(),
-            reduceTransparency: setting
+            reduceTransparency: setting,
+            tracing: NoTracing()
         )
         view.respectsReduceTransparency = true
         view.apply(VariableBlurConfiguration(maxBlurRadius: 7, direction: .blurredTopClearBottom, startOffset: 0))

@@ -3,6 +3,31 @@
 All notable changes to DMVariableBlurView are recorded in this file. The format follows Keep a
 Changelog 1.1.0, and versions follow Semantic Versioning 2.0.0.
 
+## [2.1.0] - 2026-11-27
+
+### Added
+
+- Signposts. Every view emits them under the subsystem `DMVariableBlurView` and the category
+  `blur`: the events `apply`, `install`, `reinstall` and `failure`, and the interval
+  `maskRender`, so a performance tool such as Instruments shows what a view does and how long it
+  takes to draw its mask. The article "Signposts" of the documentation describes each one. A
+  detail is a constant of the package. An app has nothing to configure.
+
+### Changed
+
+- The package depends on [DMCore](https://github.com/nikolay-dementiev/DMCore), from 1.0.0 up to
+  the next major version, which records the signposts. Swift Package Manager resolves it with the
+  package. No public declaration names a type of it, and neither the public interface nor the iOS
+  floor changes.
+- The package needs Swift 6.2, which is Xcode 26 or later: `Package.swift` declares
+  `swift-tools-version: 6.2`. 2.0.0 declared 6.0. CI builds and tests with Xcode 26.6 only, so the
+  jobs with Xcode 16 are gone.
+
+### Removed
+
+- The podspec. 1.1.0 stays the last release published to the CocoaPods trunk, and the tag 1.1.0
+  keeps its podspec. Later releases come through Swift Package Manager only.
+
 ## [2.0.0] - 2026-11-01
 
 ### Added
@@ -119,7 +144,8 @@ Behaviour changes. None of them removes a declaration; each one is pinned by a t
 - First release: `DMVariableBlurView` for SwiftUI and `DMVariableBlurUIView` for UIKit, with
   four blur directions.
 
-[Unreleased]: https://github.com/nikolay-dementiev/DMVariableBlurView/compare/2.0.0...HEAD
+[Unreleased]: https://github.com/nikolay-dementiev/DMVariableBlurView/compare/2.1.0...HEAD
+[2.1.0]: https://github.com/nikolay-dementiev/DMVariableBlurView/compare/2.0.0...2.1.0
 [2.0.0]: https://github.com/nikolay-dementiev/DMVariableBlurView/compare/1.1.0...2.0.0
 [1.1.0]: https://github.com/nikolay-dementiev/DMVariableBlurView/compare/1.0.0...1.1.0
 [1.0.0]: https://github.com/nikolay-dementiev/DMVariableBlurView/tree/1.0.0

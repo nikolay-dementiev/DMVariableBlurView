@@ -24,8 +24,9 @@ format of [Documentation/Review/README.md](../../../Documentation/Review/README.
   (ENGINEERING.md, "was renamed while the include of `domain_imports` was left alone")
 - A further layer, such as a view model or a coordinator.
   (ENGINEERING.md, "There is no further layer, no view model and no coordinator")
-- A collaborator protocol that is not `package`, or a concrete collaborator created in a file other
-  than `UI/VariableBlurCollaborators.swift`, where `VariableBlurCollaborators.system` creates them.
+- A collaborator protocol of this package that is not `package` (the tracing port is DMCore's), or
+  a concrete collaborator created in a file other than `UI/VariableBlurCollaborators.swift`, where
+  `VariableBlurCollaborators.system` creates them.
   (ENGINEERING.md, "Collaborators and the composition root")
 - A new private name of the system, such as a class, a selector, a filter type or a key, that the
   pull request does not name as the maintainer's decision, or that the README, "Private API", and
@@ -40,10 +41,11 @@ format of [Documentation/Review/README.md](../../../Documentation/Review/README.
   (ENGINEERING.md, "No third-party dependency without the maintainer's approval")
   (ENGINEERING.md, "The approval itself is a rule the reviewer applies")
   (AGENTS.md, "Add no dependency without the maintainer's approval")
-- A raised platform floor or `swift-tools-version`, which is a breaking change, or a
-  `defaultIsolation` in the manifest, in a change that edits the `floor` job to agree with the
+- A raised platform floor, which is a breaking change, a `swift-tools-version` raised for another
+  reason than to follow the supported toolchain, which is one too, or a `defaultIsolation` in the
   manifest. A test framework other than XCTest.
   (ENGINEERING.md, "Raising the platform floor")
+  (ENGINEERING.md, "to follow the supported toolchain")
   (ENGINEERING.md, "The manifest sets no `defaultIsolation`")
   (ENGINEERING.md, "XCTest is the test framework")
 
@@ -52,9 +54,8 @@ format of [Documentation/Review/README.md](../../../Documentation/Review/README.
 - What a CI script already enforces: `Scripts/lint.sh` (the rule `domain_imports` reports every
   other import of `Domain`, and SwiftLint's own rules), `Scripts/check-lint-contract.sh` (that each
   rule of `devkit.conf` fires on the lines of its fixtures that expect it and on no other line),
-  `Scripts/check-manifest.sh` (a dependency, a plugin, a plugin target or a binary target with a
-  url in a manifest) and the `floor` job (a manifest that the oldest compiler cannot load, or whose
-  platform, language mode or Swift settings differ from the flags of the job).
+  `Scripts/check-manifest.sh` (a dependency other than DMCore, a plugin, a plugin target or a
+  binary target with a url in a manifest).
 - How a view behaves: that is the lane correctness-and-concurrency.
 - The class of a change and its documentation: that is the lane public-api-and-documentation.
 - The quality of a test: that is the lane test-discrimination.

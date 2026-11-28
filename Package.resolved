@@ -1,0 +1,15 @@
+{
+  "originHash" : "13e0e721178c72fac4e763cf5427f7b73853cf28f4d855e99ef73eed63a92470",
+  "pins" : [
+    {
+      "identity" : "dmcore",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/nikolay-dementiev/DMCore.git",
+      "state" : {
+        "revision" : "4e1fefb11b3b77c33116ce81005bee7e9e91a4c1",
+        "version" : "1.0.0"
+      }
+    }
+  ],
+  "version" : 3
+}

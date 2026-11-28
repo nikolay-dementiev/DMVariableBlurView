@@ -5,12 +5,14 @@
 #   Scripts/check-manifest.sh              run the checks below
 #   Scripts/check-manifest.sh --self-test  run the readers of the checks on built-in texts
 #
-# 1. No manifest file of the package declares a dependency, uses a plugin, declares a plugin
-#    target or declares a binary target that is downloaded (one with a url: it is code that
-#    arrives when the package is resolved; one with a path is carried by the repository).
-#    The files are Package.swift and every Package@swift-*.swift: SwiftPM reads one of the
-#    latter in place of Package.swift when the tools of a consumer are newer, so a problem
-#    is named after the file it is in. A dependency needs the maintainer's approval and a
+# 1. No manifest file of the package declares a dependency other than the approved one, uses
+#    a plugin, declares a plugin target or declares a binary target that is downloaded (one
+#    with a url: it is code that arrives when the package is resolved; one with a path is
+#    carried by the repository). The approved dependency is DMCore, from its repository,
+#    required from 1.0.0 up to the next major version. The files are Package.swift and every
+#    Package@swift-*.swift: SwiftPM reads one of the latter in place of Package.swift when the
+#    tools of a consumer are newer, so a problem is named after the file it is in. Another
+#    dependency, or another way to require this one, needs the maintainer's approval and a
 #    change of this check in the same pull request. Item 2 sees only a dependency that a
 #    target of a product uses: SwiftPM leaves one that nothing uses out of what a consumer
 #    resolves, so only the manifest shows it. A dependency by branch or revision is named
@@ -22,18 +24,17 @@
 #    for the iOS simulator: a consumer that depends on the checkout by path cannot show a
 #    failure of a version requirement, and only a build shows a wrong product or package
 #    name, or a platform below the package's. The Package.resolved of that build pins the
-#    copy and nothing else, so a consumer of the package resolves this package only: any
-#    other pin is named with its kind, version and location, and a file that cannot be
-#    read, that holds no pin or more than one pin of the copy, or that is not of format
-#    version 2 or 3 is a failure. The build keeps its own cache, so manifests and
-#    repositories cached on the machine of whoever runs this cannot stand in for what the
-#    build resolves. The copy is tagged with the version the README names, so the README
-#    is compared with what a consumer is told elsewhere: its URL must be the podspec's
-#    :git source (the one on a line that is not a comment), character for character, and
-#    its version that of the newest release heading of CHANGELOG.md. A heading with
-#    nothing after its bracket, such as Unreleased, is not a release heading; any other
-#    must read '## [x.y.z] - YYYY-MM-DD', or it is named and not passed over for an older
-#    release.
+#    copy, at most a 1.x release of DMCore beside it, and nothing else, so a consumer of the
+#    package resolves no other package: any other pin is named with its kind, version and
+#    location, and a file that cannot be read, that holds no pin or more than one pin of the
+#    copy, or that is not of format version 2 or 3 is a failure. The build keeps its own cache,
+#    so manifests and repositories cached on the machine of whoever runs this cannot stand in
+#    for what the build resolves. The copy is tagged with the version the README names, so the
+#    README is compared with what a consumer is told elsewhere: its URL must be
+#    REPOSITORY_URL below, character for character, and its version that of the newest release
+#    heading of CHANGELOG.md. A heading with nothing after its bracket, such as Unreleased, is
+#    not a release heading; any other must read '## [x.y.z] - YYYY-MM-DD', or it is named and
+#    not passed over for an older release.
 # 3. Fixtures/Consumer builds. It uses every call shape of the released API and every
 #    declaration added since, so if it stops building, a consumer's code stops building.
 # 4. The library ships no resource bundle.
@@ -42,18 +43,19 @@
 # --self-test needs no network, no build and no swift. A reader that never fails looks the
 # same as a clean tree, so it takes the python blocks of item 1 (marked manifest-rules) and
 # of item 2 (marked readme-consumer and resolved-inventory) out of this very file, the text
-# that the check runs, and runs them on texts that it carries: a manifest with a dependency
+# that the check runs, and runs them on texts that it carries: a manifest with the approved
+# dependency, and with it required in another way or from another place, with a dependency
 # from a registry, by version, by path, by branch or by revision, a second dependency, a
 # plugin, a plugin target, a binary target with a url, or without its list of dependencies or
 # of targets, or with a target that has no type or a binary target with neither a url nor a
 # path, or with its dependencies and targets as something other than lists, and several
 # manifest files with a problem in the first, in the second, in both, or in a dump that is not
 # JSON; a README with no package manifest, two, exact: for from:, or two requirements, a URL
-# that is not the podspec's or differs from it by .git, a version that is not the newest
-# release's, a podspec or a changelog that cannot be read, a podspec with no source, a source in
-# a comment or two sources, a changelog with no release heading or whose newest heading is not
-# a release date; a Package.resolved with an extra pin, no pin, the copy twice, a format other
-# than 2 and 3, or that is not a resolution at all. A reader that was changed to pass one of
+# that is not the repository's or differs from it by .git, a version that is not the newest
+# release's, a changelog that cannot be read, that has no release heading or whose newest
+# heading is not a release date; a Package.resolved with the approved pin, and with it of
+# another major, revision, kind or location, with an extra pin, no pin, the copy twice,
+# a format other than 2 and 3, or that is not a resolution at all. A reader changed to pass one of
 # these fails the self-test. It does not run the shell around the readers: the lines that set
 # FAILED, and the ones that find each manifest file, copy it and ask swift to dump it.
 #
@@ -66,6 +68,8 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MODULE="DMVariableBlurView"
+# Where a consumer fetches the package from: the installation manifest of README.md must name it.
+REPOSITORY_URL="https://github.com/nikolay-dementiev/DMVariableBlurView.git"
 
 # Takes the python block that follows the line "# <marker>" out of this script into <output file>:
 # the very text that the check runs. The marker must appear once, directly under the line that
@@ -90,7 +94,7 @@ extract_block() {  # <marker> <output file>
 # Runs the readers of step 1 (the manifest) and of step 2 (Package.resolved) on built-in texts, and exits.
 SELF_TEST_WORK=""
 self_test() {
-    local total=0 failures=0 dm plain got output fence app app_two podspec_text changelog_text padded dash clean with_dependency with_plugin
+    local total=0 failures=0 dm plain got output fence app app_two repository changelog_text padded dash clean with_dependency with_plugin core_url core_from with_core released other_pin
     if ! command -v python3 > /dev/null; then
         echo "check-manifest: self-test: python3 is not installed" >&2
         exit 2
@@ -118,14 +122,13 @@ self_test() {
         output="$(python3 "$SELF_TEST_WORK/inventory.py" "$SELF_TEST_WORK/Package.resolved" "$MODULE" 2>&1)" || got=$?
         judge "$1" "$2" "$3" "$got" "$output"
     }
-    readme_case() {  # <name> <expected status> <expected text> <text of README.md> [<text of the podspec> [<text of CHANGELOG.md>]]
+    readme_case() {  # <name> <expected status> <expected text> <text of README.md> [<URL of the repository> [<text of CHANGELOG.md>]]
         local got=0 output
         mkdir -p "$SELF_TEST_WORK/probe/consumer"
         printf '%s\n' "$4" > "$SELF_TEST_WORK/README.md"
-        printf '%s\n' "${5-$podspec_text}" > "$SELF_TEST_WORK/Package.podspec"
         printf '%s\n' "${6-$changelog_text}" > "$SELF_TEST_WORK/CHANGELOG.md"
         output="$(python3 "$SELF_TEST_WORK/readme.py" "$SELF_TEST_WORK/README.md" "$SELF_TEST_WORK/probe" \
-            "$SELF_TEST_WORK/Package.podspec" "$SELF_TEST_WORK/CHANGELOG.md" 2>&1)" || got=$?
+            "${5-$repository}" "$SELF_TEST_WORK/CHANGELOG.md" 2>&1)" || got=$?
         judge "$1" "$2" "$3" "$got" "$output"
     }
     manifest_case() {  # <name> <expected status> <expected text> <text of the manifest>
@@ -159,6 +162,26 @@ self_test() {
     check "an extra pin after the copy is named" 1 "second (localSourceControl, 1.0.0, /x/second)" "{\"version\":3,\"pins\":[$dm,$(pin second 1.0.0)]}"
     check "another pin only" 1 "dmvariableblurview, the tagged copy, is not among the resolved packages" "{\"version\":3,\"pins\":[$(pin second 1.0.0)]}"
     check "no pin at all" 1 "is not among the resolved packages" '{"version":3,"pins":[]}'
+    core_pin() {  # <version state> [<kind>] [<location>]: a pin of DMCore
+        printf '{"identity":"dmcore","kind":"%s","location":"%s","state":%s}' \
+            "${2-remoteSourceControl}" "${3-https://github.com/nikolay-dementiev/DMCore.git}" "$1"
+    }
+    released='{"revision":"abc","version":"1.0.0"}'
+    check "the copy and the approved dependency" 0 "" "{\"version\":3,\"pins\":[$(core_pin "$released"),$dm]}"
+    check "a later minor of the approved dependency" 0 "" "{\"version\":3,\"pins\":[$dm,$(core_pin '{"revision":"abc","version":"1.12.0"}')]}"
+    check "the next major of the approved dependency is named" 1 "dmcore (remoteSourceControl, 2.0.0," \
+        "{\"version\":3,\"pins\":[$dm,$(core_pin '{"revision":"abc","version":"2.0.0"}')]}"
+    check "a major that starts with the same digit is named" 1 "dmcore (remoteSourceControl, 10.0.0," \
+        "{\"version\":3,\"pins\":[$dm,$(core_pin '{"revision":"abc","version":"10.0.0"}')]}"
+    check "the approved dependency at a revision is named" 1 "dmcore (remoteSourceControl, abc," \
+        "{\"version\":3,\"pins\":[$dm,$(core_pin '{"revision":"abc","branch":"main"}')]}"
+    check "the approved dependency from another location is named" 1 "https://example.invalid/DMCore.git)" \
+        "{\"version\":3,\"pins\":[$dm,$(core_pin "$released" remoteSourceControl https://example.invalid/DMCore.git)]}"
+    check "the approved dependency from a local folder is named" 1 "dmcore (localSourceControl, 1.0.0," \
+        "{\"version\":3,\"pins\":[$dm,$(core_pin "$released" localSourceControl)]}"
+    other_pin="$(core_pin "$released")"
+    check "another package at the location of the approved one is named" 1 "other (remoteSourceControl, 1.0.0," \
+        "{\"version\":3,\"pins\":[$dm,${other_pin/dmcore/other}]}"
     check "format 1" 1 "not of format version 2 or 3" '{"object":{"pins":[{"package":"DMVariableBlurView"}]},"version":1}'
     check "format 4" 1 "not of format version 2 or 3" "{\"version\":4,\"pins\":[$dm]}"
     check "no list of pins" 1 "not of format version 2 or 3" '{"version":3}'
@@ -172,6 +195,28 @@ self_test() {
     plain='{"identity":"swift-log","requirement":{"range":[{"lowerBound":"1.0.0","upperBound":"2.0.0"}]}}'
     manifest_case "no dependency and no plugin" 0 "" '{"dependencies":[],"targets":[{"name":"Library","type":"regular","pluginUsages":null}]}'
     manifest_case "a dependency by version is named" 1 "dependency 'swift-log' is declared: a dependency needs the maintainer's approval" "{\"dependencies\":[{\"sourceControl\":[$plain]}],\"targets\":[]}"
+    # DMCore is the one approved dependency: only as a remote repository, required from 1.0.0 up to
+    # the next major version.
+    core_url='https://github.com/nikolay-dementiev/DMCore.git'
+    core() {  # [<URL>] [<requirement>]: DMCore as `swift package dump-package` prints it, in a manifest
+        printf '{"dependencies":[{"sourceControl":[{"identity":"dmcore","location":{"remote":[{"urlString":"%s"}]},"requirement":%s}]}],"targets":[]}' \
+            "${1-$core_url}" "${2-$core_from}"
+    }
+    core_from='{"range":[{"lowerBound":"1.0.0","upperBound":"2.0.0"}]}'
+    manifest_case "the approved dependency is not named" 0 "" "$(core)"
+    manifest_case "the approved package from another URL is named" 1 "dependency 'dmcore' is declared" "$(core https://example.invalid/DMCore.git)"
+    manifest_case "the approved package by branch is named" 1 "dependency 'dmcore' is required by branch" "$(core "$core_url" '{"branch":["main"]}')"
+    manifest_case "the approved package at an exact version is named" 1 "dependency 'dmcore' is declared" "$(core "$core_url" '{"exact":["1.0.0"]}')"
+    manifest_case "the approved package up to the next minor version is named" 1 "dependency 'dmcore' is declared" \
+        "$(core "$core_url" '{"range":[{"lowerBound":"1.0.0","upperBound":"1.1.0"}]}')"
+    manifest_case "the approved package from another floor is named" 1 "dependency 'dmcore' is declared" \
+        "$(core "$core_url" '{"range":[{"lowerBound":"0.1.0","upperBound":"2.0.0"}]}')"
+    manifest_case "the approved package by a local path is named" 1 "dependency 'dmcore' is declared" '{"dependencies":[{"fileSystem":[{"identity":"dmcore","path":"/x/DMCore"}]}],"targets":[]}'
+    manifest_case "the approved name from a registry is named" 1 "dependency 'dmcore' is declared" '{"dependencies":[{"registry":[{"identity":"dmcore","requirement":{"range":[{"lowerBound":"1.0.0","upperBound":"2.0.0"}]}}]}],"targets":[]}'
+    with_core="$(core)"
+    manifest_case "another package at the URL of the approved one is named" 1 "dependency 'other' is declared" "${with_core/dmcore/other}"
+    manifest_case "another dependency beside the approved one is named" 1 "dependency 'swift-log' is declared" \
+        "{\"dependencies\":[{\"sourceControl\":[$plain]},${with_core#'{"dependencies":['}"
     manifest_case "a dependency by path is named" 1 "dependency 'local' is declared" '{"dependencies":[{"fileSystem":[{"identity":"local","path":"/x"}]}],"targets":[]}'
     manifest_case "a dependency by branch is named for its requirement" 1 "dependency 'swift-log' is required by branch" '{"dependencies":[{"sourceControl":[{"identity":"swift-log","requirement":{"branch":["main"]}}]}],"targets":[]}'
     manifest_case "a dependency by revision is named for its requirement" 1 "dependency 'swift-log' is required by revision" '{"dependencies":[{"sourceControl":[{"identity":"swift-log","requirement":{"revision":["abc"]}}]}],"targets":[]}'
@@ -236,9 +281,9 @@ let package = Package(
     ],
     targets: [.target(name: "App", dependencies: [.product(name: "Foo", package: "Foo")])]
 )'
-    # The podspec and the changelog as the README is compared with them: the source of the pod,
-    # and the release headings, newest first, an unreleased section on top of them.
-    podspec_text="  s.source = { :git => 'https://github.com/x/Foo.git', :tag => s.version.to_s }"
+    # The repository and the changelog as the README is compared with them: the URL of the
+    # package, and the release headings, newest first, an unreleased section on top of them.
+    repository='https://github.com/x/Foo.git'
     changelog_text='# Changelog
 
 ## [Unreleased]
@@ -254,96 +299,75 @@ let package = Package(
     grep -q -F "github.com" "$SELF_TEST_WORK/probe/consumer/Package.swift" || got=$?
     judge "the consumer keeps nothing of the real URL" 1 "" "$got" ""
     readme_case "a URL with a trailing slash and no .git" 0 "1.2.3 Foo" "$(swift_block "${app//Foo.git/Foo/}")" \
-        "${podspec_text//Foo.git/Foo/}"
-    readme_case "a URL of another repository than the podspec's" 1 \
-        "README.md installs from https://github.com/x/Foo.git, the podspec's source is https://github.com/y/Foo.git" \
-        "$(swift_block "$app")" "${podspec_text//x\/Foo/y/Foo}"
-    readme_case "a URL that differs from the podspec's by .git only" 1 \
-        "README.md installs from https://github.com/x/Foo, the podspec's source is https://github.com/x/Foo.git" \
+        "${repository//Foo.git/Foo/}"
+    readme_case "a URL of another repository" 1 \
+        "README.md installs from https://github.com/x/Foo.git, the repository of the package is https://github.com/y/Foo.git" \
+        "$(swift_block "$app")" "${repository//x\/Foo/y/Foo}"
+    readme_case "a URL that differs from the repository's by .git only" 1 \
+        "README.md installs from https://github.com/x/Foo, the repository of the package is https://github.com/x/Foo.git" \
         "$(swift_block "${app//Foo.git/Foo}")"
-    readme_case "a podspec with no :git source" 1 "the podspec has no source of the form :git => '<url>'" \
-        "$(swift_block "$app")" "  s.source = { :http => 'https://example.com/Foo.zip' }"
     readme_case "a version older than the newest release" 1 \
         "README.md asks for version 1.2.3, the newest release heading of CHANGELOG.md is 1.3.0" \
-        "$(swift_block "$app")" "$podspec_text" "## [1.3.0] - 2026-11-01
+        "$(swift_block "$app")" "$repository" "## [1.3.0] - 2026-11-01
 
 $changelog_text"
     readme_case "a version newer than the newest release" 1 \
         "README.md asks for version 1.2.3, the newest release heading of CHANGELOG.md is 1.0.0" \
-        "$(swift_block "$app")" "$podspec_text" "## [1.0.0] - 2025-10-11"
+        "$(swift_block "$app")" "$repository" "## [1.0.0] - 2025-10-11"
     readme_case "a section with a version and no date is passed over" 0 "1.2.3 Foo" "$(swift_block "$app")" \
-        "$podspec_text" "## [1.3.0]
+        "$repository" "## [1.3.0]
 
 $changelog_text"
     readme_case "a changelog with no dated release" 1 \
         "CHANGELOG.md has no release heading of the form '## [x.y.z] - YYYY-MM-DD'" \
-        "$(swift_block "$app")" "$podspec_text" "## [Unreleased]
+        "$(swift_block "$app")" "$repository" "## [Unreleased]
 
 ## [1.2.3]"
     readme_case "the URL and the version are both named: the version" 1 \
         "README.md asks for version 1.2.3, the newest release heading of CHANGELOG.md is 1.3.0" \
-        "$(swift_block "$app")" "${podspec_text//x\/Foo/y/Foo}" "## [1.3.0] - 2026-11-01"
+        "$(swift_block "$app")" "${repository//x\/Foo/y/Foo}" "## [1.3.0] - 2026-11-01"
     readme_case "the URL and the version are both named: the URL" 1 \
-        "README.md installs from https://github.com/x/Foo.git, the podspec's source is https://github.com/y/Foo.git" \
-        "$(swift_block "$app")" "${podspec_text//x\/Foo/y/Foo}" "## [1.3.0] - 2026-11-01"
+        "README.md installs from https://github.com/x/Foo.git, the repository of the package is https://github.com/y/Foo.git" \
+        "$(swift_block "$app")" "${repository//x\/Foo/y/Foo}" "## [1.3.0] - 2026-11-01"
     # A heading with a date part that is not a release date is not passed over like an unreleased section:
     # the newest release is the first one, and a heading skipped here would make an older version pass.
     padded="## [1.3.0] - 2026-11-01 "
     readme_case "a newest heading with a space after the date is named" 1 \
         "the newest release heading of CHANGELOG.md is not of the form '## [x.y.z] - YYYY-MM-DD': '## [1.3.0] - 2026-11-01 '" \
-        "$(swift_block "$app")" "$podspec_text" "## [Unreleased]
+        "$(swift_block "$app")" "$repository" "## [Unreleased]
 
 $padded
 
 $changelog_text"
     readme_case "a newest heading with a date that is not a day form is named" 1 \
         "the newest release heading of CHANGELOG.md is not of the form '## [x.y.z] - YYYY-MM-DD': '## [1.3.0] - 2026-11-1'" \
-        "$(swift_block "$app")" "$podspec_text" "## [1.3.0] - 2026-11-1
+        "$(swift_block "$app")" "$repository" "## [1.3.0] - 2026-11-1
 
 $changelog_text"
     readme_case "a newest heading with a name for a version is named" 1 \
         "the newest release heading of CHANGELOG.md is not of the form '## [x.y.z] - YYYY-MM-DD': '## [Next] - 2026-11-01'" \
-        "$(swift_block "$app")" "$podspec_text" "## [Next] - 2026-11-01
+        "$(swift_block "$app")" "$repository" "## [Next] - 2026-11-01
 
 $changelog_text"
     readme_case "a newest heading with a note after the date is named" 1 \
         "the newest release heading of CHANGELOG.md is not of the form '## [x.y.z] - YYYY-MM-DD': '## [1.3.0] - 2026-11-01 [YANKED]'" \
-        "$(swift_block "$app")" "$podspec_text" "## [1.3.0] - 2026-11-01 [YANKED]
+        "$(swift_block "$app")" "$repository" "## [1.3.0] - 2026-11-01 [YANKED]
 
 $changelog_text"
     dash="$(printf '\342\200\223')"
     readme_case "a newest heading with an en dash is named" 1 \
         "the newest release heading of CHANGELOG.md is not of the form '## [x.y.z] - YYYY-MM-DD': '## [1.3.0] $dash 2026-11-01'" \
-        "$(swift_block "$app")" "$podspec_text" "## [1.3.0] $dash 2026-11-01
+        "$(swift_block "$app")" "$repository" "## [1.3.0] $dash 2026-11-01
 
 $changelog_text"
     readme_case "an indented newest heading is named" 1 \
         "the newest release heading of CHANGELOG.md is not of the form '## [x.y.z] - YYYY-MM-DD': '   ## [1.3.0] - 2026-11-01'" \
-        "$(swift_block "$app")" "$podspec_text" "   ## [1.3.0] - 2026-11-01
+        "$(swift_block "$app")" "$repository" "   ## [1.3.0] - 2026-11-01
 
 $changelog_text"
-    # The source of the pod is the one line that is not a comment: an old source that was commented out
-    # is neither the pod's source nor a second one.
-    readme_case "a source that is commented out is not the source" 0 "1.2.3 Foo" "$(swift_block "$app")" \
-        "# s.source = { :git => 'https://github.com/old/Foo.git', :tag => s.version.to_s }
-$podspec_text"
-    readme_case "a commented-out source that matches does not hide the live one" 1 \
-        "README.md installs from https://github.com/x/Foo.git, the podspec's source is https://github.com/y/Foo.git" \
-        "$(swift_block "$app")" \
-        "  # s.source = { :git => 'https://github.com/x/Foo.git', :tag => s.version.to_s }
-${podspec_text//x\/Foo/y/Foo}"
-    readme_case "a podspec whose only source is commented out has none" 1 "the podspec has no source of the form :git => '<url>'" \
-        "$(swift_block "$app")" "# $podspec_text"
-    readme_case "a podspec with two sources is named" 1 "the podspec has 2 sources of the form :git => '<url>'; it must have one" \
-        "$(swift_block "$app")" "$podspec_text
-${podspec_text//x\/Foo/y/Foo}"
     got=0
     output="$(python3 "$SELF_TEST_WORK/readme.py" "$SELF_TEST_WORK/README.md" "$SELF_TEST_WORK/probe" \
-        "$SELF_TEST_WORK/no-such.podspec" "$SELF_TEST_WORK/CHANGELOG.md" 2>&1)" || got=$?
-    judge "a podspec that is not there" 1 "no-such.podspec cannot be read" "$got" "$output"
-    got=0
-    output="$(python3 "$SELF_TEST_WORK/readme.py" "$SELF_TEST_WORK/README.md" "$SELF_TEST_WORK/probe" \
-        "$SELF_TEST_WORK/Package.podspec" "$SELF_TEST_WORK/no-such.md" 2>&1)" || got=$?
+        "$repository" "$SELF_TEST_WORK/no-such.md" 2>&1)" || got=$?
     judge "a changelog that is not there" 1 "no-such.md cannot be read" "$got" "$output"
     readme_case "no package manifest" 1 "has 0 package manifests" "$(swift_block 'let answer = 42')"
     readme_case "two package manifests" 1 "has 2 package manifests" "$(swift_block "$app")
@@ -456,7 +480,17 @@ def problems_of(path):
     except (OSError, ValueError, KeyError, TypeError, AttributeError) as error:
         return [f"the manifest cannot be read: {error!r}"]
     found = []
+    approved = [
+        entry
+        for dependency in dependencies
+        for entry in dependency.get("sourceControl", [])
+        if entry.get("identity") == "dmcore"
+        and entry.get("location") == {"remote": [{"urlString": "https://github.com/nikolay-dementiev/DMCore.git"}]}
+        and entry.get("requirement") == {"range": [{"lowerBound": "1.0.0", "upperBound": "2.0.0"}]}
+    ]
     for entry in entries:
+        if entry in approved:
+            continue
         found.append(
             f"dependency '{entry.get('identity')}' is declared: a dependency needs the maintainer's "
             "approval and a change of this check in the same pull request"
@@ -500,7 +534,7 @@ PY
 then
     FAILED=1
 else
-    echo "check-manifest: no dependency, no plugin and no downloaded binary in ${MANIFEST_NAMES[*]}."
+    echo "check-manifest: no dependency but DMCore, no plugin and no downloaded binary in ${MANIFEST_NAMES[*]}."
 fi
 
 # 2. The installation manifest of README.md, built by version against a throw-away tagged copy of
@@ -525,12 +559,12 @@ probe_git() {
         "$@"
 }
 # Writes the consumer's manifest, and prints the version the README asks for and the name of the copy.
-if ! ANSWER="$(python3 - "$ROOT/README.md" "$PROBE" "$ROOT/$MODULE.podspec" "$ROOT/CHANGELOG.md" <<'PY'
+if ! ANSWER="$(python3 - "$ROOT/README.md" "$PROBE" "$REPOSITORY_URL" "$ROOT/CHANGELOG.md" <<'PY'
 # readme-consumer
 import re
 import sys
 
-readme, probe, podspec, changelog = sys.argv[1:5]
+readme, probe, repository, changelog = sys.argv[1:5]
 blocks = re.findall(r"^```swift\n(.*?)^```$", open(readme, encoding="utf-8").read(), re.S | re.M)
 manifests = [block for block in blocks if "Package(" in block]
 if len(manifests) != 1:
@@ -539,32 +573,21 @@ requirements = re.findall(r'\.package\(url: "([^"]+)", from: "([^"]+)"\)', manif
 if len(requirements) != 1:
     sys.exit("check-manifest: the manifest of README.md does not ask for the package with url: and from:")
 url, version = requirements[0]
-texts = {}
-for path in (podspec, changelog):
-    try:
-        with open(path, encoding="utf-8") as handle:
-            texts[path] = handle.read()
-    except (OSError, ValueError) as error:
-        sys.exit(f"check-manifest: {path} cannot be read: {error}")
-# The source of the pod is the one :git on a line that is not a comment: an old source that was
-# commented out after the repository moved says nothing about where the pod is.
-spec_lines = [line for line in texts[podspec].splitlines() if not line.lstrip().startswith("#")]
-spec_urls = re.findall(r":git\s*=>\s*'([^']+)'", "\n".join(spec_lines))
-# The pod is frozen, so the podspec no longer follows the releases. The version is that of the
-# newest release heading, '## [x.y.z] - YYYY-MM-DD'. A heading with nothing after its bracket,
-# such as Unreleased, is passed over: it is a normal state between two releases, and a tag is not
-# there before the release, in a shallow clone, or in a pull request from a fork. Any other
-# heading is a release heading and must have that form: one that is passed over for a space or a
-# note after its date would let an older release stand in for the newest.
-headings = re.findall(r"^ {0,3}## \[[^\]\n]*\][ \t]*[^ \t\n].*$", texts[changelog], re.M)
+try:
+    with open(changelog, encoding="utf-8") as handle:
+        history = handle.read()
+except (OSError, ValueError) as error:
+    sys.exit(f"check-manifest: {changelog} cannot be read: {error}")
+# The version is that of the newest release heading, '## [x.y.z] - YYYY-MM-DD'. A heading with
+# nothing after its bracket, such as Unreleased, is passed over: it is a normal state between two
+# releases, and a tag is not there before the release, in a shallow clone, or in a pull request
+# from a fork. Any other heading is a release heading and must have that form: one that is passed
+# over for a space or a note after its date would let an older release stand in for the newest.
+headings = re.findall(r"^ {0,3}## \[[^\]\n]*\][ \t]*[^ \t\n].*$", history, re.M)
 release = re.fullmatch(r"## \[([0-9]+\.[0-9]+\.[0-9]+)\] - [0-9]{4}-[0-9]{2}-[0-9]{2}", headings[0]) if headings else None
 problems = []
-if not spec_urls:
-    problems.append("the podspec has no source of the form :git => '<url>'")
-elif len(spec_urls) > 1:
-    problems.append(f"the podspec has {len(spec_urls)} sources of the form :git => '<url>'; it must have one")
-elif url != spec_urls[0]:
-    problems.append(f"README.md installs from {url}, the podspec's source is {spec_urls[0]}")
+if url != repository:
+    problems.append(f"README.md installs from {url}, the repository of the package is {repository}")
 if not headings:
     problems.append("CHANGELOG.md has no release heading of the form '## [x.y.z] - YYYY-MM-DD'")
 elif not release:
@@ -658,6 +681,14 @@ for pin in resolved["pins"]:
         state = pin.get("state")
         if not isinstance(state, dict):
             state = {}
+        # The approved dependency: a 1.x release of DMCore, from its repository.
+        if (
+            pin.get("identity") == "dmcore"
+            and pin.get("kind") == "remoteSourceControl"
+            and pin.get("location") == "https://github.com/nikolay-dementiev/DMCore.git"
+            and str(state.get("version")).startswith("1.")
+        ):
+            continue
         problems.append(f"  {pin.get('identity')} ({pin.get('kind')}, {state.get('version') or state.get('revision')}, {pin.get('location')})")
 if identities.count(expected) == 0:
     problems.append(f"  {expected}, the tagged copy, is not among the resolved packages")
@@ -667,9 +698,9 @@ print("\n".join(problems))
 sys.exit(1 if problems else 0)
 PY
 )"; then
-                echo "check-manifest: the manifest of README.md, pointed at a copy tagged $VERSION, resolves and builds for the iOS $IOS_FLOOR simulator, and the consumer resolves this package only."
+                echo "check-manifest: the manifest of README.md, pointed at a copy tagged $VERSION, resolves and builds for the iOS $IOS_FLOOR simulator, and the consumer resolves this package and DMCore only."
             else
-                echo "check-manifest: the consumer of README.md's manifest does not resolve this package only:" >&2
+                echo "check-manifest: the consumer of README.md's manifest does not resolve this package and DMCore only:" >&2
                 printf '%s\n' "$EXTRA" >&2
                 FAILED=1
             fi

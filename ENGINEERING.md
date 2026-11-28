@@ -33,7 +33,7 @@ than a reading of semantic versioning that allows a patch release for a fix of a
 | A new protocol requirement without a default implementation (the package declares no public protocol today) | breaking | major |
 | A new protocol requirement with a default implementation | additive or breaking, see below | minor or major |
 | An added overload | additive, or breaking if an existing call now resolves to it or becomes ambiguous | minor or major |
-| Depending on a new major version of a dependency (the package has none) | breaking | major |
+| Depending on a new major version of a dependency, DMCore being the one the package has | breaking | major |
 | Raising the minimum version of a dependency within the same major | additive or breaking, see below | minor or major |
 | A CI or tool pin that leaves the compiler of the `api` job alone, such as a runner image or the SwiftLint version | none | patch, or no release |
 | A pure refactor | none | patch, or no release |
@@ -50,11 +50,12 @@ Raising the minimum version of a dependency within the same major version is add
 moves no platform floor, changes no behaviour and asks nothing of a consumer. It then needs a minor
 release and its own line in the changelog. A raise that does any of these is breaking.
 
-The package has no dependency today. `Tools/Package.swift` depends on DMDevKit, the development
-tooling that the wrappers listed by `WRAPPERS` in `devkit.conf` forward to, but it is a package of
-its own: SwiftPM reads the manifest at the root of a dependency only, so a consumer of this package
-does not fetch DMDevKit, and the root manifest that this policy and `Scripts/check-manifest.sh`
-govern does not change.
+The package has one dependency, DMCore, a package of the same maintainer: it declares the tracing
+port that the views report their work to, and a spy for the tests. No public declaration names a
+type of it. `Tools/Package.swift` depends on DMDevKit, the development tooling that the wrappers
+listed by `WRAPPERS` in `devkit.conf` forward to, but it is a package of its own: SwiftPM reads the
+manifest at the root of a dependency only, so a consumer of this package does not fetch DMDevKit,
+and the root manifest that this policy and `Scripts/check-manifest.sh` govern does not change.
 
 Who checks. The `api` job of CI runs `Scripts/check-api.sh --self-test` and `Scripts/check-api.sh`
 on every pull request and fails it when the public interface differs from the baseline; on a pull
@@ -132,7 +133,10 @@ is a breaking change too, and needs a major version.
   an import restricts nothing inside one module; the reviewer applies it. There is no further
   layer, no view model and no coordinator.
 - **Collaborators and the composition root.** The four protocols have `package` access, so a test
-  inside the package replaces a collaborator and a consumer cannot. The concrete implementations
+  inside the package replaces a collaborator and a consumer cannot. The fifth collaborator is the
+  tracing port of DMCore, `Tracing`: DMCore declares it as public, and the files here that name it
+  write `package import DMCore` and take it through `package` declarations only, so a consumer
+  cannot replace it either. The concrete implementations, `SystemTracing` of DMCore among them,
   are created in one place, `VariableBlurCollaborators.system`
   (`UI/VariableBlurCollaborators.swift`), and the two public views take them from there; the
   reviewer applies that no other file of the library creates one.
@@ -200,51 +204,52 @@ is a breaking change too, and needs a major version.
 
 ## Toolchain and platforms
 
-- The manifest declares `swift-tools-version: 6.0` and the Swift 6 language mode, so the package
-  needs Xcode 16.0 or later. `ExistentialAny` is on in both targets.
-- The supported platform is iOS 17.0 and later. The manifest declares no other platform, and the
-  deployment target of the podspec is iOS 17.0. Raising the platform floor, or the
-  `swift-tools-version`, is a breaking change.
+- The manifest declares `swift-tools-version: 6.2` and the Swift 6 language mode, so the package
+  needs Swift 6.2, which is Xcode 26 or later. `ExistentialAny` is on in both targets.
+- The supported platform is iOS 17.0 and later. The manifest declares no other platform.
+  Raising the platform floor is a breaking change.
+- The package supports current Xcode only. Raising the `swift-tools-version`
+  to follow the supported toolchain is not by itself a breaking change and needs no major version.
+  Raising it for another reason is a breaking change.
 - `.github/workflows/ci.yml` is the place that says what CI runs; this file does not restate it.
-  The policy needs three facts. The oldest iOS runtime that CI runs is iOS 18.5. iOS 17.5 runs
-  locally before a release (CONTRIBUTING.md, "Releases"). The `floor` job compiles the library with
-  Swift 6.0, the oldest compiler line the manifest allows, with warnings as errors, and runs no
-  test.
-- The gates below were tried with the failure each advertises, on Xcode 26.6 and iOS 26.5 (the
-  older cell of the `test` job on iOS 18.6, the nearest runtime installed). The `test` job counts
-  the test methods of `Tests` and fails unless every one ran and passed and none skipped: a lost
-  class and a test that skips itself passed the coverage floor alone. A race fails the
-  `thread-sanitizer` job with `halt_on_error=1` and without it: the sanitizer aborts the test
-  process and the run fails. A snapshot reference that is missing in the newest cell of the
-  `example` job fails the test and is not written. A warning in code that only a Release build
-  compiles fails three routes, the Release step of the `test` job, the `floor` job and the
-  `podspec` job, and none of the Debug routes sees it.
+  The policy needs three facts. CI builds and tests with Xcode 26.6 only. The one iOS runtime it
+  runs is iOS 26.5. iOS 17.5 runs locally before a release (CONTRIBUTING.md, "Releases"). No job
+  builds with Swift 6.2, the oldest compiler line the manifest allows.
+- The gates below were tried with the failure each advertises, on Xcode 26.6 and iOS 26.5. The
+  `test` job counts the test methods of `Tests` and fails unless every one ran and passed and none
+  skipped: a lost class and a test that skips itself passed the coverage floor alone. A race fails
+  the `thread-sanitizer` job with `halt_on_error=1` and without it: the sanitizer aborts the test
+  process and the run fails. A snapshot reference that is missing in the `example` job fails the
+  test and is not written. A warning in code that only a Release build compiles fails the Release
+  step of the `test` job, and none of the Debug routes sees it.
 - "Oldest tested runtime" and "oldest supported version" are different statements. The supported
   version is a promise: the platform the manifest declares. The tested runtime is evidence: the
   oldest runtime a test has run on. That is iOS 17.5 against a promise of iOS 17.0.
 - No third-party dependency without the maintainer's approval. `Scripts/check-manifest.sh` fails on
-  any dependency, on a plugin used by any target, on a plugin target and on a binary target with a
-  url (code that is downloaded when the package is resolved), in `Package.swift` and in every
-  `Package@swift-*.swift`, which SwiftPM reads in place of it when a consumer's tools are newer,
-  and names the problem after its file: it keeps failing until the maintainer approves the
+  every dependency but the approved one, DMCore at the URL that the script holds, from 1.0.0 up to
+  the next major version, on a plugin used by any target, on a plugin target and on a binary target
+  with a url (code that is downloaded when the package is resolved), in `Package.swift` and in
+  every `Package@swift-*.swift`, which SwiftPM reads in place of it when a consumer's tools are
+  newer, and names the problem after its file: it keeps failing until the maintainer approves the
   dependency and the check changes in the same pull request. A binary target with a path is
   carried by the repository and is not refused. The script also checks that the installation
   manifest of the README, with its URL pointed at a tagged copy of the tracked manifest and
   sources, resolves and builds for the iOS simulator and that its consumer resolves this package
-  only, that `Fixtures/Consumer` builds, that no resource bundle ships and that every Swift block
-  of the README compiles, a manifest block being evaluated. The URL the README names must be the
-  `:git` source of the podspec, character for character, and its version that of the newest dated
-  release heading of `CHANGELOG.md`: the podspec is frozen, and a tag is not there before a
-  release, in a shallow clone or in a pull request from a fork. Its `--self-test` runs the readers
+  and DMCore only, that `Fixtures/Consumer` builds, that no resource bundle ships and that every
+  Swift block of the README compiles, a manifest block being evaluated. The URL the README names
+  must be the repository URL that the script holds, character for character, and its version that of
+  the newest dated release heading of `CHANGELOG.md`: a tag is not there before a release, in a
+  shallow clone or in a pull request from a fork. Its `--self-test` runs the readers
   of the manifest, of the README and of `Package.resolved` on built-in texts, and not the shell
   around them. The approval itself is a rule the reviewer applies.
 - XCTest is the test framework. A test goes through the public API and through the `package`
-  declarations of the module, the four protocols, their implementations and the domain values; it
-  never uses `@testable import`, and the reviewer applies that. Another framework comes only by the
+  declarations of the module, the four protocols, their implementations and the domain values, and
+  reads the signposts of a view from the spy that DMCore provides in `DMCoreTesting`; it never
+  uses `@testable import`, and the reviewer applies that. Another framework comes only by the
   maintainer's decision.
 - The manifest sets no `defaultIsolation`: it would change the inferred isolation of public
   declarations, which is observable behaviour.
-- The CocoaPods channel is frozen at 1.1.0 (README, "CocoaPods").
+- The CocoaPods channel ended with 1.1.0 (README, "CocoaPods"): the repository has no podspec.
 
 ## Where the rest lives
 

@@ -1,3 +1,4 @@
+import DMCore
 import DMVariableBlurView
 import UIKit
 import XCTest
@@ -79,7 +80,8 @@ final class BlurViewFailedReinstallationTests: XCTestCase {
             maskRenderer: CoreGraphicsMaskImageRenderer(),
             installer: installer,
             failureLog: SystemFailureLog(),
-            reduceTransparency: SystemReduceTransparencySetting()
+            reduceTransparency: SystemReduceTransparencySetting(),
+            tracing: NoTracing()
         )
         let hosted = HostedBlurView(placing: view)
         hosted.window.overrideUserInterfaceStyle = .light

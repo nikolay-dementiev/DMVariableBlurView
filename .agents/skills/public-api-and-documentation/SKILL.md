@@ -60,7 +60,7 @@ repository and states none of its own. Report each finding in the format of
   is documented), `Scripts/check-api.sh` against the baseline, `Scripts/check-release.sh` (the
   heading and its date, the previous release, a breaking-changes heading, the major version, the
   digester), `Scripts/check-manifest.sh` (the install manifest of the README, its URL and version,
-  and that every Swift block of the README compiles), `Scripts/check-podspec.sh` and the `docs`
+  and that every Swift block of the README compiles) and the `docs`
   job (the DocC build).
 - How the implementation is built: that is the lane architecture-and-dependencies.
 - How a view behaves: that is the lane correctness-and-concurrency.
