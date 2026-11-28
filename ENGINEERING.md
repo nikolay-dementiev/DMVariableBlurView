@@ -207,8 +207,10 @@ is a breaking change too, and needs a major version.
 - The manifest declares `swift-tools-version: 6.2` and the Swift 6 language mode, so the package
   needs Swift 6.2, which is Xcode 26 or later. `ExistentialAny` is on in both targets.
 - The supported platform is iOS 17.0 and later. The manifest declares no other platform.
-  Raising the platform floor, or the
-  `swift-tools-version`, is a breaking change.
+  Raising the platform floor is a breaking change.
+- The package supports current Xcode only. Raising the `swift-tools-version`
+  to follow the supported toolchain is not by itself a breaking change and needs no major version.
+  Raising it for another reason is a breaking change.
 - `.github/workflows/ci.yml` is the place that says what CI runs; this file does not restate it.
   The policy needs three facts. CI builds and tests with Xcode 26.6 only. The one iOS runtime it
   runs is iOS 26.5. iOS 17.5 runs locally before a release (CONTRIBUTING.md, "Releases"). No job

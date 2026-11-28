@@ -41,9 +41,11 @@ format of [Documentation/Review/README.md](../../../Documentation/Review/README.
   (ENGINEERING.md, "No third-party dependency without the maintainer's approval")
   (ENGINEERING.md, "The approval itself is a rule the reviewer applies")
   (AGENTS.md, "Add no dependency without the maintainer's approval")
-- A raised platform floor or `swift-tools-version`, which is a breaking change, or a
-  `defaultIsolation` in the manifest. A test framework other than XCTest.
+- A raised platform floor, which is a breaking change, a `swift-tools-version` raised for another
+  reason than to follow the supported toolchain, which is one too, or a `defaultIsolation` in the
+  manifest. A test framework other than XCTest.
   (ENGINEERING.md, "Raising the platform floor")
+  (ENGINEERING.md, "to follow the supported toolchain")
   (ENGINEERING.md, "The manifest sets no `defaultIsolation`")
   (ENGINEERING.md, "XCTest is the test framework")
 
